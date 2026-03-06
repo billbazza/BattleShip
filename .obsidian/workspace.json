@@ -1,0 +1,195 @@
+{
+  "main": {
+    "id": "aaa91491dc950eb0",
+    "type": "split",
+    "children": [
+      {
+        "id": "ba3f3f918c360a33",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "30076f0fc8e2c97e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "education-lessons/jamnadas-fasting-visceral-fat.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "jamnadas-fasting-visceral-fat"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "244ffedd9c3c2f9f",
+    "type": "split",
+    "children": [
+      {
+        "id": "fc50938e777b7f5f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4c3c8b5f14221b50",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "0f8cdd9ac8b8754f",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "f00081e628c16035",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "025d02e486f0f2c5",
+    "type": "split",
+    "children": [
+      {
+        "id": "75f3f2b8e7d233ff",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "adb58bde957b2726",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "education-lessons/jamnadas-fasting-visceral-fat.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for jamnadas-fasting-visceral-fat"
+            }
+          },
+          {
+            "id": "2f6c9a2dc6245ce4",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "education-lessons/jamnadas-fasting-visceral-fat.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from jamnadas-fasting-visceral-fat"
+            }
+          },
+          {
+            "id": "cfe4a9985ac58319",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "69361d94bfa66488",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "c656f9fc530e9838",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "education-lessons/jamnadas-fasting-visceral-fat.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of jamnadas-fasting-visceral-fat"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "30076f0fc8e2c97e",
+  "lastOpenFiles": [
+    "education-lessons/01-Getting-Fit-Over-40.md",
+    "Battleship/README.md",
+    "Battleship/client-progress-tracker-template.md",
+    "Battleship/03-Creating-Your-Offer.md",
+    "Battleship/education-lessons/jamnadas-fasting-visceral-fat.md",
+    "Battleship/education-lessons/01-Getting-Fit-Over-40.md"
+  ]
+}
