@@ -72,6 +72,77 @@ Alcohol stance: not mandatory quit, but dead calories & recovery killer — sign
 - `case-studies/`  
   Anonymised progress excerpts for marketing/testimonials (git-tracked)
 
+**Git Branching & Commit Rules – Key Stages / Milestones**
+
+1. Normal daily work
+   • Always work on a short-lived feature/topic branch, never directly on main/develop.
+   • Branch name format: feature/<short-description> or task/<ticket-or-id>-<description>
+   • Commit frequently with small, focused changes.
+   • Write good commit messages: imperative mood, <50 char summary + detailed body if needed.
+     Example:
+     ```
+     Add user authentication endpoint
+
+     - Implement JWT token generation & validation
+     - Add /login and /refresh routes
+     - Include basic rate limiting
+     - Update OpenAPI spec
+     Resolves: PROJ-123
+     ```
+
+2. Key stage / milestone rule
+   • Whenever you reach an important, testable, or releasable state (MVP, feature-complete sprint goal, before major refactor, before demo, after big bugfix campaign, etc.):
+     - Make sure everything is committed & pushed on your current working branch
+     - Create a new **milestone branch** from the current HEAD:
+       ```bash
+       git checkout -b milestone/YYYY-MM-DD-feature-complete-v0.2.1
+       # or
+       git checkout -b milestone/sprint-5-end-user-onboarding-ready
+       # or
+       git checkout -b release/v1.0.0-mvp
+       ```
+     - Immediately create **one richly documented commit** on this branch (even if the tree is identical to the previous one):
+       ```bash
+       git commit --allow-empty -m "Milestone: User onboarding flow complete (2026-03-11)
+
+       This commit marks a stable, demo-ready state of the onboarding module.
+
+       Key achievements in this milestone:
+       • End-to-end registration → email verification → profile setup flow
+       • UI: responsive multi-step form with validation & progress bar
+       • Backend: user creation, token issuance, email service integration
+       • Tests: 87% coverage on onboarding routes & components
+       • Fixed critical issues: race condition in email sending, mobile layout bugs
+
+       Verification checklist:
+       - [x] Manual test on Chrome + Safari (desktop/mobile)
+       - [x] All unit/integration tests pass
+       - [x] No ESLint/Prettier warnings
+       - [x] Bundle size under 1.2 MB
+
+       Compare against previous milestone: milestone/sprint-4-end-login-ready
+       Next planned: API payment integration
+       "
+       git push origin milestone/YYYY-MM-DD-...
+       ```
+     - Optionally tag it for even stronger permanence:
+       ```bash
+       git tag -a v0.2.1-mvp -m "MVP milestone: onboarding complete"
+       git push origin v0.2.1-mvp
+       ```
+
+3. After milestone
+   • Return to your working branch (`git checkout feature/onboarding`)
+   • Continue development (you can even merge the milestone branch back if you want the rich commit message in history, but usually not necessary)
+   • Optionally delete the milestone branch later if you use tags instead (but many people keep them forever for history)
+
+Benefits of this approach
+- Clear, named snapshots in branch list & graph
+- Detailed "what does this state actually contain?" documentation right in git
+- Easy `git diff milestone/... feature/...` or `git log milestone/.....feature/...` later
+- Safe rollback point without relying only on tags (which are easy to overlook)
+- Works well solo or in teams (milestone branches are read-only by convention after creation)
+
 **How the Agents Work Together**  
 1. New lead → intake quiz → Intake Agent → diagnosis report + tags  
 2. Enrolment → Program Agent → 12-week plan  
@@ -98,5 +169,3 @@ Alcohol stance: not mandatory quit, but dead calories & recovery killer — sign
 All files are self-contained, branded, and ready.  
 Start small: manual Claude chats → add OpenClaw → scale with ads & agents.
 
-Good luck, Battleship.  
-You’ve got this. 🚢

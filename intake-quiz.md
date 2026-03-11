@@ -11,11 +11,8 @@
 **Headline:** Battleship – Midlife Fitness Reset: Your Free Personalised Diagnosis
 
 **Body:**
-> This takes about 8–12 minutes. Answer honestly — there are no wrong answers and nothing here will be judged.
->
-> At the end, William Battleship Barratt will personally review your answers and send you a free Battleship Diagnosis Report — a straight-talking, personalised breakdown of why it's been hard so far and exactly what would be different with the Battleship approach.
->
-> No sales pitch attached. Just useful.
+Takes 8–12 minutes. Answer honestly — no wrong answers, nothing judged.
+William will personally review your answers and send you a free Battleship Diagnosis Report — a straight-talking breakdown of why it's been hard and what would be different. No sales pitch.
 
 **CTA Button:** Start My Diagnosis →
 

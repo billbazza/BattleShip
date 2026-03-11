@@ -1,0 +1,8 @@
+
+# Secrets & credentials
+.env
+*.env
+clients/state.json
+clients/*/
+logs/
+scripts/__pycache__/
