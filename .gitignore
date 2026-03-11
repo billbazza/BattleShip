@@ -6,3 +6,4 @@ clients/state.json
 clients/*/
 logs/
 scripts/__pycache__/
+.DS_Store

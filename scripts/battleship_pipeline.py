@@ -74,11 +74,39 @@ OPTIONAL_SECRETS = {
 # Copy the page URL, take the ID after the last / and before any ?
 NOTION_PARENT_PAGE_ID = ""  # e.g. "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d"
 
-# Education drip schedule — week number → (state_key, subject, content_file)
+# Education drip schedule — 2 lessons/week max
+# Format: week_number → list of (state_key, subject, content_file)
+# Week 12 is handled separately by send_week12_close() — not in this dict
 EDUCATION_DRIPS = {
-    2: ("edu_zone2",    "Why slow walking beats hard running for belly fat",     "education-lessons/01-Getting-Fit-Over-40.md"),
-    3: ("edu_visceral", "The fat you can't see is the most dangerous",            "education-lessons/jamnadas-fasting-visceral-fat.md"),
-    4: ("edu_alcohol",  "What alcohol actually does to your fat loss",             "alcohol-guidance.md"),
+    # Week 1: Sleep bonus — sent right after onboarding, before any training starts
+    1:  [("edu_sleep",       "Week 1 bonus: sleep — the easiest win in the programme",    "education-lessons/sleep/sleep-for-fat-loss.md")],
+    # Week 2: Zone 2 science + nutrition foundation
+    2:  [("edu_zone2",       "Why slow walking beats hard running — the science",         "education-lessons/exercises/zone2-walking.md"),
+         ("edu_nutrition_1", "The key to success (it's not what you think)",              "education-lessons/nutrition/key-to-success.md")],
+    # Week 3: 80/20 + balanced plate
+    3:  [("edu_8020",        "The 80/20 rule of nutrition",                               "education-lessons/nutrition/80-20-rule.md"),
+         ("edu_plate",       "How to build a balanced plate — no tracking required",      "education-lessons/nutrition/balanced-plate.md")],
+    # Week 4: Fat loss fundamentals
+    4:  [("edu_fatloss_1",   "How to actually lose fat: getting started",                 "education-lessons/fat-loss/getting-started.md"),
+         ("edu_fatloss_2",   "How to actually lose fat: awareness",                       "education-lessons/fat-loss/awareness.md")],
+    # Week 5: Closing the gap + consistency
+    5:  [("edu_fatloss_3",   "How to actually lose fat: closing the gap",                 "education-lessons/fat-loss/closing-the-gap.md"),
+         ("edu_fatloss_4",   "How to actually lose fat: hacking consistency",             "education-lessons/fat-loss/hacking-consistency.md")],
+    # Week 6: Whole foods + training begins
+    6:  [("edu_wholefoods",  "Your whole foods reference card",                           "education-lessons/nutrition/whole-foods-reference.md"),
+         ("edu_training_1",  "Time to add weights — here's what your training looks like","education-lessons/training/workout-overview.md")],
+    # Week 7: Gym basics
+    7:  [("edu_gym_terms",   "Gym terminology decoded — sets, reps, RPE explained",       "education-lessons/training/gym-terminology.md"),
+         ("edu_gymtim",      "Gymtimidation — and why it ends at session three",           "education-lessons/training/gymtimidation.md")],
+    # Week 8: Execution
+    8:  [("edu_warmup",      "The warm-up you should never skip (especially over 40)",    "education-lessons/training/warm-ups.md"),
+         ("edu_prep",        "How to prepare for a session — before, during, after",      "education-lessons/training/workout-prep.md")],
+    # Week 9: Load and fat loss science
+    9:  [("edu_weight",      "How much weight should you lift? The honest answer",        "education-lessons/training/how-much-weight.md"),
+         ("edu_fatloss_t",   "Why lifting beats cardio for body composition",             "education-lessons/training/training-for-fat-loss.md")],
+    # Week 10: The method
+    10: [("edu_bws",         "The Battleship training method — and why boring works",     "education-lessons/training/bws-method.md")],
+    # Week 11: free slot — can be used for a personal check-in or bonus content
 }
 
 
@@ -407,6 +435,29 @@ Output format:
 [/COACH_MESSAGE]
 """
 
+WEEK12_PROMPT = """\
+You are William George BattleShip Barratt, writing a personal end-of-programme message to {name}.
+
+This is the final email of their 12-week Battleship programme. It should feel like a letter from a coach who genuinely knows them — not a template, not a form letter.
+
+CLIENT INTAKE SUMMARY:
+{intake_summary}
+
+PROGRESS TRACKER (12 weeks of check-in data):
+{tracker_text}
+
+WRITE A PERSONAL CLOSING MESSAGE that:
+1. Opens by naming something specific about THEIR journey — a real moment, a real struggle, a real win from their tracker. Not generic.
+2. Acknowledges what they came in with (their original problem from intake) vs where they are now.
+3. Is honest: 12 weeks is a foundation, not a finish line. Real transformation — the kind that lasts — takes 18–24 months. The men who look and feel genuinely different at 50 vs 45 are the ones who kept going.
+4. Transitions naturally to what Phase 2 looks like: monthly coaching, continued education, weekly check-ins, plan progression — for £79/month. No hard sell. Just an honest offer from a coach who wants to see them finish what they started.
+5. Closes personally. Not "the Battleship team". You. Will.
+
+TONE: Warm, direct, British. No hype. No exclamation marks. Reads like a letter, not a marketing email.
+LENGTH: 300–450 words.
+OUTPUT: The message only. No subject line. No preamble.
+"""
+
 
 # ── Notion ───────────────────────────────────────────────────────────────────
 
@@ -623,29 +674,60 @@ def render_template(template_path: Path, **kwargs) -> str:
     return html
 
 def md_to_html(text: str, text_color: str = "#2c2c2c") -> str:
-    """Convert simple markdown to email-safe inline-styled HTML."""
+    """Convert markdown to email-safe inline-styled HTML."""
     lines = text.split("\n")
-    html, in_ul = [], False
+    html, in_ul, in_ol, ol_idx = [], False, False, 0
+
+    def close_lists():
+        nonlocal in_ul, in_ol, ol_idx
+        if in_ul:
+            html.append("</ul>")
+            in_ul = False
+        if in_ol:
+            html.append("</ol>")
+            in_ol = False
+            ol_idx = 0
+
     for line in lines:
         s = line.strip()
+
         if not s:
-            if in_ul:
-                html.append("</ul>")
-                in_ul = False
+            close_lists()
             continue
+
+        # Inline formatting
         s = re.sub(r"\*\*(.*?)\*\*", r"<strong>\1</strong>", s)
-        if s.startswith("- ") or s.startswith("* "):
+        s = re.sub(r"\*(.*?)\*",     r"<em>\1</em>", s)
+        s = re.sub(r"`(.*?)`",       r'<code style="background:#f0ece4;padding:1px 5px;border-radius:3px;font-size:14px;">\1</code>', s)
+
+        if s.startswith("---"):
+            close_lists()
+            html.append('<hr style="border:none;border-top:1px solid #e8e3da;margin:24px 0;">')
+        elif s.startswith("### "):
+            close_lists()
+            html.append(f'<h3 style="margin:22px 0 10px;font-family:Georgia,serif;font-size:17px;font-weight:normal;color:#0a0a0a;">{s[4:]}</h3>')
+        elif s.startswith("## "):
+            close_lists()
+            html.append(f'<h2 style="margin:28px 0 12px;font-family:Georgia,serif;font-size:20px;font-weight:normal;color:#0a0a0a;border-bottom:1px solid #e8e3da;padding-bottom:8px;">{s[3:]}</h2>')
+        elif s.startswith("# "):
+            close_lists()
+            html.append(f'<h1 style="margin:0 0 20px;font-family:Georgia,serif;font-size:24px;font-weight:normal;color:#0a0a0a;">{s[2:]}</h1>')
+        elif re.match(r"^\d+\.\s", s):
+            if not in_ol:
+                html.append('<ol style="margin:10px 0 14px;padding-left:20px;">')
+                in_ol = True
+            item_text = re.sub(r"^\d+\.\s", "", s)
+            html.append(f'<li style="margin:6px 0;font-size:15px;line-height:1.7;color:{text_color};">{item_text}</li>')
+        elif s.startswith("- ") or s.startswith("* "):
             if not in_ul:
-                html.append(f'<ul style="margin:10px 0 14px;padding-left:18px;">')
+                html.append('<ul style="margin:10px 0 14px;padding-left:18px;">')
                 in_ul = True
-            html.append(f'<li style="margin:6px 0;font-size:16px;line-height:1.7;color:{text_color};">{s[2:]}</li>')
+            html.append(f'<li style="margin:6px 0;font-size:15px;line-height:1.7;color:{text_color};">{s[2:]}</li>')
         else:
-            if in_ul:
-                html.append("</ul>")
-                in_ul = False
-            html.append(f'<p style="margin:0 0 14px;font-size:16px;line-height:1.75;color:{text_color};">{s}</p>')
-    if in_ul:
-        html.append("</ul>")
+            close_lists()
+            html.append(f'<p style="margin:0 0 14px;font-size:15px;line-height:1.75;color:{text_color};">{s}</p>')
+
+    close_lists()
     return "\n".join(html)
 
 def parse_diagnosis_sections(md: str) -> dict:
@@ -988,19 +1070,22 @@ def gsheets_get_rows(sheet_id: str, creds_path: str) -> list[dict]:
 
 def gsheets_parse_row(row: dict) -> dict:
     """Normalise a Google Forms response row into the same shape as tf_parse_response."""
-    # Map question text → field key using keyword matching (handles wording variations)
+    # Keyword matching — tolerant of question wording variations in the form
     field_map = {
         "email":     ["email address", "email"],
-        "workouts":  ["workouts", "how many workout"],
-        "feel":      ["body feel", "overall"],
+        "workouts":  ["workouts", "how many workout", "sessions"],
+        "steps":     ["steps", "daily steps", "average steps"],
+        "weight":    ["weight", "current weight"],
+        "waist":     ["waist"],
+        "calories":  ["calories", "calorie", "mfp", "myfitnesspal", "daily cal"],
+        "feel":      ["body feel", "overall", "how did your body"],
         "energy":    ["energy"],
-        "sleep":     ["sleep"],
-        "weight":    ["weight"],
-        "injury":    ["pain", "soreness", "injury"],
-        "obstacles": ["got in the way", "obstacle"],
-        "win":       ["went well", "win"],
-        "hard":      ["felt hard", "hard"],
-        "questions": ["question"],
+        "sleep":     ["sleep quality", "sleep"],
+        "injury":    ["pain", "soreness", "injury", "flag"],
+        "obstacles": ["got in the way", "obstacle", "challenge"],
+        "win":       ["went well", "win", "proud"],
+        "hard":      ["felt hard", "hard", "struggled"],
+        "questions": ["question", "anything else"],
         "timestamp": ["timestamp"],
     }
 
@@ -1012,20 +1097,23 @@ def gsheets_parse_row(row: dict) -> dict:
                 parsed[field_key] = str(value).strip()
                 break
 
-    # Build a raw_text summary for Claude
-    lines = []
+    # Build a structured raw_text for Claude — numbers first so trends are obvious
     labels = {
+        "weight":    "Weight this week",
+        "waist":     "Waist (cm/inches)",
+        "steps":     "Avg daily steps",
+        "calories":  "Avg daily calories (MFP)",
         "workouts":  "Workouts completed",
         "feel":      "Body felt (1–5)",
         "energy":    "Energy (1–5)",
-        "sleep":     "Sleep (1–5)",
-        "weight":    "Weight",
+        "sleep":     "Sleep quality (1–5)",
         "injury":    "Pain/injury",
         "obstacles": "What got in the way",
         "win":       "One win",
         "hard":      "One hard thing",
         "questions": "Questions for coach",
     }
+    lines = []
     for key, label in labels.items():
         val = parsed.get(key, "")
         if val:
@@ -1125,8 +1213,25 @@ def process_checkin_responses(state: dict, secrets: dict):
 
 # ── Pipeline: Education Drips ─────────────────────────────────────────────────
 
+def _calorie_target(cs: dict) -> str:
+    """Return a personalised calorie target line based on intake weight and food relationship."""
+    tags = cs.get("tags", {})
+    weight_raw = tags.get("weight_lbs", "") or tags.get("weight", "")
+    food_rel   = tags.get("food_relationship", "").lower()
+
+    try:
+        lbs = float(str(weight_raw).replace("lbs","").replace("lb","").strip())
+        # If they flagged difficulty with restriction, use ×15; otherwise ×12
+        hard = any(w in food_rel for w in ["hard", "difficult", "struggle", "restrict", "comfort", "emotional"])
+        multiplier = 15 if hard else 12
+        target = int(lbs * multiplier)
+        return f"**Your target: {target} calories/day** (your weight × {multiplier})"
+    except (ValueError, TypeError):
+        return "**Your target:** use the formula in the lesson — your weight in lbs × 12 (or × 15 if you find restriction difficult)"
+
+
 def send_education_drips(state: dict, secrets: dict):
-    """Send education content emails at the right week for each active client."""
+    """Send up to 2 education emails/week to each active client on schedule."""
     today = datetime.now(timezone.utc).date()
 
     for slug, cs in state["clients"].items():
@@ -1134,27 +1239,142 @@ def send_education_drips(state: dict, secrets: dict):
             continue
 
         enrolled = datetime.fromisoformat(cs["enrolled_date"]).date()
+        week     = ((today - enrolled).days // 7) + 1
+
+        drips = EDUCATION_DRIPS.get(week, [])
+        if not drips:
+            continue
+
+        # Stagger: lesson index 0 on day 1 of the week (Monday), index 1 on day 4 (Thursday)
+        day_of_week = (today - enrolled).days % 7   # 0=Mon … 6=Sun within current week
+        for idx, (key, subject, content_file) in enumerate(drips):
+            if key in cs.get("emails_sent", []):
+                continue
+
+            # Lesson 0 fires Monday (day 0–3), lesson 1 fires Thursday (day 3–6)
+            if idx == 1 and day_of_week < 3:
+                continue   # too early in the week for second lesson
+
+            content_path = VAULT_ROOT / content_file
+            if not content_path.exists():
+                print(f"  ⚠️  Education content not found: {content_file}")
+                continue
+
+            content = content_path.read_text()
+
+            # Inject personalised calorie target into fat loss lesson
+            if key == "edu_fatloss_1":
+                calorie_line = _calorie_target(cs)
+                content = content.replace(
+                    "Your number was calculated for you in your diagnosis.",
+                    f"Your number was calculated for you in your diagnosis.\n\n{calorie_line}"
+                )
+
+            # Parse lesson markdown: extract title, "This week" block, body
+            lines        = content.splitlines()
+            lesson_title = lines[0].lstrip("# ").strip() if lines else subject
+            body_md      = "\n".join(lines[1:]).strip()
+
+            # Pull out "This week" section as a dark callout block
+            this_week_md  = ""
+            this_week_html = ""
+            if "## This week" in body_md:
+                parts        = body_md.split("## This week", 1)
+                body_md      = parts[0].strip()
+                this_week_md = parts[1].strip()
+            if this_week_md:
+                this_week_html = f"""
+    <tr>
+      <td bgcolor="#0a0a0a" style="padding:28px 44px;background-color:#0a0a0a;border-top:4px solid #c41e3a;">
+        <p style="margin:0 0 10px;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#666666;font-family:Arial,sans-serif;">This week</p>
+        {md_to_html(this_week_md, text_color="#cccccc")}
+      </td>
+    </tr>"""
+
+            # Determine lesson label from module
+            label_map = {
+                "edu_sleep": "Sleep & Stress", "edu_zone2": "Zone 2 Cardio",
+                "edu_nutrition_1": "Nutrition", "edu_8020": "Nutrition",
+                "edu_plate": "Nutrition", "edu_fatloss_1": "Fat Loss",
+                "edu_fatloss_2": "Fat Loss", "edu_fatloss_3": "Fat Loss",
+                "edu_fatloss_4": "Fat Loss", "edu_wholefoods": "Nutrition",
+                "edu_training_1": "Training", "edu_gym_terms": "Training",
+                "edu_gymtim": "Training", "edu_warmup": "Training",
+                "edu_prep": "Training", "edu_weight": "Training",
+                "edu_fatloss_t": "Training", "edu_bws": "Training",
+            }
+            lesson_label = label_map.get(key, "Education")
+
+            # Build plain text fallback
+            plain_body = (
+                f"Hi {cs['name']},\n\nThis week's Battleship education.\n\n"
+                f"---\n\n{content}\n\n---\n\n"
+                f"Got a question? Just reply.\n\n— {COACH_NAME}"
+            )
+
+            # Build HTML
+            edu_template = TEMPLATES_DIR / "education_email.html"
+            html_body = render_template(
+                edu_template,
+                subject      = subject,
+                week         = str(week),
+                lesson_label = lesson_label,
+                lesson_title = lesson_title,
+                lesson_body  = md_to_html(body_md),
+                this_week_block = this_week_html,
+                coach_name   = COACH_NAME,
+            )
+
+            print(f"  📚 Sending '{key}' to {cs['name']} (Week {week})...")
+            send_email(secrets, cs["email"], subject, plain_body, html_body)
+            log_event(cs["folder"], f"Education drip '{key}' sent (Week {week})")
+            cs["emails_sent"].append(key)
+
+
+# ── Week 12 Personal Close ────────────────────────────────────────────────────
+
+def send_week12_close(state: dict, secrets: dict):
+    """Generate and send a personalised end-of-programme message at Week 12."""
+    today = datetime.now(timezone.utc).date()
+
+    for acct, cs in state["clients"].items():
+        if cs["status"] != "active" or not cs.get("enrolled_date"):
+            continue
+        if "week12_close" in cs.get("emails_sent", []):
+            continue
+
+        enrolled = datetime.fromisoformat(cs["enrolled_date"]).date()
         week = ((today - enrolled).days // 7) + 1
-
-        if week not in EDUCATION_DRIPS:
+        if week < 12:
             continue
 
-        key, subject, content_file = EDUCATION_DRIPS[week]
-        if key in cs.get("emails_sent", []):
-            continue
+        print(f"\n  🎓 Generating Week 12 personal close for {cs['name']}...")
 
-        content_path = VAULT_ROOT / content_file
-        if not content_path.exists():
-            print(f"  ⚠️  Education content not found: {content_file}")
-            continue
+        tracker     = read_client_file(cs["folder"], "progress-tracker.md")
+        intake_tags = cs.get("tags", {})
+        intake_summary = "\n".join(f"{k}: {v}" for k, v in intake_tags.items() if v)
 
-        content = content_path.read_text()[:4000]
-        body = f"Hi {cs['name']},\n\nThis week's Battleship education — worth 5 minutes.\n\n---\n\n{content}\n\n---\n\n— {COACH_NAME}"
+        prompt = WEEK12_PROMPT.format(
+            name=cs["name"],
+            intake_summary=intake_summary or "No intake tags recorded.",
+            tracker_text=tracker[:3000] if tracker else "No tracker data — client did not submit check-ins.",
+        )
+        message = call_claude(secrets["anthropic"], prompt, max_tokens=1000)
 
-        print(f"  📚 Sending education '{key}' to {cs['name']} (Week {week})...")
-        send_email(secrets, cs["email"], subject, body)
-        log_event(cs["folder"], f"Education drip '{key}' sent (Week {week})")
-        cs["emails_sent"].append(key)
+        subj = f"12 weeks — and what comes next, {cs['name'].split()[0]}"
+        body = (
+            f"{message}\n\n"
+            f"---\n\n"
+            f"If you'd like to continue: reply to this email and I'll send you the details for Phase 2.\n\n"
+            f"— {COACH_NAME}\n"
+            f"will@battleshipreset.com"
+        )
+
+        send_email(secrets, cs["email"], subj, body)
+        log_event(cs["folder"], "Week 12 personal close sent")
+        cs["emails_sent"].append("week12_close")
+        cs["status"] = "complete"
+        print(f"     ✅ Week 12 close sent to {cs['name']}")
 
 
 # ── Enrol Client Manually ─────────────────────────────────────────────────────
@@ -1341,6 +1561,10 @@ def main():
     # 5. Education drips
     print("\n📚 Education drip schedule...")
     send_education_drips(state, secrets)
+
+    # 6. Week 12 personal close
+    print("\n🎓 Week 12 close...")
+    send_week12_close(state, secrets)
 
     # Save state
     save_state(state)
