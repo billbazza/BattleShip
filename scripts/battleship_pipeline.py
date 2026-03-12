@@ -106,7 +106,8 @@ EDUCATION_DRIPS = {
          ("edu_fatloss_t",   "Why lifting beats cardio for body composition",             "education-lessons/training/training-for-fat-loss.md")],
     # Week 10: The method
     10: [("edu_bws",         "The Battleship training method — and why boring works",     "education-lessons/training/bws-method.md")],
-    # Week 11: free slot — can be used for a personal check-in or bonus content
+    # Week 11: Arms + what comes next
+    11: [("edu_arms",        "What about arms? Why the basics come first",                "education-lessons/training/arms-and-basics.md")],
 }
 
 
