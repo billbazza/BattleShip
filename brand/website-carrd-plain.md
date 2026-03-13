@@ -16,7 +16,7 @@ A reset for men over 40 who are done making excuses. No gym-bro nonsense. No cra
 
 BUTTON (background #c41e3a, white text):
 Take the Free Diagnosis
-Link: https://form.typeform.com/to/wbD9VYUa
+Link: https://tally.so/r/rjK752
 
 SMALL TEXT below button (#666666):
 4 minutes. Personalised report sent same day.
@@ -123,7 +123,7 @@ No pressure. No countdown timer. No lock-in.
 
 BUTTON (background #c41e3a, white text):
 Take the Free Diagnosis
-Link: https://form.typeform.com/to/wbD9VYUa
+Link: https://tally.so/r/rjK752
 
 SECONDARY LINK (small, #c41e3a, below button):
 Already diagnosed and ready to start? Pay here.

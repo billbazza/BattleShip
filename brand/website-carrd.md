@@ -18,7 +18,7 @@ A 12-week reset for men over 40 who are done making excuses — and ready to do 
 
 **CTA Button (red #c41e3a):**
 → Take the Free Diagnosis
-*links to: https://form.typeform.com/to/wbD9VYUa*
+*links to: https://tally.so/r/rjK752*
 
 **Below button (small grey text):**
 4 minutes. Personalised report sent same day.
@@ -131,7 +131,7 @@ No pressure. No countdown timer. No subscription.
 
 **Primary CTA Button (red):**
 → Take the Free Diagnosis
-*links to: https://form.typeform.com/to/wbD9VYUa*
+*links to: https://tally.so/r/rjK752*
 
 **Secondary link (smaller, below):**
 Already diagnosed and ready to start? → Pay here
