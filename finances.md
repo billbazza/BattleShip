@@ -26,9 +26,12 @@
 | 11 Mar 2026 | GoDaddy — VAT | £8.39 | GBP | Tax | 20% on above |
 | 11 Mar 2026 | Anthropic — Claude API credit (Receipt #2615-4616-6001) | $10.00 + $2.00 VAT | USD | Tools | $12.00 total inc. 20% UK VAT |
 | 13 Mar 2026 | Carrd — Pro Standard plan (annual, ends 13/03/2027) | $19.00 | USD | Infrastructure | Upgraded Lite→Standard same day; $9 credited |
+| TBD | Typeform — annual plan | £220.00 | GBP | Tools | Annual only, no monthly option — intake form |
+| TBD | Meta/Facebook Ads | TBD | GBP | Advertising | Budget TBD — start small, test copy |
 
 **Total Spend to date: £50.35 GBP + $31.00 USD (~£75 combined)**
-**Projected Month 1 costs: ~£150–250 (setup) + £300–600 (ads)**
+**Committed upcoming: £220 Typeform**
+**Projected Month 1 costs: ~£300 confirmed/committed + ads TBD**
 
 ---
 

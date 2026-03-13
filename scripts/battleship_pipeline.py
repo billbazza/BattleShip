@@ -218,6 +218,70 @@ def load_secrets() -> dict:
     return secrets
 
 
+# ── Tally ─────────────────────────────────────────────────────────────────────
+
+TALLY_QUEUE = CLIENTS_DIR / "tally-queue"
+
+def tally_parse_submission(payload: dict) -> dict:
+    """Parse a Tally webhook payload into the same format as tf_parse_response."""
+    data   = payload.get("data", {})
+    fields = data.get("fields", [])
+
+    qa = {}
+    for field in fields:
+        label = field.get("label", "").strip()
+        ftype = field.get("type", "")
+        value = field.get("value")
+        if value is None or value == "":
+            continue
+        if isinstance(value, list):
+            # Multiple choice — value is list of option labels
+            text = ", ".join(str(v) for v in value)
+        elif isinstance(value, dict):
+            text = value.get("label", str(value))
+        else:
+            text = str(value)
+        if label:
+            qa[label] = text
+
+    name  = next((v for k, v in qa.items() if "first name" in k.lower()), "Client")
+    email = next((v for k, v in qa.items() if "send your" in k.lower() or
+                  ("email" in k.lower() and "@" in v)), "")
+    raw_text = "\n".join(f"**{q}**\n{a}" for q, a in qa.items() if a)
+
+    return {
+        "response_id":  data.get("responseId", "tally-" + data.get("submittedAt", "")),
+        "submitted_at": data.get("submittedAt", ""),
+        "name":         name,
+        "email":        email,
+        "qa":           qa,
+        "raw_text":     raw_text,
+    }
+
+
+def process_tally_queue(secrets: dict, state: dict):
+    """Process any queued Tally submissions from the webhook."""
+    TALLY_QUEUE.mkdir(parents=True, exist_ok=True)
+    files = sorted(TALLY_QUEUE.glob("submission-*.json"))
+    if not files:
+        print("  (no queued Tally submissions)")
+        return
+
+    for f in files:
+        try:
+            payload = json.loads(f.read_text())
+            parsed  = tally_parse_submission(payload)
+            if parsed["response_id"] in state["processed_intake_ids"]:
+                print(f"  ↩️  Already processed: {f.name}")
+                f.unlink()
+                continue
+            print(f"  📥 Processing Tally submission: {parsed['name']} ({parsed['email']})")
+            process_new_intake(parsed, secrets, state)
+            f.unlink()
+        except Exception as e:
+            print(f"  ❌ Error processing {f.name}: {e}")
+
+
 # ── Typeform ──────────────────────────────────────────────────────────────────
 
 def tf_get_field_map(api_key: str, form_id: str) -> dict:
@@ -1706,18 +1770,9 @@ def main():
     secrets = load_secrets()
     print("✅ Secrets loaded.")
 
-    # 1. New intakes
+    # 1. New intakes (Tally webhook queue)
     print("\n📥 Checking for new intake responses...")
-    field_map = tf_get_field_map(secrets["typeform"], INTAKE_FORM_ID)
-    responses  = tf_get_responses(secrets["typeform"], INTAKE_FORM_ID)
-    new_count  = 0
-    for item in responses:
-        if item.get("response_id") in state["processed_intake_ids"]:
-            continue
-        process_new_intake(tf_parse_response(item, field_map), secrets, state)
-        new_count += 1
-    if new_count == 0:
-        print("  (no new intakes)")
+    process_tally_queue(secrets, state)
 
     # 2. Stripe payment check
     print("\n💳 Checking Stripe for new payments...")

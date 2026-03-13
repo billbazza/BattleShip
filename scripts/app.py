@@ -9,13 +9,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, redirect, render_template_string, request, url_for
+from flask import Flask, redirect, render_template_string, request, url_for, jsonify
 
-VAULT_ROOT  = Path(__file__).parent.parent
-CLIENTS_DIR = VAULT_ROOT / "clients"
-STATE_FILE  = CLIENTS_DIR / "state.json"
-PIPELINE    = VAULT_ROOT / "scripts" / "battleship_pipeline.py"
-PYTHON      = sys.executable
+VAULT_ROOT   = Path(__file__).parent.parent
+CLIENTS_DIR  = VAULT_ROOT / "clients"
+STATE_FILE   = CLIENTS_DIR / "state.json"
+TALLY_QUEUE  = CLIENTS_DIR / "tally-queue"
+PIPELINE     = VAULT_ROOT / "scripts" / "battleship_pipeline.py"
+PYTHON       = sys.executable
 
 app = Flask(__name__)
 
@@ -329,6 +330,29 @@ def action_note(acct):
         run_pipeline(f"--note={acct}", note)
     return redirect(url_for("client_detail", acct=acct,
                             flash="Note saved." if note else ""))
+
+@app.route("/tally-webhook", methods=["POST"])
+def tally_webhook():
+    """Receive Tally form submissions and queue them for pipeline processing."""
+    try:
+        payload = request.get_json(force=True)
+        if not payload:
+            return jsonify({"error": "empty payload"}), 400
+
+        TALLY_QUEUE.mkdir(parents=True, exist_ok=True)
+        ts       = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        response_id = payload.get("data", {}).get("responseId", ts)
+        filename = TALLY_QUEUE / f"submission-{ts}-{response_id}.json"
+        filename.write_text(json.dumps(payload, indent=2))
+        print(f"  📥 Tally submission queued: {filename.name}")
+
+        # Trigger pipeline immediately in background
+        subprocess.Popen([PYTHON, str(PIPELINE)], cwd=str(VAULT_ROOT))
+        return jsonify({"status": "queued"}), 200
+    except Exception as e:
+        print(f"  ❌ Tally webhook error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/run", methods=["GET", "POST"])
 def run_pipeline_page():
