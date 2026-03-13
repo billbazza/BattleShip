@@ -37,7 +37,7 @@ Blokes who've "failed before." Who think it's too late. Who blame themselves ins
 
 That's why Battleship exists.
 
-Not as a quick fix. As a proper rewrite: simple steps, real accountability, adjustments along the way. So you don't become another statistic of an early death or a miserable midlife. You get to show up as the dad, husband, mate, and man you actually want to be — with energy, strength, and zero regrets.
+Not as a quick fix. As a proper rewrite: simple steps, real accountability, adjustments along the way. The first 12 weeks build the foundation. What comes after is up to you — but most men don't want to stop. So you don't become another statistic of an early death or a miserable midlife. You get to show up as the dad, husband, mate, and man you actually want to be — with energy, strength, and zero regrets.
 
 And yes — the camper van is getting used again. Properly.
 
@@ -67,7 +67,7 @@ A year ago my fitness age was 55. My blood pressure was creeping up. A holiday p
 
 I didn't need a miracle — I needed a system. Walking first. Then food. Then strength. Simple, consistent, adjusted as I went.
 
-I built this for men who are exactly where I was. The diagnosis above is specific to you. What comes next is a 12-week system built around your life, your constraints, your goal.
+I built this for men who are exactly where I was. The diagnosis above is specific to you. What comes next starts with 12 weeks — built around your life, your constraints, your goal. Most men don't want to stop there.
 
 It only works if you commit to it. But if you do — the other side is worth it.
 
