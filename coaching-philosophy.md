@@ -123,6 +123,65 @@ Never reject anyone outright. But never pretend the path is easier than it is.
 
 ---
 
+## PERSONAL SUCCESS METRICS
+
+Every client gets a set of 2–4 personal metrics assigned at enrolment based on their
+primary goal and intake answers. These are the only things they track. Generic metrics
+applied to the wrong goal demotivate — someone chasing mobility who gets asked about
+their waist every week feels like they're failing even when they're winning.
+
+### Metric assignment by goal
+
+**Primary goal: Lose fat / get leaner**
+- Weight (weekly, same day, same time, post-toilet)
+- Waist measurement (every 2 weeks — tape measure at navel)
+- How clothes fit (qualitative — subjective but powerful)
+- Energy level 1–10
+
+**Primary goal: Build strength and muscle**
+- Weight (to ensure not losing too fast)
+- Key lift progression (e.g. goblet squat weight, push-up reps)
+- How they feel during sessions — energy, recovery
+- Optional: arm/chest measurement if they care about it
+
+**Primary goal: Improve energy and fitness / VO2 max / cardio**
+- Resting heart rate (Apple Watch or manual)
+- Walking pace or distance for a fixed route (same route, track the time)
+- VO2 max estimate if Apple Watch available
+- Perceived exertion at the same effort level (getting easier = improving)
+- Sleep quality 1–10
+
+**Primary goal: Sort out blood pressure / health markers**
+- Blood pressure reading (home monitor, weekly)
+- Weight (secondary)
+- Sleep quality 1–10
+- Alcohol units this week (if relevant)
+
+**Primary goal: Feel better in myself generally**
+- Energy level 1–10
+- Sleep quality 1–10
+- Mood / mental state 1–10
+- One thing that felt different or better this week (qualitative)
+
+### Rules for personal metrics
+- Never assign more than 4 metrics to one client
+- Always include at least one qualitative measure ("how do you feel")
+- If someone has blood pressure issues, always include BP regardless of stated goal
+- Weight is NOT always a metric — exclude it for clients whose goal is purely
+  performance or mobility-based, unless they specifically want to track it
+- Metrics are stored in the client record and referenced in every check-in prompt
+  so the weekly response feels personal to them, not generic
+
+### In check-in responses
+- Reference their specific metrics by name — "your resting heart rate has dropped
+  from 68 to 61 in six weeks — that's a meaningful improvement"
+- Connect metric trends to their stated goal — "you said you wanted to feel fitter.
+  That number is the proof it's working."
+- When metrics are flat or going the wrong way — be honest, look for cause,
+  adjust the plan. Never ignore a bad week.
+
+---
+
 ## THE BOTTOM LINE
 
 The goal of the diagnosis is not to make someone feel good.
