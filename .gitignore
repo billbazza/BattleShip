@@ -1,4 +1,14 @@
 
+# Images
+*.jpg
+*.JPG
+*.jpeg
+*.JPEG
+*.png
+*.PNG
+*.gif
+*.webp
+
 # Secrets & credentials
 .env
 *.env
