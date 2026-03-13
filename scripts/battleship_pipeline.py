@@ -231,13 +231,14 @@ def tally_parse_submission(payload: dict) -> dict:
     qa = {}
     for field in fields:
         label = field.get("label", "").strip()
-        ftype = field.get("type", "")
         value = field.get("value")
-        if value is None or value == "":
+        if value is None or value == "" or value == []:
             continue
         if isinstance(value, list):
-            # Multiple choice — value is list of option labels
-            text = ", ".join(str(v) for v in value)
+            # Multiple choice — values are option UUIDs; resolve via options array
+            options = {o["id"]: o["text"] for o in field.get("options", []) if "id" in o}
+            resolved = [options.get(v, v) for v in value]
+            text = ", ".join(resolved)
         elif isinstance(value, dict):
             text = value.get("label", str(value))
         else:
@@ -888,7 +889,7 @@ def parse_diagnosis_sections(md: str) -> dict:
 def send_email(secrets: dict, to: str, subject: str, plain_body: str, html_body: str = None):
     msg = MIMEMultipart("alternative")
     msg["Subject"]  = subject
-    msg["From"]     = f"Will Barratt – Battleship <{secrets['smtp_user']}>"
+    msg["From"]     = f"Will @ Battleship <{secrets['smtp_user']}>"
     msg["To"]       = to
     msg["Reply-To"] = COACH_EMAIL
     msg.attach(MIMEText(plain_body, "plain"))
@@ -1464,19 +1465,25 @@ def process_inbound_emails(state: dict, secrets: dict):
         return
 
     mail.select("INBOX")
-    _, data = mail.search(None, "UNSEEN")
-    uids = data[0].split()
+    # Only fetch unseen emails from the last 7 days — avoids trawling thousands of old unreads
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%d-%b-%Y")
+    _, data = mail.search(None, f'(UNSEEN SINCE "{since}")')
+    uids = data[0].split() if data and data[0] else []
     if not uids:
-        print("  📭 No new emails")
+        print("  📭 No new emails in last 7 days")
         mail.logout()
         return
 
-    print(f"  📬 {len(uids)} unread email(s)...")
+    print(f"  📬 {len(uids)} unread email(s) (last 7 days)...")
     client = anthropic.Anthropic(api_key=secrets["anthropic"])
 
     for uid in uids:
         _, msg_data = mail.fetch(uid, "(RFC822)")
+        if not msg_data or not isinstance(msg_data[0], tuple):
+            continue
         raw = msg_data[0][1]
+        if not isinstance(raw, bytes):
+            continue
         msg = email.message_from_bytes(raw)
 
         from_addr  = _decode_header(msg.get("From", ""))
