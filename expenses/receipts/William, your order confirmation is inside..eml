@@ -1,0 +1,2272 @@
+Return-path: <spc2_11155.235960514.1.85b3a9d0ec0a8cee0d8c8882586d27e5@bounces.cloud2.em.godaddy.com>
+Original-recipient: rfc822;will@battleship.me
+Received: from p00-icloudmta-smtpin-us-east-1a-60-percent-17 by p141-mailgateway-smtp-75645f6467-xm769 (mailgateway 2606B152)
+	with SMTP id 2aedc29a-07b8-4257-b4a9-96e1bfe149bb 
+	for <will@battleship.me>; Wed, 11 Mar 2026 12:25:31 GMT
+X-Apple-MoveToFolder: INBOX 
+X-Apple-Action: MOVE_TO_FOLDER/INBOX
+X-Apple-UUID: 2aedc29a-07b8-4257-b4a9-96e1bfe149bb
+Received: from m94.cloud2.em.secureserver.net (m94.cloud2.em.secureserver.net [72.167.172.94])
+	by p00-icloudmta-smtpin-us-east-1a-60-percent-17 (Postfix) with ESMTPS id 2C1E4C0009D
+	for <will@battleship.me>; Wed, 11 Mar 2026 12:25:29 +0000 (UTC)
+X-ICL-Info: GAtbRVYDBVFFSlVFSgQEUVUKE0oWX1gHVQoPB0UHBExET1FZSQcETExNRhIcDUUSFks5RkkBA1dbS1VCQQYGV0RNSEZWCAMARhhfE0hVVVIUQQUSHQBSWhZBXk9KBQ5UEUtREk1wVA0AFwUSCx5VDhoMAkVWVVtMEhYCFhxUT0wWFgtXHlQLBRodBxMcSRgBGhRGBRsNQQsZFSYVGURCDhAKDh4IHlsHVREDGxcNW1tBVwUbF0VSUFscC1kLVVUXBxwVEgpGUxBbFwMDWEBCEEgUX0NWU1oNAB1UWR1dGBEQGhMFHUNTEAMcFFkWVUJCER1bEBdUVwYRAEgUF10NARkWExNKHlMPWwoDFA1CUxEQCxASCh5YBwFZCx4cDQoAGEsXRVYBB1NATEhETQcDWkdPVVlKAwNbQ0lTRkweB1VCSlRESQkEWltLMiE4U1oNAB1UWR1dGBEQGhMFHUNTEAMcFFkWVUJc
+X-ICL-Score: 2.33303322423
+Authentication-Results: bimi.icloud.com; bimi=fail reason="certificate expired"
+X-ARC-Info: policy=fail; arc=none; r1=-20; r2=0
+Authentication-Results: arc.icloud.com; arc=none
+Authentication-Results: dmarc.icloud.com; dmarc=pass header.from=godaddy.com
+X-DMARC-Policy: v=DMARC1; p=reject; pct=100; rua=mailto:report@dmarc.em.secureserver.net, mailto:RYnDJe0ihM@dmarc.inboxmonster.com; ruf=mailto:godaddy-dmarc@datafeeds.phishlabs.com
+X-DMARC-Info: pass=pass; dmarc-policy=reject; s=r1; d=r1; pdomain=godaddy.com
+Authentication-Results: dkim-verifier.icloud.com; dkim=pass header.d=godaddy.com header.i=donotreply@godaddy.com header.b=EmKv8VS1
+Authentication-Results: dkim-verifier.icloud.com; dkim=pass header.d=cloud2.em.secureserver.net header.i=@cloud2.em.secureserver.net header.b=seT7InKP
+Received-SPF: pass (spf.icloud.com: domain of spc2_11155.235960514.1.85b3a9d0ec0a8cee0d8c8882586d27e5@bounces.cloud2.em.godaddy.com designates 72.167.172.94 as permitted sender) receiver=spf.icloud.com; client-ip=72.167.172.94; helo=m94.cloud2.em.secureserver.net; envelope-from=spc2_11155.235960514.1.85b3a9d0ec0a8cee0d8c8882586d27e5@bounces.cloud2.em.godaddy.com
+Authentication-Results: spf.icloud.com; spf=pass (spf.icloud.com: domain of spc2_11155.235960514.1.85b3a9d0ec0a8cee0d8c8882586d27e5@bounces.cloud2.em.godaddy.com designates 72.167.172.94 as permitted sender) smtp.mailfrom=spc2_11155.235960514.1.85b3a9d0ec0a8cee0d8c8882586d27e5@bounces.cloud2.em.godaddy.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; s=sable.cloud2; d=godaddy.com;
+ h=Date:From:To:Message-ID:Subject:MIME-Version:Content-Type:
+ Content-Transfer-Encoding; i=donotreply@godaddy.com;
+ bh=p9r8J1TeOwldXHrwFARch+WdyqqaV2Enqi4sWBtUQlY=;
+ b=EmKv8VS1QhO3iCRrGMS/1YbdDVIaKaP2RBWixI6daqGdrr0ns5k1cQQ6ObZdWe70SYIkYc7suoEI
+   ALAht3JNlew/RuELOV54g7U5Hv8VulF7B2llEKMbaeZfbsrQlqzIT9+vHhClP3C2dJW6CMnsEL1X
+   wIKfZ82R7mdM/ongkDbJVKsIPqZiHhAQBZfXFo7Od+Qp3TArLvFSH7QnBDpsw1f4qY4gli9O1OxK
+   q4lycVdVitQ0NCkw5MLSQVFTmZju0F8HLaXL77As0QRaptPk5f2C5kBGzJWq2Mh6cbfv8O9HoKnM
+   xAe8RCl1Hs1orm0GNze7YnlS/UE/pGFAYz/zqw==
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; s=nov01em; d=cloud2.em.secureserver.net;
+ h=Date:From:To:Message-ID:Subject:MIME-Version:Content-Type:
+ Content-Transfer-Encoding;
+ bh=p9r8J1TeOwldXHrwFARch+WdyqqaV2Enqi4sWBtUQlY=;
+ b=seT7InKPA0wH16elSo5UjoQm+qQQx1Af/OJBMmrzGfMoDutCxa68w3m1KYOhbrVovtYjPf5JYu3C
+   NA/1ZauNBRlIVw0fCNQC7cXvZbJ0kbPIXpjcdyKpwYbZIPlG4d3HjWm2EWdyXSGROSLzf+JriIQy
+   1WwKJyFYwpbPMbGlSP3jL9qHLWwhjuMmAXWOeRlOdHHFGbrTyacfLj5BVXtm8hNEJAh34FFQh9qo
+   JjHBhebwOjMkDOY60acpTCdrSGHPOJSiF9OXYPrgix7g8mE4KciuWyz9EOyfxUiD+diDJ48FJl+n
+   hnaWAKqcRblLq8gLZFtTC2oZw8PaVOv07jL6gw==
+Received: by m94.cloud2.em.secureserver.net id hm5fji3cb5sh for <will@battleship.me>; Wed, 11 Mar 2026 12:25:28 +0000 (envelope-from <spc2_11155.235960514.1.85b3a9d0ec0a8cee0d8c8882586d27e5@bounces.cloud2.em.godaddy.com>)
+Date: Wed, 11 Mar 2026 12:25:28 +0000
+From: GoDaddy <donotreply@godaddy.com>
+To: will@battleship.me
+Message-ID: <bm2q2.11155.35758263.235960514.1773231928.2TV@cloud2.em.secureserver.net>
+Subject: William, your order confirmation is inside.
+MIME-Version: 1.0
+Content-Type: text/html;
+ charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+X-MID: 3ec74905-4bde-4d4a-8121-4fb9ccca2043
+X-10pl8ID: 3539
+X-MachineName: P3PWGDMAILER102
+X-Sable-ID: spc2_11155.235960514.1.85b3a9d0ec0a8cee0d8c8882586d27e5
+X-Report-Abuse: Report abuse here:
+ https://email.cloud2.secureclick.net/abuse/new?id=11155.235960514.1.85b3a9d0ec0a8cee0d8c8882586d27e5
+X-Virtual-MTA: m94
+X-MANTSH: 1TFkXEh4RCllEF2BtQEBnX1pAQkttEQpZTRdkRURPEQpZSRcacRoQGncGHB5xHBI
+ eGRAbHx0ddwYYGgYaEQpZXhdsbHkRCkNOF0YHbRodelMYeF15Rntmc0tyRV9TYV1IbFwTaG1PH
+ UwZEQpYXBcZBBoEHx4FGxoEGxwfBBgYBBgfGhAbHhofGhEKXlkXTR9denwRCk1cFxsSExEKTFo
+ XaWhtTU1NEQpNThdoaxEKTEYXTWsRCkNaFx0YBBscHQQbHRgEEx4RCkJeFxsRCkJcFxsRCl5OF
+ xsRCkJLF2RrZBNHUmhQWQFJEQpCSRdka2QTR1JoUFkBSREKQkUXbXsZHH96RlobaU0RCkJOF2R
+ rZBNHUmhQWQFJEQpCTBdiUHlfBR1vXmZDQREKQmwXYV4ab319flJuQhMRCkJAF2ETRVtoY2hDc
+ EZCEQpCWBdkexttH24eH14bfxEKTV4XGxEKWlgXGxEKcGgXZUJOHWdQR11oWE8QExEKcGgXbhx
+ MTn9SYRNoTF8QExEKcGgXbG1EeG9PSRgFAWAQGBoRCnBoF2duEhx/Xkh9Qx4eEBwEGBEKcGgXZ
+ 2BtbFpLTBxbYVoQHAQYEQpwaBdtSWMaG0ZAfF0YTBAaEQpwaBdkf2N8E3xAZR9CHBAaEQpwaBd
+ tQnNOUFxQWkUFYRAcBBgRCnBsF2FTaVgFQmhDeVJgEAcfGhEKbX4XGxEKWE0XSxE=
+X-Proofpoint-ORIG-GUID: l-G07Py2RwSlQLYaXouyKwbFv9BGe7f3
+X-Proofpoint-GUID: l-G07Py2RwSlQLYaXouyKwbFv9BGe7f3
+X-Proofpoint-Spam-Details-Enc: AW1haW4tMjYwMzExMDEwNSBTYWx0ZWRfX5UIKU16mxstB
+ SgH3Qmizrku+dRuWmTe/OFMevt01n4mYSQLyt7fEpYYWdlRHOhYz6epqwjKr9bJRu9sGBuWH1Gh
+ hHczr9aLrxsjGXy+LDLta78TBmZFw8NAvXMcqy3J+4YOuTb6xlGojtSPrM+AedS5h3CUSM1syF4
+ 8/0FoquroxMX0AUHOa02Qwj6gr+Q9BRcynBEbPnb2EGp/bFO+zx1qLtM6Lu+VaXtOxJV85CowDq
+ O4xjdFqC8JLVJdUkiqFAMpRh7+kU2M2elSvIBa8S5FJZADfdojgqGkpMhBlcvxghu1PXRLqDvVm
+ AHotyeYSV3vMS2ERVoQ
+X-JNJ: AAAAAAABVn5WDcuAgs+x8Pxs91WoIZYqgNy1rhDgs9MkdZq0ZSDus+EwnVhn54IIDLlEXcgWQEsB2cbvK9Avj4/gjaEf1ZLSo/Ymfy1KIDYKodMv8oDJdwgvcNsH9f7k3+hUgLLcyRHrOd8vrW4zEOGu+QMc1enlf6Kqq4QERlfz+j4Q15dTRg7PVmd+O2fb9ZPJ5Fd4H0ZuRfuMKXym6izbTkX3skbyDDgaA9k2igzbhA9NLN4/sRLEkp+0vfgb79AeDrA2tPu+gKAAMisW16FEonXOLtHbntUvbXddlE/JaGBm03hH9K2nfwkse8IwaUGAUmYXJB7zuYqUBquJAD8VlMOPgJlen1aTYeYvSK9+LzNXJjlLegbpZ7VpDEkHewgcUX4dn2/gZd/0LDkAjIKp5PFTB0G+eVS5/dGswxQokd37ACV+1PIBAzpYjGVT2lly2EQvQ73qViF4g5o27bKsVFsv9t+UT19i4Ge0KVBlsl0VFLfMEieRqN0n2CbOKXup3XQAIUwoCvjcJQ2CyKn52SPjHyJSVLPeUAc0ABsnIaN4ekj8zwXmNiRV6EHbtQfbpcsR2sdwKfXlWWFBq5pTQKdswdAU550fGksuSBc0MsBsTK677zDM6cRHHZog3MN2VsZ9YFaNPDvmPMP5nl1WTbpj9jOOHazYnCcs1LDa9gyCKknOXlYY3eomhDtxmQYyR0/by/tU9hXRvZiDVrsCa6sT06iKgErELK1tXCLF5/elCJVjLnUiKAvLoBC6u2lJ9NAtvPVovycNdBFXj9DHTB9NQRBeHqMQfipBxwcAE/8HcYzdxvWOhrU9OXsQVV+tPDEASRgNjr5VUZy5DZResI25ktEiRDMN2ymvu66sO2TbESySYF2b/l/muVsTRPjvJl9rbrjHuPWNgOYi7XMksPipQH+F1WyMkEZfofWknA==
+
+<!--SUBJECTLINE-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://w=
+ww.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns=3D"https://www.w3.org/1999/xhtml" xmlns:v=3D"urn:schemas-micr=
+osoft-com:vml">
+<head>
+<meta https-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8"=
+ />
+<!--[if !mso]><!--
+<meta https-equiv=3D"X-UA-Compatible" content=3D"IE=3Dedge" />
+<!--<![endif]-->
+<meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scale=3D=
+1.0">
+<meta name=3D"x-apple-disable-message-reformatting" />
+<title>William, your order confirmation is inside.</title>
+<style type=3D"text/css">
+
+	p {margin:0px;margin-bottom:0px;padding:0px;}
+	table {border-spacing:0;}
+	* {text-size-adjust: none !important;-ms-text-size-adjust: none !importa=
+nt;-webkit-text-size-adjust: none !important;}
+	=
+
+	/* outlook / hotmail */
+	.ExternalClass{width:100%;}
+	.ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass fo=
+nt, .ExternalClass td, .ExternalClass div{line-height: 100%;}
+	table, td {mso-table-lspace:0pt;mso-table-rspace:0pt;}
+	img{-ms-interpolation-mode:bicubic;}
+	.ReadMsgBody {width: 100%;}
+	/* END outlook / hotmail */
+	=
+
+	/* gmail */
+	u + #body a {color: inherit;text-decoration: none;font-size: inherit;fon=
+t-family: inherit;font-weight: inherit;line-height: inherit;}
+	/* END gmail */
+	=
+
+	/* ios */
+	body{-webkit-text-size-adjust:100%;}
+	a[x-apple-data-detectors] {color: inherit !important;text-decoration: no=
+ne !important;font-size: inherit !important;font-family: inherit !importa=
+nt;font-weight: inherit !important;line-height: inherit !important;}
+	/* END ios */
+
+	/* windows mobile */
+	body{-ms-text-size-adjust:100%;}
+	/* END windows mobile */
+
+	/* android */
+	body {margin:0 auto!important;-webkit-font-smoothing: antialiased;}
+	u + .body .full-wrap {width:100% !important;width:100vw !important;}
+	div[style*=3D"margin: 14px 0;"] { margin: 0 !important; }
+	div[style*=3D"margin: 16px 0;"] { margin: 0 !important; }
+	/* END android */
+
+	/* font reset */
+	.prehdr {font-size:4px;line-height:6px !important;font-family:'gdsherpa'=
+, Helvetica, Arial, sans-serif;Margin-top:0px;}
+	/* END font reset */
+		=
+
+	/*  v2018 asterisk */
+	.h1asterisk {font-size: 18px !important;line-height:0px !important;verti=
+cal-align: 21px !important;}
+	.h2asterisk {font-size: 14px !important;line-height:0px !important;verti=
+cal-align: 14px !important;}
+	.h3asterisk {font-size: 10px !important;line-height:0px !important;verti=
+cal-align: 10px !important;}
+	/* END v2018 asterisk */
+	=
+
+	/* image rollover */
+	.img-rollover:hover .img-hide {max-height: 0px !important;}  =
+
+  	.img-rollover:hover div img { max-height: none !important;}
+	/* END image rollover */
+
+	/* link rollover */
+	.h-hover:hover {color:#09757a !important;}
+	a.survey-hvr:hover {background-color:#111111 !important;color:#ffffff !i=
+mportant;}
+	/* end link rollover */
+	=
+
+	/* hide interactive in Outlook.com and Hotmail.com */
+	[class=3D"x_carousel"] {display: none !important;max-height:none !import=
+ant;overflow:hidden !important;}
+	[class=3D"x_car-box"] {display: none !important;max-height:none !importa=
+nt;overflow:hidden !important;}
+	[class=3D"x_fallback"] {display: block !important;}
+	/* END hide interactive in Outlook.com and Hotmail.com */
+
+	/* hide interactive in Outlook for mobile */
+	body[data-outlook-cycle] .carousel {display: none !important;max-height:=
+none !important;overflow:hidden !important;}
+	body[data-outlook-cycle] .fallback {display: block !important;}
+	/* END hide interactive in Outlook for mobile */
+
+	/* hide interactive in Office365 */
+	[owa] .carousel {display: none !important;max-height:none !important;ove=
+rflow:hidden !important;}
+	[owa] .fallback {display: block !important;}
+	/* END hide interactive in Office365 */
+	=
+
+	/* fonts */
+	@font-face {
+    font-family: 'gdsherpa-headline';
+    src: url('https://img6.wsimg.com/ux-assets/@ux/fonts/4.5.0/GDSherpa-v=
+f4.woff2') format('woff2'),
+        url('https://img6.wsimg.com/ux-assets/@ux/fonts/4.5.0/GDSherpa-vf=
+4.woff2') format('woff2-variations');
+    font-weight: 900;
+    font-style: normal;
+	}
+	@font-face {
+		font-family: 'gdsherpa-regular';
+		src: url('https://imagesak.secureserver.net/promos/htmlemails/fonts/GDS=
+herpa-Regular.eot?#iefix') format('embedded-opentype'),
+			url('https://imagesak.secureserver.net/promos/htmlemails/fonts/GDSherp=
+a-Regular.woff2') format('woff2'),
+			url('https://imagesak.secureserver.net/promos/htmlemails/fonts/GDSherp=
+a-Regular.woff') format('woff'),
+			url('https://imagesak.secureserver.net/promos/htmlemails/fonts/GDSherp=
+a-Regular.ttf') format('truetype');
+		font-weight: 400;
+		font-style: normal;
+	}
+	@font-face {
+		font-family: 'gdsherpa-bold';
+		src: url('https://imagesak.secureserver.net/promos/htmlemails/fonts/GDS=
+herpa-Bold.eot?#iefix') format('embedded-opentype'),
+			url('https://imagesak.secureserver.net/promos/htmlemails/fonts/GDSherp=
+a-Bold.woff2') format('woff2'),
+			url('https://imagesak.secureserver.net/promos/htmlemails/fonts/GDSherp=
+a-Bold.woff') format('woff'),
+			url('https://imagesak.secureserver.net/promos/htmlemails/fonts/GDSherp=
+a-Bold.ttf') format('truetype');
+		font-weight: 700;
+		font-style: normal;
+	}
+	@font-face {
+  		font-family: 'Boing-Bold';
+  		src: url('https://img1.wsimg.com/cdnassets/m/6de6067195ff7f3/original=
+/Boing-Bold.eot') format('embedded-opentype'),
+          	url('https://img1.wsimg.com/cdnassets/m/d2a6638ec922ca1/origin=
+al/Boing-Bold.woff2') format('woff2'),
+          	url('https://img1.wsimg.com/cdnassets/m/76fb95aea2765cc9/origi=
+nal/Boing-Bold.woff') format('woff'),
+          	url('https://img1.wsimg.com/cdnassets/m/7a1eba4b4f75b75d/origi=
+nal/Boing-Bold.ttf') format('truetype');
+  		font-weight: 400;
+  		font-style: normal;
+	}
+	@font-face {
+		font-family: 'gd-sage-bold';
+  		src: url('https://img1.wsimg.com/cdnassets/m/44cbc217414ef195/origina=
+l/gd-sage-bold.eot') format('embedded-opentype'), =
+
+         url('https://img1.wsimg.com/cdnassets/m/4ed8b7389fbefc66/origina=
+l/gd-sage-bold.woff2') format('woff2'),
+			url('https://img1.wsimg.com/cdnassets/m/62762d65a9957650/original/gd-s=
+age-bold.woff') format('woff'),
+			url('https://img1.wsimg.com/cdnassets/m/205522a973723857/original/gd-s=
+age-bold.ttf') format('truetype');
+		font-style: normal;
+	}
+	/* END fonts */
+	=
+
+	/* hide mobile element */
+	.mobile {border-spacing:0;display:none!important;height:0;max-height:0;m=
+so-hide:all;overflow:hidden;visibility:hidden;width:0;}
+	/* END hide mobile element */
+	=
+
+	/* query */
+	@media only screen and (max-width: 500px) {
+	=
+
+		/* hide mobile element */
+		.hidecellinmobile {display:none !important;}
+		/* END hide mobile element */
+		=
+
+		/* align phone number in header */
+		.phonenumber {text-align:center !important;}
+		/* END align phone number in header */
+		=
+
+		/* resize headlines */
+		.h2mobile {font-size:26px !important; line-height:36px !important;}
+		.h0-primary-mobile {font-size:36px !important; line-height: 46px !impor=
+tant;}
+		.h1-primary-mobile {font-size:29px !important; line-height: 39px !impor=
+tant;}
+		.h2-primary-mobile {font-size:23px !important; line-height: 33px !impor=
+tant;}
+		.h3-primary-mobile {font-size:21px !important; line-height: 31px !impor=
+tant;}
+		.h1-secondary-mobile {font-size:21px !important; line-height: 31px !imp=
+ortant;}
+		.h2-secondary-mobile {font-size:18px !important; line-height: 28px !imp=
+ortant;}
+		/* END resize headlines */
+		=
+
+		/* v2019 asterisks */
+		.h0-primary-asterisk {font-size:18px !important;vertical-align:16px !im=
+portant;}
+		.h1-primary-asterisk {font-size:14px !important;vertical-align:14px !im=
+portant;}
+		.h2-primary-asterisk {font-size:12px !important;vertical-align:10px !im=
+portant;}
+		.h1-secondary-asterisk {vertical-align:4px !important;}
+		.h2-secondary-asterisk {vertical-align:4px !important;}
+		/* END v2019 asterisks */
+		=
+
+		/* stack columns */
+		.two-column .column,
+		.three-column .column {max-width: 100% !important;width:100% !important=
+;}
+		/* END stack columns */
+		=
+
+		/* align text */
+		.mobiletextalign {text-align: center !important}
+		/* END align text */
+		=
+
+		/* responsive width */
+		.stretch {width:100% !important;display:table !important;}
+		.stretch-img {margin:0 auto !important;}
+		/* END responsive width */
+
+		/* mobile padding */
+		 .mobilepaddingtop { padding-top: 20px;}
+		 =
+
+		 /* show mobile element */
+		.mobile,
+		td.mobile,
+		table.mobile,
+		img.mobile,
+		div.mobile,
+		tr.mobile {display: inline-block !important;width: auto !important;over=
+flow: visible !important;height: auto !important;max-height: inherit !imp=
+ortant;font-size: 14px !important;line-height:21px !important;visibility:=
+visible !important;}
+		/* END show mobile element */
+		=
+
+		/* display main image */
+		img.main-image {display: block !important;height: auto !important;max-h=
+eight: inherit !important;overflow: visible !important;visibility:visible=
+ !important;width: 100% !important;}
+		/* END display main image */
+
+		/* fix logo space in header */
+		.mobile-padding-fix {padding-right:16px !important;}
+		.mobile-padding-fix-right {padding-left:20px !important;}
+		.mobile-padding-fix-right-0 {padding-right:0 !important;}
+		.ar-mobile-padding-fix {padding-left:16px !important;}
+		.ar-mobile-padding-fix-text {padding-right:20px !important;}
+		/* END fix logo space in header */
+		=
+
+		/* responsive table */
+		table.full-width {width: 100% !important;}
+		/* END responsive table */
+	} =
+
+	/* END query */
+	=
+
+	/* show custom fonts */
+	[style*=3D"gdsherpa-headline"] {font-family:'gdsherpa', Arial, sans-seri=
+f !important;}	=
+
+	[style*=3D"gdsherpa-regular"] {font-family:'gdsherpa-regular', Arial, sa=
+ns-serif !important;}	=
+
+	[style*=3D"gdsherpa-bold"] {font-family:'gdsherpa-bold', 'Arial Bold', A=
+rial, sans-serif !important;}
+	[style*=3D"Boing-Bold"] {font-family:'gdsherpa-bold', 'Arial Bold', Aria=
+l, sans-serif !important;}
+	[style*=3D"gd-sage-bold"] {font-family:'gdsherpa-bold', 'Arial Bold', Ar=
+ial, sans-serif !important;}
+	/* END show custom fonts */
+	=
+
+	/* yahoo */
+	@media screen yahoo {
+		* { overflow: visible!important }
+		.y-overflow-hidden { overflow: hidden!important }
+	}
+	/* END yahoo */
+	=
+
+	/* video */
+	 @media (-webkit-min-device-pixel-ratio: 0) and (min-device-width:1024px=
+) {
+  		.video-wrapper { display:block!important; }
+  		.video-fallback { display:none!important; }
+ 	}
+  	@supports (-webkit-overflow-scrolling:touch) and (color:#FFFFFF) {
+    	div[class^=3Dvideo-wrapper] { display:block!important; }
+    	div[class^=3Dvideo-fallback] { display:none!important; }
+  	}
+  	#MessageViewBody .video-wrapper { display:block!important; }
+  	#MessageViewBody .video-fallback { display:none!important; }
+	/* END video */
+           =
+
+</style>
+
+<!--[if (gte mso 9)|(IE)]>
+<style type=3D"text/css">
+    table {border-collapse: collapse !important;}
+</style>
+<![endif]-->
+
+<!--[if gte mso 9]>
+<xml>
+	<o:OfficeDocumentSettings>
+		<o:AllowPNG></o:AllowPNG>
+		<o:PixelsPerInch>96</o:PixelsPerInch>
+	</o:OfficeDocumentSettings>
+</xml>
+<![endif]-->
+</head>
+<body style=3D"margin-top:0 !important;margin-bottom:0 !important;margin-=
+right:0 !important;margin-left:0 !important;padding: 0;" >
+<center style=3D"width:100%;table-layout:fixed;-webkit-text-size-adjust:1=
+00%;-ms-text-size-adjust:100%;" >
+<table width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" bgcolor=3D"#f5f=
+5f5" style=3D"text-align: center;">
+<tr>
+<td>      =
+
+
+<!--PREHEADER-->
+<!--BEGIN PREHEADER-->
+    <table width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" bgcolor=3D"=
+#f5f5f5">
+    <tr>
+    <td>    =
+
+         <div  style=3D"margin-top:0;margin-bottom:0;margin-right:auto;ma=
+rgin-left:auto; padding-left:0px; padding-right:0px;" >
+<table  align=3D"center" style=3D"border-spacing:0;font-family:sans-serif=
+;color:#f5f5f5;Margin:0 auto;width:100%;" bgcolor=3D"#f5f5f5">
+       <tr>
+<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-left:=
+0;" bgcolor=3D"#f5f5f5">
+        <table width=3D"100%" style=3D"border-spacing:0;font-family:sans-=
+serif;color:#f5f5f5;" bgcolor=3D"#f5f5f5">
+            <tr>
+               <td  style=3D"padding-bottom:0px; padding-top: 0px;padding=
+-left:20px;padding-right:20px;background-color:#f5f5f5;color:#f5f5f5;widt=
+h:100%;font-size:1px;line-height:1px;text-align:left; display:none !impor=
+tant; visibility:hidden !important;" >
+                 <p class=3D"prehdr" style=3D"text-align:left; line-heigh=
+t:6px; Margin-top:0px; Margin-bottom:0px;" >Thanks for buying a domain wi=
+th GoDaddy. Here's some important info you'll need. &nbsp;&zwnj;&nbsp;&zw=
+nj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</p>
+                 <div style=3D"display: none; max-height: 0px; overflow: =
+hidden;">
+								&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp=
+;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;=
+&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&=
+zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&z=
+wnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zw=
+nj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwn=
+j;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj=
+;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;=
+&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&=
+nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&n=
+bsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nb=
+sp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbs=
+p;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp=
+;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;=
+&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&=
+nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&n=
+bsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nb=
+sp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbs=
+p;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp=
+;&zwnj;&nbsp;&zwnj;&nbsp;
+								=
+
+								</div>
+            </td>
+            </tr>           =
+
+        </table>
+    </td>
+</tr>
+ </table>
+        </div>
+        </td>
+        </tr>
+        </table>
+    <!--END PREHEADER-->
+
+<!--LOGO-->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:640px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:0; padding-right:0;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"640" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table cellpadding=3D"0" cellspacing=3D"0" border=3D"0" align=3D"cente=
+r" width=3D"100%" style=3D"font-family:sans-serif;color:#111;">
+				<tr>
+					<td style=3D"padding-top:10px;padding-right:0;padding-bottom:20px;pa=
+dding-left:0;">
+						<table cellpadding=3D"0" cellspacing=3D"0" border=3D"0" align=3D"ce=
+nter" width=3D"100%">
+                          <tr>
+                             <td width=3D"174" align=3D"left" class=3D"st=
+retch" style=3D"padding-top:10px;padding-bottom:0;padding-right:0;padding=
+-left:0;">
+                                <table width=3D"100%" cellpadding=3D"0" c=
+ellspacing=3D"0" border=3D"0" align=3D"left">
+                                   <tr>
+                                      <td class=3D"mobile-padding-fix mob=
+iletextalign" style=3D"padding-top:0;padding-bottom:0;padding-right:0;pad=
+ding-left:16px;">
+                                         <a href=3D"https://click.godaddy=
+=2Ecom/email/None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.Layo=
+utSimple/Rebrand/LogoGD.link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2=
+Fwww.godaddy.com%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3De=
+mail%26utm_campaign%3Den-GB_other_email-nonrevenue_base_gd"><img class=3D=
+"stretch-img" src=3D"https://img1.wsimg.com/cdnassets/transform/60db0a74-=
+4835-45cd-9b68-85b88518a01d/dark-godaddy-noR-logo-316x76.png" width=3D"16=
+0" height=3D"40" border=3D"0" alt=3D"GoDaddy" style=3D"display:block; col=
+or:#111111; font-family:Arial, sans-serif; font-size:12px;border:0;" /></=
+a>
+                                      </td>
+                                   </tr>
+                                </table>
+                             </td>
+                             <td align=3D"right" class=3D"stretch" style=3D=
+"padding-top:10px;padding-bottom:0;padding-right:0;padding-left:0;">
+                                <table width=3D"100%" cellpadding=3D"0" c=
+ellspacing=3D"0" border=3D"0">
+                                   <tr>
+                                      <td align=3D"right" class=3D"mobile=
+-padding-fix-right mobiletextalign" style=3D"padding-top:0;padding-bottom=
+:0px;padding-left:0;padding-right:20px;text-align:right;" >
+                                         <p class=3D"mobiletextalign" sty=
+le=3D"margin-top:0px; margin-bottom:0px;font-family:'gdsherpa', Helvetica=
+, Arial, sans-serif;font-size:13px; line-height:21px;" >
+                                            Need help? <a href=3D"https:/=
+/click.godaddy.com/email/None/?currencyId=3DGBP&eid=3Docp.email.transacti=
+onal/3539.LayoutSimple/Rebrand/LogoGD.link.click&marketId=3Den-GB&redir=3D=
+https%3A%2F%2Fwww.godaddy.com%2Fhelp%3Fisc%3Dgdbb3539aa%26utm_source%3Dgd=
+ocp%26utm_medium%3Demail%26utm_campaign%3Den-GB_other_email-nonrevenue_ba=
+se_gd" style=3D"text-decoration:underline; color:=0D
+=0D
+=0D
+    #09757a=0D
+; ">Contact us.</a><br>Customer Number: 704542390
+                                         </p>
+                                      </td>
+                                   </tr>
+                                </table>
+                             </td>
+                          </tr>
+                       </table>
+                    </td>
+                          </tr>
+                       </table>
+			<!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- HEADLINE -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table bgcolor=3D"#00A4A6" width=3D"100%" align=3D"center" border=3D"0=
+" cellspacing=3D"0" cellpadding=3D"0" style=3D"font-family:serif;color:#F=
+FFFFF;">
+				<tr>
+				<td bgcolor=3D"#00A4A6" align=3D"left" class=3D"h2-primary-mobile" st=
+yle=3D"padding-top:60px;padding-bottom:0;padding-right:40px;padding-left:=
+40px;text-align:left;background-color:#00A4A6;font-size:32px; line-height=
+:42px; font-weight:bold; font-family:'gdsherpa-bold', 'Arial Bold', Arial=
+, sans-serif =
+
+;">
+                =
+
+					<span>Thanks for your order, William.</span>
+                        =
+
+				</td>
+				</tr>
+			</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- BODY COPY -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+<table bgcolor=3D"#00A4A6" width=3D"100%" align=3D"center" border=3D"0" c=
+ellspacing=3D"0" cellpadding=3D"0" style=3D"font-family:sans-serif;color:=
+#FFFFFF;">
+	<tr>
+	<td dir=3D"ltr" bgcolor=3D"#00A4A6" align=3D"left" style=3D"padding-top:=
+20px;padding-bottom:0;padding-right:40px;padding-left:40px;text-align:lef=
+t;background-color:#00A4A6;font-family:'gdsherpa', Helvetica, Arial, sans=
+-serif;">
+
+		<p style=3D"Margin-top:0px;Margin-bottom:0px;font-family:'gdsherpa', He=
+lvetica, Arial, sans-serif;font-size:16px; line-height:26px;" >
+		It all starts with a domain name &mdash; and now that you've got yours,=
+ you can start exploring how to put it to work. Whatever your next move i=
+s, we're here to support you 24/7.
+		</p>
+                        =
+
+	</td>
+	</tr>
+</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- BUTTON -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+                      <table bgcolor=3D"#00A4A6" width=3D"100%" align=3D"=
+left" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" style=3D"font-fami=
+ly:'gdsherpa-bold', 'Helvetica Bold', 'Arial Bold', sans-serif;color:#111=
+111;">
+                        <tr>
+                           <td bgcolor=3D"#00A4A6" align=3D"left" style=3D=
+"background-color:#00A4A6;padding-top:40px;padding-bottom:0;padding-right=
+:40px;padding-left:40px;text-align:left;">
+                              <table border=3D"0" cellpadding=3D"0" cells=
+pacing=3D"0" align=3D"left" width=3D"100%">
+                                <tr>
+                                   <td align=3D"left" style=3D"padding-to=
+p:0;padding-right:0;padding-bottom:0;padding-left:0;">
+                                      <table border=3D"0" cellspacing=3D"=
+0" cellpadding=3D"0" align=3D"left">
+                                        <tr>
+                                           <td align=3D"center" bgcolor=3D=
+"#fff" style=3D"border:1px solid #fff; font-size:16px; line-height: 20px;=
+border-radius: 6px; font-weight:bold;font-family:'gdsherpa-bold', 'Helvet=
+ica Bold', 'Arial Bold', sans-serif;background-color:#fff;">
+										   <span>
+										   <a href=3D"https://click.godaddy.com/email/None/?currencyId=3D=
+GBP&eid=3Docp.email.transactional/3539.None/None/None.link.click&marketId=
+=3Den-GB&redir=3Dhttps%3A%2F%2Fdashboard.godaddy.com%2Fventure%3FdomainNa=
+me%3D%0D%0A%0D%0A%0D%0A%0D%0A%0D%0Abattleshipreset.com%26isc%3Dgdbb3539aa=
+%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_campaign%3Den-GB_other_e=
+mail-nonrevenue_base_gd" style=3D"text-decoration: none; background-color=
+: #fff; border-top: 20px solid #fff; border-bottom: 20px solid #fff; bord=
+er-left: 40px solid #fff; border-right: 40px solid #fff; border-radius: 6=
+px; display: inline-block; mso-table-lspace:0pt; mso-table-rspace:0pt; co=
+lor: #111;text-align:center;">Use Your Domains&nbsp;<span style=3D"vertic=
+al-align:middle;display:inline-block;"><img src=3D"https://img1.wsimg.com=
+/cdn/Image/Email/All/2823a794-18a5-4a55-827f-344401a417ed/arrow_btn_black=
+=2Epng" width=3D"16" border=3D"0" style=3D"display:block;border:0;" /></spa=
+n></a>
+										   </span></td>
+                                        </tr>
+                                      </table>
+                                   </td>
+                                </tr>
+                              </table>
+                           </td>
+                        </tr>
+                      </table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+	<tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"padding-top:0px; padding-right:0px;padd=
+ing-left:0px;padding-bottom:0px;background-color:#f5f5f5;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;" >
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table bgcolor=3D"#00A4A6" width=3D"100%" align=3D"center" border=3D"0=
+" cellspacing=3D"0" cellpadding=3D"0">
+				<tr>
+				<td bgcolor=3D"#00A4A6" height=3D"60" style=3D"padding-top:0;padding-=
+bottom:0;padding-right:40px;padding-left:40px;background-color:#00A4A6;">=
+
+					=
+
+                </td>
+				</tr>
+			</table>
+			<!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- 3 COLUMN -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+<table bgcolor=3D"#fff" width=3D"100%" align=3D"center" border=3D"0" cell=
+spacing=3D"0" cellpadding=3D"0" style=3D"font-family:sans-serif;color:#11=
+1;">
+				<tr>
+				<td bgcolor=3D"#fff" align=3D"center" class=3D"two-column" style=3D"f=
+ont-size:0px;padding-top:0;padding-bottom:0;padding-right:20px;padding-le=
+ft:20px;background-color:#fff;">
+                =
+
+					<!--[if (gte mso 9)|(IE)]>
+                			<table width=3D"100%" border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0">
+                   			<tr>
+                      		<td width=3D"186" valign=3D"top" style=3D"padding=
+-top:0;padding-bottom:0;padding-right:0;padding-left:0;" >
+                     		<![endif]-->
+                     		<div class=3D"column" style=3D"width:100%;max-widt=
+h:186px;display:inline-block;vertical-align:top;">
+                     			<table border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" width=3D"100%">
+                     				<tr>
+                     				<td style=3D"padding-top:40px;padding-right:20px=
+;padding-bottom:0;padding-left:20px;">
+                     				=
+
+                     					<!-- image -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%" align=3D"center">
+                     						<tr>
+                     						<td align=3D"center" style=3D"padding-top:0;pa=
+dding-right:0;padding-bottom:0;padding-left:0;">
+                     							<table border=3D"0" cellpadding=3D"0" cellspa=
+cing=3D"0" width=3D"100%" align=3D"center">
+                     								<tr>
+                     								<td align=3D"center" style=3D"padding-top:0;=
+padding-right:0;padding-bottom:0;padding-left:0;">
+                     									<table border=3D"0" cellpadding=3D"0" cells=
+pacing=3D"0" align=3D"center">
+                     										<tr>
+                     										<td align=3D"center" style=3D"padding-top:=
+0;padding-right:0;padding-bottom:0;padding-left:0;">
+                     											<a href=3D"https://click.godaddy.com/emai=
+l/None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/Non=
+e.link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fdashboard.godaddy.com=
+%2Fventure%3FdomainName%3D%0D%0A%0D%0A%0D%0A%0D%0A%0D%0Abattleshipreset.c=
+om%26isc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_cam=
+paign%3Den-GB_other_email-nonrevenue_base_gd">
+                     											<img src=3D"https://img1.wsimg.com/cdn/Im=
+age/Email/All/3595_icon_website.jpg" width=3D"120" height=3D"102" border=3D=
+"0" style=3D"display:block;border:0;width:120px;max-width:120px;min-width=
+:10px;height:102px;" />
+                     											</a>
+                     										</td>
+                     										</tr>
+                     									</table>
+                     								</td>
+                     								</tr>
+                     							</table>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end image -->
+                     					=
+
+                     					<!-- copy -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%">
+                     						<tr>
+                     						<td align=3D"center" style=3D"padding-top:10px=
+;padding-right:0;padding-bottom:0;padding-left:0;">
+                     							<p style=3D"color:#111;text-align:center;Marg=
+in-top:0px; Margin-bottom:0px;font-family:'gdsherpa', Helvetica, Arial, s=
+ans-serif;font-size:14px; line-height:24px;" >
+                     							Get a brand-new website.
+                     							</p>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end copy -->
+                     					=
+
+                     					<!-- link -->
+                     					<table width=3D"100%" align=3D"center" border=3D=
+"0" cellspacing=3D"0" cellpadding=3D"0">
+											<tr>
+											<td align=3D"center" style=3D"padding-top:10px;padding-bottom:=
+0;padding-right:0;padding-left:0;text-align:center;font-size:14px; line-h=
+eight:24px; font-weight:bold; font-family:'gdsherpa-bold', 'Helvetica Bol=
+d', 'Arial Bold', sans-serif;">
+                								<span><a href=3D"https://click.godaddy.com/email/=
+None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.=
+link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fdashboard.godaddy.com%2=
+Fventure%3FdomainName%3D%0D%0A%0D%0A%0D%0A%0D%0A%0D%0Abattleshipreset.com=
+%26isc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_campa=
+ign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"color:#111;text-deco=
+ration:none;">Create My Site&nbsp;<span style=3D"vertical-align:middle;di=
+splay:inline-block;"><img src=3D"https://img1.wsimg.com/cdn/Image/Email/A=
+ll/b11c3338-e073-4a85-854f-77908a557e78/arrow_black_small.png" border=3D"=
+0" width=3D"17" style=3D"display:block;" /></span></a></span>
+               								</td>
+											</tr>
+										</table>
+                     					<!-- end link -->
+                     					=
+
+                     				</td>
+                     				</tr>
+                     			</table>
+                     		</div>
+                     		<!--[if (gte mso 9)|(IE)]>
+                      		</td>
+                      		<td width=3D"186" valign=3D"top" style=3D"padding=
+-top:0;padding-bottom:0;padding-right:0;padding-left:0;" >
+                     		<![endif]-->
+                     		<div class=3D"column" style=3D"width:100%;max-widt=
+h:186px;display:inline-block;vertical-align:top;">
+                     			<table border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" width=3D"100%">
+                     				<tr>
+                     				<td style=3D"padding-top:40px;padding-right:20px=
+;padding-bottom:0;padding-left:20px;">
+                     				=
+
+                     					<!-- image -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%" align=3D"center">
+                     						<tr>
+                     						<td align=3D"center" style=3D"padding-top:0;pa=
+dding-right:0;padding-bottom:0;padding-left:0;">
+                     							<table border=3D"0" cellpadding=3D"0" cellspa=
+cing=3D"0" width=3D"100%" align=3D"center">
+                     								<tr>
+                     								<td align=3D"center" style=3D"padding-top:0;=
+padding-right:0;padding-bottom:0;padding-left:0;">
+                     									<table border=3D"0" cellpadding=3D"0" cells=
+pacing=3D"0" align=3D"center">
+                     										<tr>
+                     										<td align=3D"center" style=3D"padding-top:=
+0;padding-right:0;padding-bottom:0;padding-left:0;">
+                     											<a href=3D"https://click.godaddy.com/emai=
+l/None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/Non=
+e.link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fdashboard.godaddy.com=
+%2Fventure%3FdomainName%3D%0D%0A%0D%0A%0D%0A%0D%0A%0D%0Abattleshipreset.c=
+om%26isc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_cam=
+paign%3Den-GB_other_email-nonrevenue_base_gd">
+                     											<img src=3D"https://img1.wsimg.com/cdn/Im=
+age/Email/All/3595_icon_email.jpg" width=3D"120" height=3D"102" border=3D=
+"0" style=3D"display:block;border:0;width:120px;max-width:120px;min-width=
+:10px;height:102px;" />
+                     											</a>
+                     										</td>
+                     										</tr>
+                     									</table>
+                     								</td>
+                     								</tr>
+                     							</table>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end image -->
+                     					=
+
+                     					<!-- copy -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%">
+                     						<tr>
+                     						<td align=3D"center" style=3D"padding-top:10px=
+;padding-right:0;padding-bottom:0;padding-left:0;">
+                     							<p style=3D"color:#111;text-align:center;Marg=
+in-top:0px; Margin-bottom:0px;font-family:'gdsherpa', Helvetica, Arial, s=
+ans-serif;font-size:14px; line-height:24px;" >
+                     							Get a matching email address.
+                     							</p>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end copy -->
+                     					=
+
+                     					<!-- link -->
+                     					<table width=3D"100%" align=3D"center" border=3D=
+"0" cellspacing=3D"0" cellpadding=3D"0">
+											<tr>
+											<td align=3D"center" style=3D"padding-top:10px;padding-bottom:=
+0;padding-right:0;padding-left:0;text-align:center;font-size:14px; line-h=
+eight:24px; font-weight:bold; font-family:'gdsherpa-bold', 'Helvetica Bol=
+d', 'Arial Bold', sans-serif;">
+                								<span><a href=3D"https://click.godaddy.com/email/=
+None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.=
+link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fdashboard.godaddy.com%2=
+Fventure%3FdomainName%3D%0D%0A%0D%0A%0D%0A%0D%0A%0D%0Abattleshipreset.com=
+%26isc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_campa=
+ign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"color:#111;text-deco=
+ration:none;">Set Up My Email&nbsp;<span style=3D"vertical-align:middle;d=
+isplay:inline-block;"><img src=3D"https://img1.wsimg.com/cdn/Image/Email/=
+All/b11c3338-e073-4a85-854f-77908a557e78/arrow_black_small.png" border=3D=
+"0" width=3D"17" style=3D"display:block;" /></span></a></span>
+               								</td>
+											</tr>
+										</table>
+                     					<!-- end link -->
+                     					=
+
+                     				</td>
+                     				</tr>
+                     			</table>
+                     		</div>
+                     		<!--[if (gte mso 9)|(IE)]>
+                      		</td>
+                      		<td width=3D"186" valign=3D"top" style=3D"padding=
+-top:0;padding-bottom:0;padding-right:0;padding-left:0;" >
+                     		<![endif]-->
+                     		<div class=3D"column" style=3D"width:100%;max-widt=
+h:186px;display:inline-block;vertical-align:top;">
+                     			<table border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" width=3D"100%">
+                     				<tr>
+                     				<td style=3D"padding-top:40px;padding-right:20px=
+;padding-bottom:0;padding-left:20px;">
+                     				=
+
+                     					<!-- image -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%" align=3D"center">
+                     						<tr>
+                     						<td align=3D"center" style=3D"padding-top:0;pa=
+dding-right:0;padding-bottom:0;padding-left:0;">
+                     							<table border=3D"0" cellpadding=3D"0" cellspa=
+cing=3D"0" width=3D"100%" align=3D"center">
+                     								<tr>
+                     								<td align=3D"center" style=3D"padding-top:0;=
+padding-right:0;padding-bottom:0;padding-left:0;">
+                     									<table border=3D"0" cellpadding=3D"0" cells=
+pacing=3D"0" align=3D"center">
+                     										<tr>
+                     										<td align=3D"center" style=3D"padding-top:=
+0;padding-right:0;padding-bottom:0;padding-left:0;">
+                     											<a href=3D"https://click.godaddy.com/emai=
+l/None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/Non=
+e.link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fdashboard.godaddy.com=
+%2Fventure%3FdomainName%3D%0D%0A%0D%0A%0D%0A%0D%0A%0D%0Abattleshipreset.c=
+om%26isc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_cam=
+paign%3Den-GB_other_email-nonrevenue_base_gd">
+                     											<img src=3D"https://img1.wsimg.com/cdn/Im=
+age/Email/All/3595_icon_domain.jpg" width=3D"120" height=3D"102" border=3D=
+"0" style=3D"display:block;border:0;width:120px;max-width:120px;min-width=
+:10px;height:102px;" />
+                     											</a>
+                     										</td>
+                     										</tr>
+                     									</table>
+                     								</td>
+                     								</tr>
+                     							</table>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end image -->
+                     					=
+
+                     					<!-- copy -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%">
+                     						<tr>
+                     						<td align=3D"center" style=3D"padding-top:10px=
+;padding-right:0;padding-bottom:0;padding-left:0;">
+                     							<p style=3D"color:#111;text-align:center;Marg=
+in-top:0px; Margin-bottom:0px;font-family:'gdsherpa', Helvetica, Arial, s=
+ans-serif;font-size:14px; line-height:24px;" >
+                     							Link your domain to an existing site.
+                     							</p>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end copy -->
+                     					=
+
+                     					<!-- link -->
+                     					<table width=3D"100%" align=3D"center" border=3D=
+"0" cellspacing=3D"0" cellpadding=3D"0">
+											<tr>
+											<td align=3D"center" style=3D"padding-top:10px;padding-bottom:=
+0;padding-right:0;padding-left:0;text-align:center;font-size:14px; line-h=
+eight:24px; font-weight:bold; font-family:'gdsherpa-bold', 'Helvetica Bol=
+d', 'Arial Bold', sans-serif;">
+                								<span><a href=3D"https://click.godaddy.com/email/=
+None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.=
+link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fdashboard.godaddy.com%2=
+Fventure%3FdomainName%3D%0D%0A%0D%0A%0D%0A%0D%0A%0D%0Abattleshipreset.com=
+%26isc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_campa=
+ign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"color:#111;text-deco=
+ration:none;">Connect My Site&nbsp;<span style=3D"vertical-align:middle;d=
+isplay:inline-block;"><img src=3D"https://img1.wsimg.com/cdn/Image/Email/=
+All/b11c3338-e073-4a85-854f-77908a557e78/arrow_black_small.png" border=3D=
+"0" width=3D"17" style=3D"display:block;" /></span></a></span>
+               								</td>
+											</tr>
+										</table>
+                     					<!-- end link -->
+                     					=
+
+                     				</td>
+                     				</tr>
+                     			</table>
+                     		</div>
+                     		<!--[if (gte mso 9)|(IE)]>
+                      		</td>
+                   			</tr>
+                			</table>
+                			<![endif]-->
+                        =
+
+				</td>
+				</tr>
+			</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- BAR -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table bgcolor=3D"#fff" width=3D"100%" align=3D"center" border=3D"0" c=
+ellspacing=3D"0" cellpadding=3D"0" style=3D"font-family:sans-serif;color:=
+#111111;">
+				<tr>
+				<td bgcolor=3D"#fff" align=3D"center" style=3D"padding-top:0;padding-=
+bottom:0;padding-right:40px;padding-left:40px;text-align:center;backgroun=
+d-color:#fff;">
+                =
+
+                	<table width=3D"100%" align=3D"center" border=3D"0" cell=
+spacing=3D"0" cellpadding=3D"0">
+                		<tbody>
+                		<tr>
+                		<td height=3D"60" style=3D"border-bottom:2px solid #111=
+;padding-top:0;padding-right:0;padding-bottom:0;padding-left:0;">
+							<p style=3D"Margin-top:0px;Margin-bottom:0px;font-size:0px;line-he=
+ight:0px;">
+							&nbsp;
+							</p>
+						</td>
+						</tr>
+						</tbody>
+					</table>
+                        =
+
+				</td>
+				</tr>
+			</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- ORDER HEADLINE -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table bgcolor=3D"#fff" width=3D"100%" align=3D"center" border=3D"0" c=
+ellspacing=3D"0" cellpadding=3D"0" style=3D"font-family:serif;color:#111;=
+">
+				<tr>
+				<td dir=3D"ltr" bgcolor=3D"#fff" align=3D"left" style=3D"padding-top:=
+60px;padding-bottom:0;padding-right:40px;padding-left:40px;text-align:ltr=
+;background-color:#fff;font-size:20px; line-height:30px; font-weight:bold=
+; font-family:'gdsherpa-bold', 'Helvetica Bold', 'Arial Bold', sans-serif=
+;">
+                =
+
+					<span>Order Number: 4035779143</span>
+                        =
+
+				</td>
+				</tr>
+			</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- XSLT TABLE -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#ffffff">
+  <tr>
+    <td align=3D"left" style=3D"padding-top:0px; padding-right:40px;paddi=
+ng-bottom:0;padding-left:40px;">
+		=
+
+
+<!-- start of products loop -->
+    <table width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" border=3D"0=
+" align=3D"center" style=3D"border-bottom:1px solid #D4DBE0;font-family:'=
+gdsherpa-regular', Arial, sans-serif !important;font-size:14px;">
+        <tr>
+            <td width=3D"80%" style=3D"padding-bottom:10px;padding-top:20=
+px;font-family:'gdsherpa-bold', 'Helvetica Bold', 'Arial Bold', sans-seri=
+f;font-size:16px;font-weight:bold;">
+                .COM Domain Registration
+            </td>
+            <td width=3D"20%" style=3D"text-align:right;padding-bottom:10=
+px;padding-top:20px;font-family:'gdsherpa-bold', 'Helvetica Bold', 'Arial=
+ Bold', sans-serif;font-size:14px;vertical-align:top;font-weight:bold;">
+                =C2=A325.98
+            </td>
+        </tr>
+                <tr>
+                    <td width=3D"80%" style=3D"line-height:24px;">
+                        <a href=3D"https://click.godaddy.com/email/None/?=
+currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.link.c=
+lick&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fdcc.godaddy.com%2Fmanage%2Fba=
+ttleshipreset.com%2Fsettings%3FDomainNameLink%26isc%3Dgdbb3539aa%26utm_so=
+urce%3Dgdocp%26utm_medium%3Demail%26utm_campaign%3Den-GB_other_email-nonr=
+evenue_base_gd" style=3D"font-weight:normal;color:#09757a;text-decoration=
+:none;">battleshipreset.com</a>
+                    </td>
+                </tr>
+                            <tr>
+                <td width=3D"80%" style=3D"line-height:24px;">
+                    2 Years
+                </td>
+            </tr>
+
+                <tr>
+                    <td width=3D"80%" style=3D"padding-bottom:20px;line-h=
+eight:24px;">
+                        Auto-renews on 11/03/2028 for =C2=A337.68*
+                    </td>
+                </tr>
+
+    </table>
+    <table width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" border=3D"0=
+" align=3D"center" style=3D"border-bottom:1px solid #D4DBE0;font-family:'=
+gdsherpa-regular', Arial, sans-serif !important;font-size:14px;">
+        <tr>
+            <td width=3D"80%" style=3D"padding-bottom:10px;padding-top:20=
+px;font-family:'gdsherpa-bold', 'Helvetica Bold', 'Arial Bold', sans-seri=
+f;font-size:16px;font-weight:bold;">
+                Full Domain Protection
+            </td>
+            <td width=3D"20%" style=3D"text-align:right;padding-bottom:10=
+px;padding-top:20px;font-family:'gdsherpa-bold', 'Helvetica Bold', 'Arial=
+ Bold', sans-serif;font-size:14px;vertical-align:top;font-weight:bold;">
+                =C2=A315.98
+            </td>
+        </tr>
+                <tr>
+                    <td width=3D"80%" style=3D"line-height:24px;">
+                        <a href=3D"https://click.godaddy.com/email/None/?=
+currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.link.c=
+lick&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fdcc.godaddy.com%2Fmanage%2Fba=
+ttleshipreset.com%2Fsettings%3FDomainNameLink%26isc%3Dgdbb3539aa%26utm_so=
+urce%3Dgdocp%26utm_medium%3Demail%26utm_campaign%3Den-GB_other_email-nonr=
+evenue_base_gd" style=3D"font-weight:normal;color:#09757a;text-decoration=
+:none;">battleshipreset.com</a>
+                    </td>
+                </tr>
+                            <tr>
+                <td width=3D"80%" style=3D"line-height:24px;">
+                    2 Years
+                </td>
+            </tr>
+
+                <tr>
+                    <td width=3D"80%" style=3D"padding-bottom:20px;line-h=
+eight:24px;">
+                        Auto-renews on 11/03/2028 for =C2=A310.99*
+                    </td>
+                </tr>
+
+    </table>
+<!-- end loop of cart items -->
+
+<!-- start of subtotal tax total -->
+<table width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" al=
+ign=3D"center" style=3D"font-family:'gdsherpa-regular', Arial, sans-serif=
+;font-size:14px;">
+
+    <!-- VAT ID -->
+  <tr>
+     <td width=3D"60%" style=3D"text-align:left; padding-top:20px;">
+            VALUE ADDED TAX ID: EU826010755
+    </td>
+        =
+
+
+    <td width=3D"20%" style=3D"text-align:right; padding-top:20px;">
+        Subtotal:
+    </td>
+    <td width=3D"20%" style=3D"text-align:right; padding-top:20px;">
+        =C2=A341.96
+    </td>
+
+</tr>
+  <tr>
+    <td width=3D"60%" style=3D"text-align:left;">&nbsp;</td>
+    <td width=3D"20%" style=3D"text-align:right;">
+      Tax:
+    </td>
+    <td width=3D"20%" style=3D"text-align:right;">
+      =C2=A38.39
+    </td>
+  </tr>
+
+<!-- InStoreCredit -->
+
+  <tr>
+    <td width=3D"60%" style=3D"text-align:left;">&nbsp;</td>
+    <td width=3D"20%" style=3D"text-align:right; padding-bottom:10px;padd=
+ing-top:10px; font-family:'gdsherpa-bold', 'Helvetica Bold', 'Arial Bold'=
+, sans-serif;font-size:16px;font-weight:bold;">
+      Total:
+    </td>
+    <td width=3D"20%" style=3D"text-align:right; padding-bottom:10px;padd=
+ing-top:10px; font-family:'gdsherpa-bold', 'Helvetica Bold', 'Arial Bold'=
+, sans-serif;font-size:14px;font-weight:bold;">
+      =C2=A350.35
+    </td>
+  </tr>
+</table>
+
+    </td>
+  </tr>
+</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- BUTTON -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+                      <table bgcolor=3D"#fff" width=3D"100%" align=3D"lef=
+t" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" style=3D"font-family:=
+'gdsherpa-bold', 'Helvetica Bold', 'Arial Bold', sans-serif;color:#111111=
+;">
+                        <tr>
+                           <td bgcolor=3D"#fff" align=3D"left" style=3D"b=
+ackground-color:#fff;padding-top:40px;padding-bottom:0;padding-right:40px=
+;padding-left:40px;text-align:left;">
+                              <table border=3D"0" cellpadding=3D"0" cells=
+pacing=3D"0" align=3D"left" width=3D"100%">
+                                <tr>
+                                   <td align=3D"left" style=3D"padding-to=
+p:0;padding-right:0;padding-bottom:0;padding-left:0;">
+                                      <table border=3D"0" cellspacing=3D"=
+0" cellpadding=3D"0" align=3D"left">
+                                        <tr>
+                                           <td align=3D"center" bgcolor=3D=
+"#fff" style=3D"border:1px solid #111; font-size:16px; line-height: 20px;=
+border-radius: 6px; font-weight:bold;font-family:'gdsherpa-bold', 'Helvet=
+ica Bold', 'Arial Bold', sans-serif;background-color:#fff;">
+										   <span>
+										   <a href=3D"https://click.godaddy.com/email/None/?currencyId=3D=
+GBP&eid=3Docp.email.transactional/3539.None/None/None.link.click&marketId=
+=3Den-GB&redir=3Dhttps%3A%2F%2Faccount.godaddy.com%2Freceipts%2Fview%2F40=
+35779143%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26u=
+tm_campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"text-decorat=
+ion: none; background-color: #fff; border-top: 15px solid #fff; border-bo=
+ttom: 15px solid #fff; border-left: 30px solid #fff; border-right: 30px s=
+olid #fff; border-radius: 6px; display: inline-block; mso-table-lspace:0p=
+t; mso-table-rspace:0pt; color: #111;text-align:center;">View Full Receip=
+t&nbsp;<span style=3D"vertical-align:middle;display:inline-block;"><img s=
+rc=3D"https://img1.wsimg.com/cdn/Image/Email/All/2823a794-18a5-4a55-827f-=
+344401a417ed/arrow_btn_black.png" width=3D"16" border=3D"0" style=3D"disp=
+lay:block;border:0;" /></span></a>
+										   </span></td>
+                                        </tr>
+                                      </table>
+                                   </td>
+                                </tr>
+                              </table>
+                           </td>
+                        </tr>
+                      </table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- Spacer-BAR -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+	<tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"padding-top:0px; padding-right:0px;padd=
+ing-left:0px;padding-bottom:0px;background-color:#f5f5f5;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;" >
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table bgcolor=3D"#fff" width=3D"100%" align=3D"center" border=3D"0" c=
+ellspacing=3D"0" cellpadding=3D"0">
+				<tr>
+				<td bgcolor=3D"#fff" height=3D"60" style=3D"padding-top:0;padding-bot=
+tom:0;padding-right:40px;padding-left:40px;background-color:#fff;">
+					=
+
+                </td>
+				</tr>
+			</table>
+			<!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- 2 COLUMN -->
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:640px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:0; padding-right:0;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"640" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			=
+
+			<table width=3D"100%" align=3D"center" border=3D"0" cellspacing=3D"0" =
+cellpadding=3D"0" style=3D"font-family:sans-serif;color:#111;">
+				<tr>
+				<td align=3D"center" class=3D"two-column" style=3D"font-size:0px;padd=
+ing-top:0;padding-bottom:0;padding-right:0;padding-left:0;">
+			=
+
+			=
+
+                =
+
+							<!--[if (gte mso 9)|(IE)]>
+                			<table width=3D"100%" border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0">
+                   			<tr>
+                      		<td width=3D"320" valign=3D"top" style=3D"padding=
+-top:0;padding-bottom:0;padding-right:0;padding-left:0;" >
+                     		<![endif]-->
+                     		<div class=3D"column" style=3D"width:100%;max-widt=
+h:320px;display:inline-block;vertical-align:top;">
+                     			<table border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" width=3D"100%">
+                     				<tr>
+                     				<td style=3D"padding-top:40px;padding-right:20px=
+;padding-bottom:0;padding-left:20px;">
+                     				=
+
+                     					<table bgcolor=3D"#fff" width=3D"100%" align=3D=
+"center" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" style=3D"font-f=
+amily:sans-serif;color:#111;">
+										<tr>
+										<td bgcolor=3D"#fff" align=3D"center" style=3D"padding-top:60px=
+;padding-bottom:60px;padding-right:40px;padding-left:40px;background-colo=
+r:#fff;">
+                     				=
+
+                     					<!-- top -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%">
+                     						<tr>
+                     						<td align=3D"left" style=3D"padding-top:0;padd=
+ing-right:0;padding-bottom:0;padding-left:0;">
+                     							<table border=3D"0" cellpadding=3D"0" cellspa=
+cing=3D"0" align=3D"left" bgcolor=3D"#D8EFEF">
+                     								<tr>
+                     								<td bgcolor=3D"#D8EFEF" align=3D"left" style=
+=3D"background-color:#D8EFEF;padding-top:5px;padding-right:5px;padding-bo=
+ttom:5px;padding-left:5px;">
+                     									<p style=3D"color:#111;text-align:left;Marg=
+in-top:0px; Margin-bottom:0px;font-family:'gdsherpa', Helvetica, Arial, s=
+ans-serif;font-size:10px; line-height:10px;" >
+                     									Recommended
+                     									</p>
+                     								</td>
+                     								</tr>
+                     							</table>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end top -->
+                     					=
+
+                     					<!-- title -->
+                     					<table width=3D"100%" align=3D"left" border=3D"=
+0" cellspacing=3D"0" cellpadding=3D"0">
+											<tr>
+											<td align=3D"left" style=3D"padding-top:10px;padding-bottom:0;=
+padding-right:0;padding-left:0;text-align:left;font-size:20px; line-heigh=
+t:30px; font-weight:bold; font-family:'gdsherpa-bold', 'Helvetica Bold', =
+'Arial Bold', sans-serif;">
+                								<span><a href=3D"https://click.godaddy.com/email/=
+None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.=
+link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Fdomai=
+ns%2F%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_=
+campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"color:#111;text=
+-decoration:none;">Find your match.</a></span>
+               								</td>
+											</tr>
+										</table>
+                     					<!-- end title -->
+                     					=
+
+                     					<!-- copy -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%">
+                     						<tr>
+                     						<td align=3D"left" style=3D"padding-top:10px;p=
+adding-right:0;padding-bottom:0;padding-left:0;">
+                     							<p style=3D"color:#111;text-align:left;Margin=
+-top:0px; Margin-bottom:0px;font-family:'gdsherpa', Helvetica, Arial, san=
+s-serif;font-size:14px; line-height:24px;" >
+                     							Protect your brand by securing matching domai=
+n like <a href=3D"https://click.godaddy.com/email/None/?currencyId=3DGBP&=
+eid=3Docp.email.transactional/3539.None/None/None.link.click&marketId=3De=
+n-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Ftlds%2Fcom-domain%3Fisc%3Dgd=
+bb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_campaign%3Den-GB=
+_other_email-nonrevenue_base_gd" style=3D"text-decoration:underline; colo=
+r:=0D
+=0D
+=0D
+    #09757a=0D
+; font-size:14px;">.com</a>, <a href=3D"https://click.godaddy.com/email/N=
+one/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.l=
+ink.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Ftlds%2=
+Forg-domain%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%=
+26utm_campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"text-deco=
+ration:underline; color: =0D
+=0D
+=0D
+    #09757a=0D
+; font-size:14px;">.org</a>, <a href=3D"https://click.godaddy.com/email/N=
+one/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.l=
+ink.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Ftlds%2=
+Fnet-domain%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%=
+26utm_campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"text-deco=
+ration:underline; color: =0D
+=0D
+=0D
+    #09757a=0D
+;  font-size:14px;">.net</a>, <a href=3D"https://click.godaddy.com/email/=
+None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.=
+link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Ftlds%=
+2Finfo-domain%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demai=
+l%26utm_campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"text-de=
+coration:underline;color: =0D
+=0D
+=0D
+    #09757a=0D
+; font-size:14px;">.info</a> and more.
+                     							</p>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end copy -->
+                     					=
+
+                     					<!-- link -->
+                     					<table width=3D"100%" align=3D"center" border=3D=
+"0" cellspacing=3D"0" cellpadding=3D"0">
+											<tr>
+											<td align=3D"left" style=3D"padding-top:10px;padding-bottom:0;=
+padding-right:0;padding-left:0;text-align:left;font-size:14px; line-heigh=
+t:24px; font-weight:bold; font-family:'gdsherpa-bold', 'Helvetica Bold', =
+'Arial Bold', sans-serif;">
+                								<span><a href=3D"https://click.godaddy.com/email/=
+None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.=
+link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Fdomai=
+ns%2F%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_=
+campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"color:#111;text=
+-decoration:none;">Check Availability&nbsp;<span style=3D"vertical-align:=
+middle;display:inline-block;"><img src=3D"https://img1.wsimg.com/cdn/Imag=
+e/Email/All/b11c3338-e073-4a85-854f-77908a557e78/arrow_black_small.png" b=
+order=3D"0" width=3D"17" style=3D"display:block;" /></span></a></span>
+               								</td>
+											</tr>
+										</table>
+                     					<!-- end link -->
+                     					=
+
+                     					</td>
+                     				</tr>
+                     			</table>
+                     					=
+
+                     				</td>
+                     				</tr>
+                     			</table>
+                     		</div>
+                     		<!--[if (gte mso 9)|(IE)]>
+                      		</td>
+                      		<td width=3D"320" valign=3D"top" style=3D"padding=
+-top:0;padding-bottom:0;padding-right:0;padding-left:0;" >
+                     		<![endif]-->
+                     		<div class=3D"column" style=3D"width:100%;max-widt=
+h:320px;display:inline-block;vertical-align:top;">
+                     			<table border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" width=3D"100%">
+                     				<tr>
+                     				<td style=3D"padding-top:40px;padding-right:20px=
+;padding-bottom:0;padding-left:20px;">
+                     				=
+
+                     					<table bgcolor=3D"#fff" width=3D"100%" align=3D=
+"center" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" style=3D"font-f=
+amily:sans-serif;color:#111;">
+										<tr>
+										<td bgcolor=3D"#fff" align=3D"center" style=3D"padding-top:60px=
+;padding-bottom:60px;padding-right:40px;padding-left:40px;background-colo=
+r:#fff;">
+                     				=
+
+                     					<!-- top -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%">
+                     						<tr>
+                     						<td align=3D"left" style=3D"padding-top:0;padd=
+ing-right:0;padding-bottom:0;padding-left:0;">
+                     							<table border=3D"0" cellpadding=3D"0" cellspa=
+cing=3D"0" align=3D"left" bgcolor=3D"#D8EFEF">
+                     								<tr>
+                     								<td bgcolor=3D"#D8EFEF" align=3D"left" style=
+=3D"background-color:#D8EFEF;padding-top:5px;padding-right:5px;padding-bo=
+ttom:5px;padding-left:5px;">
+                     									<p style=3D"color:#111;text-align:left;Marg=
+in-top:0px; Margin-bottom:0px;font-family:'gdsherpa', Helvetica, Arial, s=
+ans-serif;font-size:10px; line-height:10px;" >
+                     									Recommended
+                     									</p>
+                     								</td>
+                     								</tr>
+                     							</table>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end top -->
+                     					=
+
+                     					<!-- title -->
+                     					<table width=3D"100%" align=3D"left" border=3D"=
+0" cellspacing=3D"0" cellpadding=3D"0">
+											<tr>
+											<td align=3D"left" style=3D"padding-top:10px;padding-bottom:0;=
+padding-right:0;padding-left:0;text-align:left;font-size:20px; line-heigh=
+t:30px; font-weight:bold; font-family:'gdsherpa-bold', 'Helvetica Bold', =
+'Arial Bold', sans-serif;">
+                								<span><a href=3D"https://click.godaddy.com/email/=
+None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.=
+link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Fdomai=
+ns%2F%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_=
+campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"color:#111;text=
+-decoration:none;">Stand out online.</a></span>
+               								</td>
+											</tr>
+										</table>
+                     					<!-- end title -->
+                     					=
+
+                     					<!-- copy -->
+                     					<table border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%">
+                     						<tr>
+                     						<td align=3D"left" style=3D"padding-top:10px;p=
+adding-right:0;padding-bottom:0;padding-left:0;">
+                     							<p style=3D"color:#111;text-align:left;Margin=
+-top:0px; Margin-bottom:0px;font-family:'gdsherpa', Helvetica, Arial, san=
+s-serif;font-size:14px; line-height:24px;" >
+                     							Tell people exactly who you are and what you =
+do with a new domain like <a href=3D"https://click.godaddy.com/email/None=
+/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.link=
+=2Eclick&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Ftlds%2Fxy=
+z-domain%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26u=
+tm_campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"text-decorat=
+ion:underline; color: =0D
+=0D
+=0D
+    #09757a=0D
+; font-size:14px;">.xyz</a> or <a href=3D"https://click.godaddy.com/email=
+/None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None=
+=2Elink.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Ftlds=
+%2Fclub-domain%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Dema=
+il%26utm_campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"text-d=
+ecoration:underline; color: =0D
+=0D
+=0D
+    #09757a=0D
+; font-size:14px;">.club</a>.
+                     							</p>
+                     						</td>
+                     						</tr>
+                     					</table>
+                     					<!-- end copy -->
+                     					=
+
+                     					<!-- link -->
+                     					<table width=3D"100%" align=3D"center" border=3D=
+"0" cellspacing=3D"0" cellpadding=3D"0">
+											<tr>
+											<td align=3D"left" style=3D"padding-top:10px;padding-bottom:0;=
+padding-right:0;padding-left:0;text-align:left;font-size:14px; line-heigh=
+t:24px; font-weight:bold; font-family:'gdsherpa-bold', 'Helvetica Bold', =
+'Arial Bold', sans-serif;">
+                								<span><a href=3D"https://click.godaddy.com/email/=
+None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.=
+link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Fdomai=
+ns%2F%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_=
+campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"color:#111;text=
+-decoration:none;">Search Now&nbsp;<span style=3D"vertical-align:middle;d=
+isplay:inline-block;"><img src=3D"https://img1.wsimg.com/cdn/Image/Email/=
+All/b11c3338-e073-4a85-854f-77908a557e78/arrow_black_small.png" border=3D=
+"0" width=3D"17" style=3D"display:block;" /></span></a></span>
+               								</td>
+											</tr>
+										</table>
+                     					<!-- end link -->
+                     					=
+
+                     					</td>
+                     				</tr>
+                     			</table>
+                     					=
+
+                     				</td>
+                     				</tr>
+                     			</table>
+                     		</div>
+                     		<!--[if (gte mso 9)|(IE)]>
+                      		</td>
+                   			</tr>
+                			</table>
+                			<![endif]-->
+                        =
+
+				</td>
+				</tr>
+			</table>
+			<!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+
+<!-- DISCLAIMERS -->
+  <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" =
+bgcolor=3D"#f5f5f5">
+     <tr>
+        <td bgcolor=3D"#f5f5f5" style=3D"padding-top:0px; padding-bottom:=
+0px;">
+           <div  style=3D"max-width:600px;margin-top:0;margin-bottom:0;ma=
+rgin-right:auto;margin-left:auto; padding-left:20px; padding-right:20px;"=
+ >
+              <!--[if (gte mso 9)|(IE)]>
+              <table width=3D"600" align=3D"center" style=3D"border-spaci=
+ng:0;font-family:sans-serif;color:#111;" >
+                 <tr>
+                    <td style=3D"padding-top:0;padding-bottom:0;padding-r=
+ight:0;padding-left:0;" >
+                       <![endif]-->
+                       <table bgcolor=3D"#f5f5f5" align=3D"center" style=3D=
+"border-spacing:0;font-family:sans-serif;color:#111;margin:0 auto;width:1=
+00%;max-width:600px;" >
+                          <tr>
+                             <td style=3D"padding-top:0;padding-bottom:0;=
+padding-right:0;padding-left:0;" >
+                                <table width=3D"100%" style=3D"border-spa=
+cing:0;font-family:sans-serif;color:#111;" >
+                                   <tr>
+                                      <td  style=3D"padding-top:20px;padd=
+ing-bottom:0px;padding-left:40px;padding-right:40px;background-color:#f5f=
+5f5;width:100%;text-align:left;" >
+                                         <p style=3D"margin-top:0px; line=
+-height:0px; margin-bottom:0px;font-size:4px;" >&nbsp;</p>
+                                      </td>
+                                   </tr>
+                                </table>
+                             </td>
+                          </tr>
+                       </table>
+                       <!--[if (gte mso 9)|(IE)]>
+                    </td>
+                 </tr>
+              </table>
+              <![endif]-->
+           </div>
+        </td>
+     </tr>
+  </table>
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table width=3D"100%" align=3D"left" border=3D"0" cellspacing=3D"0" ce=
+llpadding=3D"0" style=3D"font-family:sans-serif;color:#767676;">
+				<tr>
+				<td align=3D"left" style=3D"padding-top:10px;padding-bottom:0;padding=
+-right:0;padding-left:0;text-align:left;">
+                =
+
+					<p style=3D"text-align:left;Margin-top:0px;Margin-bottom:0px;font-fa=
+mily:'gdsherpa', Helvetica, Arial, sans-serif;font-size:12px;line-height:=
+22px;">
+						<a href=3D"https://click.godaddy.com/email/None/?currencyId=3DGBP&e=
+id=3Docp.email.transactional/3539.None/None/None.link.click&marketId=3Den=
+-GB&redir=3Dhttps%3A%2F%2Faccount.godaddy.com%2Fsecurity%3Fhbi_code%3D1%2=
+6isc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_campaig=
+n%3Den-GB_other_email-nonrevenue_base_gd" style=3D"text-decoration:underl=
+ine;color:#09757a">Set my Support PIN</a>
+					</p>
+                        =
+
+				</td>
+				</tr>
+			</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table width=3D"100%" align=3D"left" border=3D"0" cellspacing=3D"0" ce=
+llpadding=3D"0" style=3D"font-family:sans-serif;color:#767676;">
+				<tr>
+				<td align=3D"left" style=3D"padding-top:10px;padding-bottom:0;padding=
+-right:0;padding-left:0;text-align:left;">
+                =
+
+					<p style=3D"text-align:left;Margin-top:0px;Margin-bottom:0px;font-fa=
+mily:'gdsherpa', Helvetica, Arial, sans-serif;font-size:12px;line-height:=
+22px;">
+						=
+
+        NOTE: This message confirms that during the checkout process, you=
+ agreed to enroll your auto-renewing products as listed above in our auto=
+matic renewal service.  If you wish to discontinue this service, you can =
+cancel prior to the renewal date by visiting <a href=3D"https://click.god=
+addy.com/email/None/?currencyId=3DGBP&eid=3Docp.email.transactional/3539.=
+None/None/None.link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Faccount.=
+godaddy.com%2Fsubscriptions%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm=
+_medium%3Demail%26utm_campaign%3Den-GB_other_email-nonrevenue_base_gd" st=
+yle=3D"text-decoration:underline; color:=0D
+=0D
+=0D
+    #09757a=0D
+">My Account</a>. For cancellations after renewal, please see our <a href=
+=3D"https://click.godaddy.com/email/None/?currencyId=3DGBP&eid=3Docp.emai=
+l.transactional/3539.None/None/None.link.click&marketId=3Den-GB&redir=3Dh=
+ttps%3A%2F%2Fwww.godaddy.com%2Flegal%2Fagreements%2Frefund-policy%3Fisc%3=
+Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_campaign%3Den=
+-GB_other_email-nonrevenue_base_gd" style=3D"text-decoration:underline; c=
+olor:=0D
+=0D
+=0D
+    #09757a=0D
+">Refund Policy</a>.<br><br>
+        During the checkout process, you also agreed to <a href=3D"https:=
+//click.godaddy.com/email/None/?currencyId=3DGBP&eid=3Docp.email.transact=
+ional/3539.None/None/None.link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F=
+%2Fwww.godaddy.com%2Flegal%2Fagreements%2Funiversal-terms-of-service-agre=
+ement%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_=
+campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"text-decoration=
+:underline; color:=0D
+=0D
+=0D
+    #09757a=0D
+">GoDaddy's Universal Terms of Service Agreement</a>, <a href=3D"https://=
+click.godaddy.com/email/None/?currencyId=3DGBP&eid=3Docp.email.transactio=
+nal/3539.None/None/None.link.click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2=
+Fwww.godaddy.com%2Flegal%2Fagreements%2Fprivacy-policy%3Fisc%3Dgdbb3539aa=
+%26utm_source%3Dgdocp%26utm_medium%3Demail%26utm_campaign%3Den-GB_other_e=
+mail-nonrevenue_base_gd" style=3D"text-decoration:underline; color:=0D
+=0D
+=0D
+    #09757a=0D
+">Privacy Policy</a>, <a href=3D"https://click.godaddy.com/email/None/?cu=
+rrencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.link.cli=
+ck&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Flegal%2Fagree=
+ments%2Frefund-policy%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_mediu=
+m%3Demail%26utm_campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D=
+"text-decoration:underline; color:=0D
+=0D
+=0D
+    #09757a=0D
+">Refund Policy</a>, and <a href=3D"https://click.godaddy.com/email/None/=
+?currencyId=3DGBP&eid=3Docp.email.transactional/3539.None/None/None.link.=
+click&marketId=3Den-GB&redir=3Dhttps%3A%2F%2Fwww.godaddy.com%2Flegal%2Fag=
+reements%3Fisc%3Dgdbb3539aa%26utm_source%3Dgdocp%26utm_medium%3Demail%26u=
+tm_campaign%3Den-GB_other_email-nonrevenue_base_gd" style=3D"text-decorat=
+ion:underline; color:=0D
+=0D
+=0D
+    #09757a=0D
+">all other agreements applicable to your purchase</a>.<br><br>
+        If you selected an installment payment option during checkout, in=
+stallment payments apply to a product's current term only. Upon automatic=
+ renewal, you will pay the then-current full amount unless you manually r=
+enew the product in My Account and select an installment payment option.
+        =
+
+					</p>
+                        =
+
+				</td>
+				</tr>
+			</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table width=3D"100%" align=3D"left" border=3D"0" cellspacing=3D"0" ce=
+llpadding=3D"0" style=3D"font-family:sans-serif;color:#767676;">
+				<tr>
+				<td align=3D"left" style=3D"padding-top:10px;padding-bottom:0;padding=
+-right:0;padding-left:0;text-align:left;">
+                =
+
+					<p style=3D"text-align:left;Margin-top:0px;Margin-bottom:0px;font-fa=
+mily:'gdsherpa', Helvetica, Arial, sans-serif;font-size:12px;line-height:=
+22px;">
+						*Prices do not include taxes and fees when applicable. Prices are c=
+urrent as of 11/03/2026 and may be changed without notice.
+					</p>
+                        =
+
+				</td>
+				</tr>
+			</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table width=3D"100%" align=3D"left" border=3D"0" cellspacing=3D"0" ce=
+llpadding=3D"0" style=3D"font-family:sans-serif;color:#767676;">
+				<tr>
+				<td align=3D"left" style=3D"padding-top:10px;padding-bottom:0;padding=
+-right:0;padding-left:0;text-align:left;">
+                =
+
+					<p style=3D"text-align:left;Margin-top:0px;Margin-bottom:0px;font-fa=
+mily:'gdsherpa', Helvetica, Arial, sans-serif;font-size:12px;line-height:=
+22px;">
+						Please do not reply to this email. Emails sent to this address will=
+ not be answered.
+					</p>
+                        =
+
+				</td>
+				</tr>
+			</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+    <tr>
+	<td bgcolor=3D"#f5f5f5" style=3D"background-color:#f5f5f5;padding-top:0;=
+padding-right:0;padding-left:0;padding-bottom:0;">
+		<div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-right=
+:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+			<!--[if (gte mso 9)|(IE)]>
+			<table width=3D"600" align=3D"center" border=3D"0" cellspacing=3D"0" c=
+ellpadding=3D"0">
+			<tr>
+			<td style=3D"padding-top:0;padding-bottom:0;padding-right:0;padding-le=
+ft:0;" >
+			<![endif]-->
+			<table width=3D"100%" align=3D"left" border=3D"0" cellspacing=3D"0" ce=
+llpadding=3D"0" style=3D"font-family:sans-serif;color:#767676;">
+				<tr>
+				<td align=3D"left" style=3D"padding-top:10px;padding-bottom:0;padding=
+-right:0;padding-left:0;text-align:left;">
+                =
+
+					<p style=3D"text-align:left;Margin-top:0px;Margin-bottom:0px;font-fa=
+mily:'gdsherpa', Helvetica, Arial, sans-serif;font-size:12px;line-height:=
+22px;">
+						Copyright &copy; 1999-2026 GoDaddy Operating Company, LLC. 100 S Mi=
+ll Ave, Suite 1600, Tempe, AZ 85281 USA. All rights reserved. =
+
+					</p>
+                        =
+
+				</td>
+				</tr>
+			</table>
+            <!--[if (gte mso 9)|(IE)]>
+			</td>
+			</tr>
+			</table>
+			<![endif]-->
+		</div>
+	</td>
+	</tr>
+</table>
+  <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" =
+bgcolor=3D"#f5f5f5">
+     <tr>
+        <td bgcolor=3D"#f5f5f5" style=3D"padding-top:0px; padding-bottom:=
+0px;">
+           <div  style=3D"max-width:600px;margin-top:0;margin-bottom:0;ma=
+rgin-right:auto;margin-left:auto; padding-left:20px; padding-right:20px;"=
+ >
+              <!--[if (gte mso 9)|(IE)]>
+              <table width=3D"600" align=3D"center" style=3D"border-spaci=
+ng:0;font-family:sans-serif;color:#111;" >
+                 <tr>
+                    <td style=3D"padding-top:0;padding-bottom:0;padding-r=
+ight:0;padding-left:0;" >
+                       <![endif]-->
+                       <table bgcolor=3D"#f5f5f5" align=3D"center" style=3D=
+"border-spacing:0;font-family:sans-serif;color:#111;margin:0 auto;width:1=
+00%;max-width:600px;" >
+                          <tr>
+                             <td style=3D"padding-top:0;padding-bottom:0;=
+padding-right:0;padding-left:0;" >
+                                <table width=3D"100%" style=3D"border-spa=
+cing:0;font-family:sans-serif;color:#111;" >
+                                   <tr>
+                                      <td  style=3D"padding-top:40px;padd=
+ing-bottom:0px;padding-left:40px;padding-right:40px;background-color:#f5f=
+5f5;width:100%;text-align:left;" >
+                                         <p style=3D"margin-top:0px; line=
+-height:0px; margin-bottom:0px;font-size:4px;" >&nbsp;</p>
+                                      </td>
+                                   </tr>
+                                </table>
+                             </td>
+                          </tr>
+                       </table>
+                       <!--[if (gte mso 9)|(IE)]>
+                    </td>
+                 </tr>
+              </table>
+              <![endif]-->
+           </div>
+        </td>
+     </tr>
+  </table>   =
+
+
+</td>
+</tr>
+</table>
+  <table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" =
+bgcolor=3D"#f5f5f5">
+     <tr>
+        <td bgcolor=3D"#f5f5f5" style=3D"padding-top:0px; padding-bottom:=
+0px;">
+           <div  style=3D"max-width:600px;margin-top:0;margin-bottom:0;ma=
+rgin-right:auto;margin-left:auto; padding-left:20px; padding-right:20px;"=
+ >
+              <!--[if (gte mso 9)|(IE)]>
+              <table width=3D"600" align=3D"center" style=3D"border-spaci=
+ng:0;font-family:sans-serif;color:#111;" >
+                 <tr>
+                    <td style=3D"padding-top:0;padding-bottom:0;padding-r=
+ight:0;padding-left:0;" >
+                       <![endif]-->
+                       <table bgcolor=3D"#f5f5f5" align=3D"center" style=3D=
+"border-spacing:0;font-family:sans-serif;color:#111;margin:0 auto;width:1=
+00%;max-width:600px;" >
+                          <tr>
+                             <td style=3D"padding-top:0;padding-bottom:0;=
+padding-right:0;padding-left:0;" >
+                                <table width=3D"100%" style=3D"border-spa=
+cing:0;font-family:sans-serif;color:#111;" >
+                                   <tr>
+                                      <td  style=3D"padding-top:20px;padd=
+ing-bottom:0px;padding-left:40px;padding-right:40px;background-color:#f5f=
+5f5;width:100%;text-align:left;" >
+                                         <p style=3D"margin-top:0px; line=
+-height:0px; margin-bottom:0px;font-size:4px;" >&nbsp;</p>
+                                      </td>
+                                   </tr>
+                                </table>
+                             </td>
+                          </tr>
+                       </table>
+                       <!--[if (gte mso 9)|(IE)]>
+                    </td>
+                 </tr>
+              </table>
+              <![endif]-->
+           </div>
+        </td>
+     </tr>
+  </table>
+</center>
+<table width=3D"100%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" bg=
+color=3D"#f5f5f5">
+     <tr>
+    <td bgcolor=3D"#f5f5f5" style=3D"padding-top:0px; padding-bottom:0px;=
+">
+       <div style=3D"max-width:600px;margin-top:0;margin-bottom:0;margin-=
+right:auto;margin-left:auto; padding-left:20px; padding-right:20px;">
+          <!--[if (gte mso 9)|(IE)]>
+          <table width=3D"600" align=3D"center" style=3D"border-spacing:0=
+;font-family:sans-serif;color:#767676;" >
+         <tr>
+            <td style=3D"padding-top:0;padding-bottom:0;padding-right:0;p=
+adding-left:0;" >
+               <![endif]-->
+               <table align=3D"center" style=3D"border-spacing:0;font-fam=
+ily:sans-serif;color:#767676;margin:0 auto;width:100%;max-width:600px;">
+              <tr>
+                 <td style=3D"padding-top:0;padding-bottom:0;padding-righ=
+t:0;padding-left:0;">
+                <table width=3D"100%" style=3D"border-spacing:0;font-fami=
+ly:sans-serif;color:#767676;">
+                   <tr>
+                      <td style=3D"padding-top:0px;padding-bottom:15px;pa=
+dding-left:0px;padding-right:0px;background-color:#f5f5f5;width:100%;text=
+-align:right;" align=3D"right">
+                     <p class=3D"footer" style=3D"margin-bottom:0px;margi=
+n-top:0px;font-size:12px; line-height:22px;text-align:right; text-decorat=
+ion: none !important;">7056911684</p>
+                      </td>
+                   </tr>
+                </table>
+                 </td>
+              </tr>
+               </table>
+               <!--[if (gte mso 9)|(IE)]>
+            </td>
+         </tr>
+          </table>
+          <![endif]-->
+       </div>
+    </td>
+     </tr>
+  </table></body>
+</html>=

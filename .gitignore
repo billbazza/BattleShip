@@ -1,0 +1,19 @@
+
+# Images
+*.jpg
+*.JPG
+*.jpeg
+*.JPEG
+*.png
+*.PNG
+*.gif
+*.webp
+
+# Secrets & credentials
+.env
+*.env
+clients/state.json
+clients/*/
+logs/
+scripts/__pycache__/
+.DS_Store

@@ -1,0 +1,5493 @@
+Return-path: <0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb-e7af7f8beb12-000000@bounce.mail.anthropic.com>
+Original-recipient: rfc822;will@battleship.me
+Received: from p00-icloudmta-smtpin-us-west-2a-100-percent-10 by p141-mailgateway-smtp-75645f6467-24t5b (mailgateway 2606B152)
+	with SMTP id 9fe2ae53-3f46-4785-97e2-eed77980913d 
+	for <will@battleship.me>; Wed, 11 Mar 2026 11:26:22 GMT
+X-Apple-MoveToFolder: INBOX 
+X-Apple-Action: MOVE_TO_FOLDER/INBOX
+X-Apple-UUID: 9fe2ae53-3f46-4785-97e2-eed77980913d
+Received: from a61-166.smtp-out.us-west-2.amazonses.com (a61-166.smtp-out.us-west-2.amazonses.com [54.240.61.166])
+	by p00-icloudmta-smtpin-us-west-2a-100-percent-10 (Postfix) with ESMTPS id 79814C000A0
+	for <will@battleship.me>; Wed, 11 Mar 2026 11:26:20 +0000 (UTC)
+X-ICL-Info: GAtbRVYDBVFFSlVHSgQEUVUKE0oWX1gHVQoPB0UFAkxHTVZZTgEYU0NPRhIcDQZTRUhWRkFTUgEUTAUTQVIbUBccA0MdAwdPRx1SQlUEU1YQVF9PGlIbB0IYAEAeCFQHF0hUWkgABlJFSSYVF0VYARBXCxYRXBgDGw0OBRdAXwFbGgkaWFZSXxgYDxtWUVgWHQsJBxFTGAEaFEYFGw1BCxkVJhUZREIOEAoOHggeWwdVEQMbFw1XVERUV0FOHkUPAQlLGA1EGBcGVBESC0QbUFsYCxYCX1gREApIFBddFhIBC1sWTgEbU0NPSAQVREZPGgwSWQ1DGxUQChJaSh5XDxQDCRkLVUVMFhYLVxxUCw8UEApZGV5CCgcWFh4bHlUNGEIHGhlKWQwGHBVZG19bQhgQAkpEAAdSRElXThtUVQNAGgJOGh0EABAcUhJLARtQEU1TWkxVAgdYQF4VGh1TVRQfURFAUlMAREtLR0gABlJFORMEVUdTEQFUVFkZXVcYGhcVEgseVQ0YRw==
+X-ICL-Score: 2.33303302423
+Authentication-Results: bimi.icloud.com; bimi=none
+X-ARC-Info: policy=fail; arc=none; r1=-20; r2=0
+Authentication-Results: arc.icloud.com; arc=none
+Authentication-Results: dmarc.icloud.com; dmarc=pass header.from=mail.anthropic.com
+X-DMARC-Policy: v=DMARC1; p=reject; sp=reject; rua=mailto:f0cef134490d4d43b9c134fc3c2a3481@dmarc-reports.cloudflare.net,mailto:dmarc-reports@anthropic.com; ruf=mailto:dmarc-reports@anthropic.com; fo=1
+X-DMARC-Info: pass=pass; dmarc-policy=reject; s=r1; d=r1; pdomain=mail.anthropic.com
+Authentication-Results: dkim-verifier.icloud.com; dkim=pass header.d=mail.anthropic.com header.i=@mail.anthropic.com header.b=jKOd0l+s
+Authentication-Results: dkim-verifier.icloud.com; dkim=pass header.d=amazonses.com header.i=@amazonses.com header.b=HdjG9h2L
+Received-SPF: pass (spf.icloud.com: domain of 0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb-e7af7f8beb12-000000@bounce.mail.anthropic.com designates 54.240.61.166 as permitted sender) receiver=spf.icloud.com; client-ip=54.240.61.166; helo=a61-166.smtp-out.us-west-2.amazonses.com; envelope-from=0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb-e7af7f8beb12-000000@bounce.mail.anthropic.com
+Authentication-Results: spf.icloud.com; spf=pass (spf.icloud.com: domain of 0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb-e7af7f8beb12-000000@bounce.mail.anthropic.com designates 54.240.61.166 as permitted sender) smtp.mailfrom=0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb-e7af7f8beb12-000000@bounce.mail.anthropic.com
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=t3ndixklrcosz3jecxvsgld5dxw3stwi; d=mail.anthropic.com;
+	t=1773228379;
+	h=Date:From:Reply-To:To:Message-ID:Subject:Mime-Version:Content-Type;
+	bh=zjoLiN0vhviXQj53SNcX5SUyZNxqP2G/f5HyuzBz2VU=;
+	b=jKOd0l+sK3UxXbvyGZehhlYtnSv47JlFJSFtyb4DZF+jtme2SXBBF04+81swGZ/V
+	XCPBr0abVfu1ILsjmxPhq3CtUC3Oysnf+DL9IJbHbbLehQoYBNHviMcCw5voWfIRPPb
+	1JnHAT+izVe2el50AOok+IvEyFtzwLJ+//UBv+xEPCt0DmBsmKe1FIme4zJ33FnSA0w
+	bhryf4A2zuFBNdy+FYUphIHJokmHVY3Fz2B+fPuhgw2Cm0GE+33HSJIv3u1jbNwOzMh
+	CM5Z5gfuoFZaxBWQmpbDkaOqAXpi1UfUjgDK/lxfm9S4Ba8pqfYDg4m+6Q7IdkXTB+f
+	0/nyApKRkw==
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=gdwg2y3kokkkj5a55z2ilkup5wp5hhxx; d=amazonses.com; t=1773228379;
+	h=Date:From:Reply-To:To:Message-ID:Subject:Mime-Version:Content-Type:Feedback-ID;
+	bh=zjoLiN0vhviXQj53SNcX5SUyZNxqP2G/f5HyuzBz2VU=;
+	b=HdjG9h2L2QAxbtJZ9a6oAFW508+SUy3caFIZea7BMA6LL/vUAhaAjOxAf50gk61V
+	FgP5PwxTC+X602iSYU8Vg5fFY2JoHOCVCgCOsrnhBeD2jUUEFqX7+/eCOtjlnGBVcig
+	4PkQFj3RbB2sJm24LwAUhRmMVr0ns7SeBAVNIfwI=
+Date: Wed, 11 Mar 2026 11:26:19 +0000
+From: "Anthropic, PBC" <invoice+statements@mail.anthropic.com>
+Reply-To: "Anthropic, PBC" <support@anthropic.com>
+To: will@battleship.me
+Message-ID: <0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb-e7af7f8beb12-000000@us-west-2.amazonses.com>
+Subject: Your receipt from Anthropic, PBC #2615-4616-6001
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="--==_mimepart_69b1515af1911_16f1e18543f077928"
+X-Stripe-EID: em_lxkd7g2cmfx0akj0ajnlnmxeevdw0m
+Feedback-ID: ::1.us-west-2.n8L7Wn1zxjqcto2OHGvkCmEZ3CVDGJJLgL6VMCDurzE=:AmazonSES
+X-SES-Outgoing: 2026.03.11-54.240.61.166
+X-MANTSH: 1TFkXGxsaGREKWUQXb10bbE4Sa2BTXGsRCllNF2JLRxEKX1kXBxMRCl9NF21YT1M
+ RCllJFxpxGhAadwYbHnEZHhIQGB8ZdwYHGwYaEQpZXhdsbHkRCkNOF1sTExlcHV1JTFBYS1NPe
+ 3NEQmFeE1JIZxlHeXh+bkhjEQpYXBcZBBoEHx4FGxoaBB0bBBscGgQTGxAbHhofGhEKXlkXTR9
+ cchkRCk1cFx0SEQpMWhdpfGUbGk0RCkVZF2hraxEKTF8XegUFBQUFBQUFBR0RCk1OF2loEQpMR
+ hdjTWsRCkNaFx8eBBgeGgQcGwQbHBwRCkJeFxsRCllFFxkRCkVJFxsRCkVmFxsRCkJcFxsRCkJ
+ LF25aYUZsaF1FRmFPEQpCSRdhRGx+HFhkXERkSxEKQkUXZm0STRNNHW5aeUwRCkJOF2FEbH4cW
+ GRcRGRLEQpCTBdhQ2NmBV9JZV1sYhEKQmwXZWtjXG5QS1leZWsRCkJAF2hNZ35ORX4afGdFEQp
+ CWBdkexttH24eH14bfxEKTV4XGxEKWlgXGxIRCnBnF2ZNfmxDS2thZUxzEBkaEQpwaBdhckR6Q
+ F9SbVBvHRAHHBMRCnBoF2hiZnsTeFJzSXpMEAcbEhEKcGgXYEFSElgbQmZaZEMQBx8fEQpwaBd
+ ieQVwHFkSZxtsExAHHB0RCnBoF2RCbGBpYxhfEkFiEAcdGhEKcGgXbURbaX1BGE0baFwQBxsSE
+ QpwaBdoc04bGGhpaGdBfBAHHx8RCnBoF2VGWRNMQWNeZE19EAcfHhEKcH8XbXNpQH8YEk9sEkk
+ QBxgbHREKcF8XbmBYbxxmTxoSZWcQBxgeEQpwfRdickFHeURLcEtEfxAHGB4RCnB/F2gff2ZAT
+ 2FibnhvEAcSHxEKcF8Xa2keen97BW5vbngQBx0aEQpwfRdoa1NwWWFjQVMaQRAHHBIRCnB/F2N
+ dY3lCWkBwZ396EAcfGxEKcF8XYWsaen1EZH0fc1oQBxwYEQpwfRdpfhhHTnpaZxtycBAaEQpwX
+ xdhXGISaRJIQk1dHRAHHxMRCnB9F20ZbhJ/WBpkfGR+EBoRCnBfF3paYGNQSVBbUH9DEAcZGhE
+ KcH0XaExtZFB+H2VnTWIQBxkaEQpwfRdnTn97R2ZnYEdwaBAHEhoRCnBfF2cFHU5Ae09vbnhpE
+ AcfHBEKcH0Xb1NNHxtvX19bXHMQBxgeEQpwXxdoTXxgZxtyfVtgWxAHHBIRCnB9F2JjfmlLBUJ
+ vYx1jEAcYHhEKcH0Xb0NZa35zTEh9UhMQBxwYEQpwXxdvUEQTaHBMXFxGGBAHHRoRCnB9F2hSG
+ V5BTHlMUB5rEBoRCnB9F2d9b29IZHl4HmYSEAccGREKcH0XZXIZbBh5Z29NeEkQGhEKcH0XZ31
+ vb0hkeXgeZhIQBxwZEQpwZxdtUk1OTntlQmkbRRAHHh0RCnBsF2lHQEMBGm5gEmgBEAcYHhEKb
+ X4XGxEKWE0XSxE=
+X-Proofpoint-GUID: q993v7wcfzrayeQYnhKt9xbM3mSRTDbI
+X-Proofpoint-Spam-Details-Enc: AW1haW4tMjYwMzExMDA5NiBTYWx0ZWRfXz+oBg4GdhSh+
+ 9T7bXqrWc2qUl6opQCwmjyJGJM1ff13FmrALuQ5dX0QNLTJmMstLJCesC16Kbod7O6MjTJH/Fdl
+ tf8i3mHBnmYGflIsSeQFzlvEqJQVVK0XrkLZE3b/I41BIEKuqMpfhlQAVXDHmtjIFPTJIvYAIvN
+ vfGztbzsUioTuGNL75CPRdx8lLtHO8Jsjjl/DOQNld4IIob7SbrEVBZHxUkwKfR3axKoQKTw0X6
+ nYjNwMJ8k7Xw5NZcVKLtBlEOiz60mdRUdNA9ivaHBCRRk1C6CNwqJvX7GR0J9Lj5LPYl0SlwkXJ
+ hUe9JwC0OTKC6G5J9Ro
+X-Proofpoint-ORIG-GUID: q993v7wcfzrayeQYnhKt9xbM3mSRTDbI
+X-JNJ: AAAAAAABEYgpGCGrpCmE4V5L8I2SHoni7COMdFNDyuZ4smBuEHDrWlDNjzCHr5EuwqM5g4ajtYPr/Z9QC6GOJVCHKyzsO1acTFI+G+wFMtI81q507Dvv58g+t8vvH1k6QOGHx+E2v4DYP7Oh+jx68/UiKXD/ColgTbN8EnmiAV8bWCywlLCR/rg08QE6neuCwDM7twCcNB2dUQAGZlvk5Gb2tliESots2VO+OVx4kvSW7WhXTs5VVs0munOpTV+BeiP1uGWNXYcIL2nfTALuMuKjjipZ39BvcUBMuJTf+gW3GsK0vuSne8kMUIH/VnnrxwrY7A0mX7rJNCzYyD2a6982rF3o+KrdmWIxymDD9M28Oep2VZhmhWNAJpLRMSk1Yv1p8qvpw6trkAGtGeUpUTrrZtXgg4ZzMWnhNgjHNaMLTRgW68kr35fQ0SOOYTRMVtNzdsFxsteXUhyg5JNFLrc4F3xi/JFtSomU1MKgNWuTq21Y6bbdG3pwrdp9wYyCTr4qkaCrx3QLrYo6DDg49S7HrsJsH65WL9S73iTgKjBfBBzvGEC934xpVPmt831MBusiqEK6YfY4JwjkVoZbmyCSNYkCiMjRV2wcxNCNYYUhSEo+VgaXYfnNdu5Xbni884+oB0f4/9VHPuPTEOw3H+SjWfBE6eNbtM2UeXIzaxgHvM1nrh8XR73U9V9nVEC1Yuh23MJGXIs6evyyp87Kx3iieQcAvZldHg2RZPY=
+
+----==_mimepart_69b1515af1911_16f1e18543f077928
+Content-Type: multipart/alternative;
+ boundary="--==_mimepart_69b1515aecbc6_16f1e18543f077836"
+
+----==_mimepart_69b1515aecbc6_16f1e18543f077836
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Anthropic, PBC  (https://www.anthropic.com/)
+
+Anthropic, PBC
+
+Receipt from Anthropic, PBC $12.00 Paid March 11, 2026 (invoice illustrat=
+ion [https://stripe-images.s3.amazonaws.com/emails/invoices_invoice_illus=
+tration.png]) Download invoice (https://pay.stripe.com/invoice/acct_1MExQ=
+9BjIQrRQnux/live_YWNjdF8xTUV4UTlCaklRclJRbnV4LF9VODB2Y3ZvTUpmVE1xUFAzNVdE=
+N0E3YTJDNUpVRlVHLDE2Mzc2OTE3Mw0200afp5QKi5/pdf?s=3Dem) Download receipt (=
+https://dashboard.stripe.com/receipts/invoices/CAcQARoXChVhY2N0XzFNRXhROU=
+JqSVFyUlFudXgo1aLFzQYyBshLVJSxozovFl4MMT3DlUdSpyY_Bs7vMtF3GpW9wpskWHMyQhj=
+Q4KOLykRULH9MfvjNhpQA0QI/pdf?s=3Dem) Receipt number 2615-4616-6001 Invoic=
+e number MQGWADIZ-0001 Payment method Link
+
+Receipt #2615-4616-6001 One-time credit purchase Qty 1 $10.00 Subtotal $1=
+0.00 Total excluding tax $10.00 VAT - United Kingdom (20%) $2.00 Total $1=
+2.00 Amount paid $12.00 Questions? Visit our support site (https://suppor=
+t.anthropic.com/).
+
+Powered by    stripe logo (https://stripe.com)=C2=A0=C2=A0|=C2=A0=C2=A0 L=
+earn more about Stripe Invoicing (https://stripe.com/invoicing)=
+
+----==_mimepart_69b1515aecbc6_16f1e18543f077836
+Content-Type: text/html;
+ charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.=
+w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns=3D"http://www.w3.org/1999/xhtml" lang=3D"en" xml:lang=3D"en">
+  <head>
+    <meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8=
+">
+  <title>Your receipt from Anthropic, PBC #2615-4616-6001</title><style>/**
+ * These initial styles are copied from lib/letter/private/email/component/=
+stripe_email_layout/style.css
+**/
+
+html, body, td,
+a, span, div[style*=3D"margin: 16px 0"] {
+  border: 0 !important;
+  margin: 0 !important;
+  outline: 0 !important;
+  text-decoration: none !important;
+}
+
+a, span,
+td, th {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/**
+ * main content
+ **/
+.st-Wrapper {
+  margin: 0 auto;
+  min-width: 480px;
+  width: 480px;
+}
+</style></head>
+  <body class=3D"st-Email" style=3D"border: 0; margin: 0; padding: 0; -webk=
+it-text-size-adjust: 100%; -ms-text-size-adjust: 100%; min-width: 100%; wid=
+th: 100%;" override=3D"fix">
+
+
+    <!-- Background -->
+    <table class=3D"st-Background" bgcolor=3D"#f0f0eb" border=3D"0" cellpad=
+ding=3D"0" cellspacing=3D"0" width=3D"100%" style=3D"border: 0; margin: 0; =
+padding: 0;">
+      <tbody>
+        <tr>
+          <td style=3D"font-size: 16px;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td=
+>
+          <td>
+
+            <!-- Wrapper -->
+            <table
+              class=3D"st-Wrapper"
+              align=3D"center"
+              border=3D"0"
+              cellpadding=3D"0"
+              cellspacing=3D"0"
+              style=3D"width: 480px; min-width: 480px; max-width: 480px;"
+            >
+              <tbody>
+                <tr>
+                  <td>
+                   =20
+
+ =20
+
+  <!-- STRIPE_PREHEADER_START_TAG -->
+<table class=3D"st-Preheader st-Width st-Width--mobile" border=3D"0" cellpa=
+dding=3D"0" cellspacing=3D"0" width=3D"480" style=3D"min-width: 480px;">
+  <tbody>
+    <tr>
+      <td align=3D"center" height=3D"0" style=3D"border: 0; margin: 0; padd=
+ing: 0; color: #ffffff; display: none !important; font-size: 1px; line-heig=
+ht: 1px; max-height: 0; max-width: 0; mso-hide: all !important; opacity: 0;=
+ overflow: hidden; visibility: hidden;">
+        <span class=3D"st-Delink st-Delink--preheader" style=3D"color: #fff=
+fff; text-decoration: none;">
+
+         =20
+      Your receipt from Anthropic, PBC #2615-4616-6001
+ =20
+
+          <!-- Prevents elements showing up in email client preheader text,=
+ fyi https://parcel.io/blog/preheader-spacing -->
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=
+=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=
+=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=
+=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=
+=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=
+=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=
+=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=
+=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F
+          =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =E2=80=87=CD=8F =
+=E2=80=87=CD=8F =E2=80=87=CD=8F
+          =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =
+=C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=
+=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD
+          =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =
+=C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=
+=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD
+          =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =
+=C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=
+=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD
+          =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =
+=C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=
+=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD
+          =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =
+=C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD =C2=AD
+          =C2=A0
+
+        </span>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<!-- STRIPE_PREHEADER_END_TAG -->
+
+
+  <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Width--mobile=
+" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%">
+  <tbody>
+    <tr>
+      <td height=3D"58" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+  <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+    ">
+    <tbody>
+     =20
+        <tr>
+   =20
+          <td valign=3D"middle" height=3D"32" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 32px;
+
+
+
+
+
+
+
+
+    ">
+   =20
+            <a style=3D"border: 0; margin: 0; padding: 0; text-decoration: =
+none; outline: 0; ; " href=3D"https://www.anthropic.com/" target=3D"_self">
+       =20
+              <!--[if mso]>
+  <v:roundrect
+    xmlns:v=3D"urn:schemas-microsoft-com:vml"
+    xmlns:w=3D"urn:schemas-microsoft-com:office:word"
+    style=3D"height:32; width:32;"
+    arcsize=3D"100%"
+    strokecolor=3D"white"
+    fillcolor=3D"white"
+  >
+    <v:fill
+      src=3D"https://files.stripe.com/files/MDB8YWNjdF8xTUV4UTlCaklRclJRbnV=
+4fGZfbGl2ZV9EVDJoSFI3YUNXZ005ZXNHWmkwZkR5YmU0075kiDhdX"
+      type=3D"frame"
+      size=3D"32px,32px"
+    >
+    </v:fill>
+  </v:roundrect>
+  <![endif]-->
+  <!--[if !mso]> <!---->
+  <div style=3D"
+      width: 32px;
+      height: 32px;
+      background-color: white;
+      border-radius: 100%; box-shadow: 0 2px 5px 0 rgb(50 50 93 / 10%), 0 1=
+px 1px 0 rgb(0 0 0 / 7%);
+      ">
+    <div style=3D"
+        border-radius: 100%;
+        width: 32px;
+        height: 32px;
+        text-align: center;
+        background-color: white;
+        background-position: center;
+        background: url('https://files.stripe.com/files/MDB8YWNjdF8xTUV4UTl=
+CaklRclJRbnV4fGZfbGl2ZV9EVDJoSFI3YUNXZ005ZXNHWmkwZkR5YmU0075kiDhdX');
+        background-origin: border-box;
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        line-height: 100%;
+        ">
+    <div>
+  <div>
+   <!-- <![endif]-->
+</div>
+</div>
+</div>
+</div>
+           =20
+      </a>
+
+         =20
+  </td>
+          <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 12px;
+
+    ">
+   =20
+            <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+    ">
+              =C2=A0
+            </span>
+         =20
+  </td>
+          <td valign=3D"middle" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+            <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+                  font-weight: 500;
+                  color: rgb(0, 0, 0);
+                  font-size: 16px;
+               =20
+    ">
+              Anthropic, PBC
+            </span>
+         =20
+  </td>
+       =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+  <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Width--mobile=
+" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%">
+  <tbody>
+    <tr>
+      <td height=3D"32" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+  <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%; width: 482px; border-radius: 12px;  box-shadow: 0 2px =
+5px 0 rgb(50 50 93 / 10%), 0 1px 1px 0 rgb(0 0 0 / 7%);
+
+    ">
+   =20
+       =20
+    <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%; width: 482px; border-radius: 12px; background-color: #=
+e3e8ee; padding: 1px;
+
+    ">
+   =20
+       =20
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%; background-color: #ffffff; border-radius: 12px;
+    ">
+    <tbody>
+     =20
+        <tr>
+   =20
+          <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+
+            <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Wid=
+th--mobile" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%"=
+>
+  <tbody>
+    <tr>
+      <td height=3D"32" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+            <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+              <tr>
+   =20
+
+                  <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+                <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+                 =20
+
+    <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;
+
+    ">
+   =20
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%; padding-bottom: 2px;
+
+    ">
+   =20
+       =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #7A7A7A;
+        font-size: 14px;
+        line-height: 20px;
+
+        font-weight: 500;
+
+   =20
+    ">
+            Receipt from Anthropic, PBC
+         =20
+        </span>
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%; padding-bottom: 2px;
+
+    ">
+   =20
+       =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 36px;
+        line-height: 40px;
+
+        font-weight: 600;
+
+   =20
+    ">
+            $12.00
+         =20
+        </span>
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+         =20
+        <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #7A7A7A;
+        font-size: 14px;
+        line-height: 24px;
+
+        font-weight: 500;
+
+   =20
+    ">
+          Paid March 11, 2026
+        </span>
+
+   =20
+       =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+      <tr>
+   =20
+    <td colspan=3D"1" height=3D"16" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 16px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    <tr>
+   =20
+
+      <td height=3D"1" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 1px;
+
+
+
+
+
+
+
+        font-size: 1px; background-color: #ebebeb; line-height: 1px;
+
+    ">
+   =20
+        =C2=A0
+     =20
+  </td>
+
+   =20
+  </tr>
+
+      <tr>
+   =20
+    <td colspan=3D"1" height=3D"12" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 12px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+     =20
+  </td>
+
+      <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 76px; max-width: 76px;
+
+    ">
+   =20
+        <img src=3D"https://stripe-images.s3.amazonaws.com/emails/invoices_=
+invoice_illustration.png" width=3D"94" height=3D"91" style=3D"border: 0; ma=
+rgin: 0 auto; padding: 0; display: block; border-radius: 8px; margin: 0 aut=
+o;" alt=3D"invoice illustration">
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+    ">
+    <tbody>
+     =20
+          <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+            <a style=3D"border: 0; margin: 0; padding: 0; text-decoration: =
+none; outline: 0; ; " href=3D"https://59.email.stripe.com/CL0/https:%2F%2Fp=
+ay.stripe.com%2Finvoice%2Facct_1MExQ9BjIQrRQnux%2Flive_YWNjdF8xTUV4UTlCaklR=
+clJRbnV4LF9VODB2Y3ZvTUpmVE1xUFAzNVdEN0E3YTJDNUpVRlVHLDE2Mzc2OTE3NA0200VhHDi=
+Ywh%2Fpdf%3Fs=3Dem/1/0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb-e7af7f8beb12-=
+000000/JoGoQtubY6N1I97ddVBWKYv1G-tj3MimO82U1WpqhuM=3D448" target=3D"_self">
+    <img src=3D"https://stripe-images.s3.amazonaws.com/emails/invoices_arro=
+w_down.png" height=3D"12" width=3D"12" style=3D"
+      border: 0;
+      line-height: 100%;
+        margin-right: 4px; position: relative; top: 1px;
+    ">
+    <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #7A7A7A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+   =20
+    ">
+      Download invoice
+    </span>
+  </a>
+         =20
+  </td>
+          <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 16px; width: 16px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+          <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+            <a style=3D"border: 0; margin: 0; padding: 0; text-decoration: =
+none; outline: 0; ; " href=3D"https://59.email.stripe.com/CL0/https:%2F%2Fd=
+ashboard.stripe.com%2Freceipts%2Finvoices%2FCAcQARoXChVhY2N0XzFNRXhROUJqSVF=
+yUlFudXgo1qLFzQYyBqB06CLRPzovFp1NF1W-kuoZvTk-oGfedAm-Swp_nrXBBivMbyn_urGkqA=
+v-PjnfPKtxa0FN-Lw%2Fpdf%3Fs=3Dem/1/0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb=
+-e7af7f8beb12-000000/WyHt2oBL6SO1OBbn05XErVyp4vhj43hEnLiPr4-Nb3A=3D448" tar=
+get=3D"_self">
+    <img src=3D"https://stripe-images.s3.amazonaws.com/emails/invoices_arro=
+w_down.png" height=3D"12" width=3D"12" style=3D"
+      border: 0;
+      line-height: 100%;
+        margin-right: 4px; position: relative; top: 1px;
+    ">
+    <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #7A7A7A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+   =20
+    ">
+      Download receipt
+    </span>
+  </a>
+         =20
+  </td>
+     =20
+    </tbody>
+  </table>
+
+    <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Width--mobi=
+le" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%">
+  <tbody>
+    <tr>
+      <td height=3D"32" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+    <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%
+    ">
+    <tbody>
+     =20
+        <tr>
+   =20
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+        vertical-align: top;
+
+
+
+
+
+
+        white-space: nowrap;
+
+    ">
+   =20
+      <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #7A7A7A;
+        font-size: 14px;
+        line-height: 16px;
+
+
+   =20
+    ">
+        Receipt number
+      </span>
+   =20
+  </td>
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 24px;
+
+    ">
+    =C2=A0
+  </td>
+    <td align=3D"right" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+      <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+
+   =20
+    ">
+          2615-4616-6001
+        </span>
+   =20
+  </td>
+ =20
+  </tr>
+
+    <tr>
+   =20
+    <td colspan=3D"2" height=3D"8" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 8px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+      <tr>
+   =20
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+        vertical-align: top;
+
+
+
+
+
+
+        white-space: nowrap;
+
+    ">
+   =20
+      <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #7A7A7A;
+        font-size: 14px;
+        line-height: 16px;
+
+
+   =20
+    ">
+        Invoice number
+      </span>
+   =20
+  </td>
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 24px;
+
+    ">
+    =C2=A0
+  </td>
+    <td align=3D"right" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+      <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+
+   =20
+    ">
+        MQGWADIZ-0001
+      </span>
+   =20
+  </td>
+ =20
+  </tr>
+
+    <tr>
+   =20
+    <td colspan=3D"2" height=3D"8" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 8px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+        <tr>
+   =20
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+        vertical-align: top;
+
+
+
+
+
+
+        white-space: nowrap;
+
+    ">
+   =20
+      <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #7A7A7A;
+        font-size: 14px;
+        line-height: 16px;
+
+
+   =20
+    ">
+        Payment method
+      </span>
+   =20
+  </td>
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 24px;
+
+    ">
+    =C2=A0
+  </td>
+    <td align=3D"right" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+      <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+
+   =20
+    ">
+          <span>
+      <img alt=3D"Link" height=3D"16" src=3D"https://stripe-images.stripecd=
+n.com/emails/receipt_assets/card/link-dark@2x.png" style=3D"border: 0; marg=
+in: 0; padding: 0; vertical-align: text-bottom;" width=3D"22">
+    </span>
+  <span>
+    Link
+  </span>
+        </span>
+   =20
+  </td>
+ =20
+  </tr>
+   =20
+    </tbody>
+  </table>
+
+
+ =20
+               =20
+  </td>
+
+
+                  <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+             =20
+  </tr>
+           =20
+    </tbody>
+  </table>
+
+
+            <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Wid=
+th--mobile" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%"=
+>
+  <tbody>
+    <tr>
+      <td height=3D"24" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+         =20
+  </td>
+       =20
+  </tr>
+     =20
+    </tbody>
+  </table>
+   =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+ =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+  <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Width--mobile=
+" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%">
+  <tbody>
+    <tr>
+      <td height=3D"20" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+  <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%; width: 482px; border-radius: 12px;  box-shadow: 0 2px =
+5px 0 rgb(50 50 93 / 10%), 0 1px 1px 0 rgb(0 0 0 / 7%);
+
+    ">
+   =20
+       =20
+    <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%; width: 482px; border-radius: 12px; background-color: #=
+e3e8ee; padding: 1px;
+
+    ">
+   =20
+       =20
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%; background-color: #ffffff; border-radius: 12px;
+    ">
+    <tbody>
+     =20
+        <tr>
+   =20
+          <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+
+            <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Wid=
+th--mobile" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%"=
+>
+  <tbody>
+    <tr>
+      <td height=3D"32" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+            <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+              <tr>
+   =20
+
+
+                <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+
+    ">
+   =20
+                 =20
+
+    <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+      <tr>
+   =20
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+        <td nowrap style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;
+
+    ">
+   =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 16px;
+        line-height: 20px;
+
+        font-weight: 500;
+
+        white-space: nowrap;
+   =20
+    ">
+            Receipt #2615-4616-6001
+          </span>
+       =20
+  </td>
+     =20
+  </tr>
+   =20
+    </tbody>
+  </table>
+
+    <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Width--mobi=
+le" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%">
+  <tbody>
+    <tr>
+      <td height=3D"26" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+
+
+
+
+          <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+  <tr>
+   =20
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+        padding-left: 0px;
+
+
+
+
+    ">
+   =20
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+        <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        word-break: break-word;
+   =20
+    ">
+         =20
+    One-time credit purchase
+ =20
+        </span>
+     =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+        <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Width--=
+mobile" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%">
+  <tbody>
+    <tr>
+      <td height=3D"3" style=3D"border: 0; margin: 0; padding: 0; font-size=
+: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #999999;
+        font-size: 12px;
+        line-height: 14px;
+
+
+   =20
+    ">
+            Qty 1
+          </span>
+       =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 16px; width: 16px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td align=3D"right" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        text-align: right; vertical-align: top;
+
+    ">
+   =20
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"right" nowrap style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        white-space: nowrap;
+   =20
+    ">
+              $10.00
+          </span>
+       =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+ =20
+  </tr>
+
+  <tr>
+   =20
+    <td colspan=3D"5" height=3D"24" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 24px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    </tbody>
+  </table>
+
+
+
+
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+  <tr>
+   =20
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+        padding-left: 0px;
+
+
+
+
+    ">
+   =20
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+        <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        word-break: break-word;
+   =20
+    ">
+         =20
+        Subtotal
+     =20
+        </span>
+     =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 16px; width: 16px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td align=3D"right" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        text-align: right; vertical-align: top;
+
+    ">
+   =20
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"right" nowrap style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        white-space: nowrap;
+   =20
+    ">
+              $10.00
+          </span>
+       =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+ =20
+  </tr>
+
+  <tr>
+   =20
+    <td colspan=3D"5" height=3D"0" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 0px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    </tbody>
+  </table>
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+      <tr>
+   =20
+    <td colspan=3D"3" height=3D"16" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 16px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    <tr>
+   =20
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+      <td height=3D"1" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 1px;
+
+
+
+
+
+
+
+        font-size: 1px; background-color: #ebebeb; line-height: 1px;
+
+    ">
+   =20
+        =C2=A0
+     =20
+  </td>
+
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+   =20
+  </tr>
+
+      <tr>
+   =20
+    <td colspan=3D"3" height=3D"16" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 16px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+  <tr>
+   =20
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+        padding-left: 0px;
+
+
+
+
+    ">
+   =20
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+        <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        word-break: break-word;
+   =20
+    ">
+         =20
+        Total excluding tax
+     =20
+        </span>
+     =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 16px; width: 16px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td align=3D"right" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        text-align: right; vertical-align: top;
+
+    ">
+   =20
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"right" nowrap style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        white-space: nowrap;
+   =20
+    ">
+              $10.00
+          </span>
+       =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+ =20
+  </tr>
+
+  <tr>
+   =20
+    <td colspan=3D"5" height=3D"30" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 30px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    </tbody>
+  </table>
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+  <tr>
+   =20
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+        padding-left: 0px;
+
+
+
+
+    ">
+   =20
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+        <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #999999;
+        font-size: 14px;
+        line-height: 16px;
+
+
+        word-break: break-word;
+   =20
+    ">
+         =20
+          VAT - United Kingdom (20%)
+ =20
+        </span>
+     =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 16px; width: 16px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td align=3D"right" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        text-align: right; vertical-align: top;
+
+    ">
+   =20
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"right" nowrap style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #999999;
+        font-size: 14px;
+        line-height: 16px;
+
+
+        white-space: nowrap;
+   =20
+    ">
+              $2.00
+          </span>
+       =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+ =20
+  </tr>
+
+  <tr>
+   =20
+    <td colspan=3D"5" height=3D"0" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 0px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    </tbody>
+  </table>
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+      <tr>
+   =20
+    <td colspan=3D"3" height=3D"16" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 16px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    <tr>
+   =20
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+      <td height=3D"1" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 1px;
+
+
+
+
+
+
+
+        font-size: 1px; background-color: #ebebeb; line-height: 1px;
+
+    ">
+   =20
+        =C2=A0
+     =20
+  </td>
+
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+   =20
+  </tr>
+
+      <tr>
+   =20
+    <td colspan=3D"3" height=3D"16" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 16px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+  <tr>
+   =20
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+        padding-left: 0px;
+
+
+
+
+    ">
+   =20
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+        <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        word-break: break-word;
+   =20
+    ">
+         =20
+      Total
+     =20
+        </span>
+     =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 16px; width: 16px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td align=3D"right" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        text-align: right; vertical-align: top;
+
+    ">
+   =20
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"right" nowrap style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        white-space: nowrap;
+   =20
+    ">
+              $12.00
+          </span>
+       =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+ =20
+  </tr>
+
+  <tr>
+   =20
+    <td colspan=3D"5" height=3D"0" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 0px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    </tbody>
+  </table>
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+      <tr>
+   =20
+    <td colspan=3D"3" height=3D"16" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 16px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    <tr>
+   =20
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+      <td height=3D"1" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 1px;
+
+
+
+
+
+
+
+        font-size: 1px; background-color: #ebebeb; line-height: 1px;
+
+    ">
+   =20
+        =C2=A0
+     =20
+  </td>
+
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+   =20
+  </tr>
+
+      <tr>
+   =20
+    <td colspan=3D"3" height=3D"16" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 16px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+     =20
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+  <tr>
+   =20
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+        padding-left: 0px;
+
+
+
+
+    ">
+   =20
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+        <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        word-break: break-word;
+   =20
+    ">
+         =20
+          Amount paid
+       =20
+        </span>
+     =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 16px; width: 16px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+    <td align=3D"right" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        text-align: right; vertical-align: top;
+
+    ">
+   =20
+
+        <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td align=3D"right" nowrap style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%;=20
+
+    ">
+   =20
+       =20
+          <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+       =20
+        color: #1A1A1A;
+        font-size: 14px;
+        line-height: 16px;
+
+        font-weight: 500;
+
+        white-space: nowrap;
+   =20
+    ">
+              $12.00
+          </span>
+       =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+   =20
+  </td>
+
+    <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+ =20
+  </tr>
+
+  <tr>
+   =20
+    <td colspan=3D"5" height=3D"0" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 0px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    </tbody>
+  </table>
+
+       =20
+
+
+
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+      <tr>
+   =20
+    <td colspan=3D"3" height=3D"16" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 16px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+
+    <tr>
+   =20
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+      <td height=3D"1" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 1px;
+
+
+
+
+
+
+
+        font-size: 1px; background-color: #ebebeb; line-height: 1px;
+
+    ">
+   =20
+        =C2=A0
+     =20
+  </td>
+
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+   =20
+  </tr>
+
+      <tr>
+   =20
+    <td colspan=3D"3" height=3D"20" style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+        height: 20px;
+
+
+        font-size: 1px;
+
+        line-height: 1px;
+
+          mso-line-height-rule: exactly;
+
+
+
+
+
+
+    ">
+   =20
+      =C2=A0
+   =20
+  </td>
+ =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+      <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+
+      <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+       =20
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Robot=
+o, 'Helvetica Neue', Ubuntu, sans-serif;
+          font-size: 14px;
+          line-height: 16px;
+          color: #999999;
+       =20
+
+    ">
+   =20
+
+          Questions? Visit our <a style=3D"border: 0; margin: 0; padding: 0=
+; color: #625afa !important; font-weight: bold; text-decoration: none; whit=
+e-space: nowrap; " href=3D"https://support.anthropic.com/">support site</a>=
+.
+     =20
+  </td>
+
+        <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        min-width: 32px; width: 32px; font-size: 1px;
+
+    ">
+   =20
+    =C2=A0
+ =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+ =20
+               =20
+  </td>
+
+
+             =20
+  </tr>
+           =20
+    </tbody>
+  </table>
+
+
+            <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Wid=
+th--mobile" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%"=
+>
+  <tbody>
+    <tr>
+      <td height=3D"24" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+         =20
+  </td>
+       =20
+  </tr>
+     =20
+    </tbody>
+  </table>
+   =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+ =20
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+
+  <table class=3D"st-Spacer st-Spacer--standalone st-Width st-Width--mobile=
+" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%">
+  <tbody>
+    <tr>
+      <td height=3D"32" style=3D"border: 0; margin: 0; padding: 0; font-siz=
+e: 1px; line-height: 1px; max-height: 1px; mso-line-height-rule: exactly;">
+        <div class=3D"st-Spacer st-Spacer--filler">=C2=A0</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+  <table cellpadding=3D"0" cellspacing=3D"0" style=3D"
+
+        width: 100%;
+    ">
+    <tbody>
+     =20
+    <tr>
+   =20
+      <td style=3D"
+      border: 0;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0;
+
+
+
+
+
+
+
+
+        width: 100%; text-align: center; color: rgb(0, 0, 0); opacity: 0.5;
+
+    ">
+   =20
+        <span style=3D"
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '=
+Helvetica Neue', Ubuntu, sans-serif;
+      text-decoration: none;
+        font-size: 12px; line-height: 20px;
+    ">
+            <p style=3D"border: 0; margin: 0; padding: 0; font-family: -app=
+le-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica', sans-serif;">Power=
+ed by=20
+                  <a style=3D"border: 0; margin: 0; padding: 0; text-decora=
+tion: none; outline: 0; ; " href=3D"https://59.email.stripe.com/CL0/https:%=
+2F%2Fstripe.com/1/0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb-e7af7f8beb12-000=
+000/aTCWzSkflNbG-HzzOf-cj06CygaINhJ42kVyWDfcIXA=3D448" target=3D"_self">
+                    <img src=3D"https://stripe-images.s3.amazonaws.com/emai=
+ls/invoices_stripe_logo_dark.png" height=3D"24" width=3D"51" align=3D"middl=
+e" style=3D"
+      border: 0;
+      line-height: 100%;
+        vertical-align: middle;
+    " alt=3D"stripe logo"></a>=C2=A0=C2=A0|=C2=A0=C2=A0 <a style=3D"border:=
+ 0; margin: 0; padding: 0; text-decoration: none; outline: 0; color: rgb(0,=
+ 0, 0);; " href=3D"https://59.email.stripe.com/CL0/https:%2F%2Fstripe.com%2=
+Finvoicing/1/0101019cdca5cd9b-2bee4e31-2d45-4e4e-98bb-e7af7f8beb12-000000/8=
+sxKqUhXNrsP-LwHDM53BgXCTl72-4JHTiddqQxZ2n4=3D448" target=3D"_self">Learn mo=
+re about Stripe Invoicing</a></p>
+        </span>
+     =20
+  </td>
+   =20
+  </tr>
+ =20
+    </tbody>
+  </table>
+
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+
+          </td>
+          <td style=3D"font-size: 16px;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td=
+>
+        </tr>
+        <tr>
+          <td class=3D"st-Spacer st-Spacer--emailEnd" height=3D"64" colspan=
+=3D"3" style=3D"border: 0; margin: 0; padding: 0; font-size: 1px; line-heig=
+ht: 1px; mso-line-height-rule: exactly;">
+            <div class=3D"st-Spacer st-Spacer--filler">&nbsp;</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <!-- /Background -->
+
+</body></html>
+----==_mimepart_69b1515aecbc6_16f1e18543f077836--
+
+----==_mimepart_69b1515af1911_16f1e18543f077928
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename=Invoice-MQGWADIZ-0001.pdf
+
+JVBERi0xLjQKJfbk/N8KMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFn
+ZXMgMiAwIFIKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL0NyZWF0b3IgKCkKL1By
+b2R1Y2VyICgpCi9DcmVhdGlvbkRhdGUgKEQ6MjAyNjAzMTExMTI2MTYrMDAn
+MDAnKQovTW9kRGF0ZSAoRDoyMDI2MDMxMTExMjYxNiswMCcwMCcpCj4+CmVu
+ZG9iagoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovQ291bnQgMQovS2lkcyBb
+NCAwIFJdCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9UeXBlIC9QYWdlCi9SZXNv
+dXJjZXMgPDwKL1Byb2NTZXQgWy9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VD
+IC9JbWFnZUldCi9FeHRHU3RhdGUgPDwKL0czIDUgMCBSCj4+Ci9YT2JqZWN0
+IDw8Ci9YNyA2IDAgUgo+PgovRm9udCA8PAovRjQgNyAwIFIKL0Y1IDggMCBS
+Ci9GNiA5IDAgUgo+Pgo+PgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovQW5u
+b3RzIFsxMCAwIFJdCi9Db250ZW50cyAxMSAwIFIKL1N0cnVjdFBhcmVudHMg
+MAovUGFyZW50IDIgMCBSCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9jYSAxCi9C
+TSAvTm9ybWFsCj4+CmVuZG9iago2IDAgb2JqCjw8Ci9MZW5ndGggNTk0NAov
+VHlwZSAvWE9iamVjdAovU3VidHlwZSAvSW1hZ2UKL1dpZHRoIDU4MAovSGVp
+Z2h0IDU4MAovQ29sb3JTcGFjZSAvRGV2aWNlUkdCCi9TTWFzayAxMiAwIFIK
+L0JpdHNQZXJDb21wb25lbnQgOAovRmlsdGVyIC9GbGF0ZURlY29kZQo+Pgpz
+dHJlYW0NCnic7d0NVtvKtoVR2nEIUf97+TysSx4JgRj8o71WzTl2AxLLyKXS
+Z/npCQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+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
+dTgmW6H6iLtNwFHqHzUcd+N4gQLEZ9ltFC973rxbkv54OdBL+49NK0BGzb7r
+m3U4Zlqh+rDy4Uu6/yI2Bcik8b3XW3GzG/7gj2Ka7gJEmXYTlqDwB5sVAxXf
+Ctn3tLMOx0Dt1UferQEmKD5z7hP4WfZy/pZo50GJOxwD7W+PynfI638taS+F
+IbrPnPt/Le7k2XqyCj0cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAEf5P8MPCz0NCmVuZHN0cmVhbQplbmRvYmoKNyAwIG9iago8PAovVHlw
+ZSAvRm9udAovU3VidHlwZSAvVHlwZTAKL0Jhc2VGb250IC9JbnRlci1SZWd1
+bGFyCi9FbmNvZGluZyAvSWRlbnRpdHktSAovRGVzY2VuZGFudEZvbnRzIFsx
+MyAwIFJdCi9Ub1VuaWNvZGUgMTQgMCBSCj4+CmVuZG9iago4IDAgb2JqCjw8
+Ci9UeXBlIC9Gb250Ci9TdWJ0eXBlIC9UeXBlMAovQmFzZUZvbnQgL0ludGVy
+LVNlbWlCb2xkCi9FbmNvZGluZyAvSWRlbnRpdHktSAovRGVzY2VuZGFudEZv
+bnRzIFsxNSAwIFJdCi9Ub1VuaWNvZGUgMTYgMCBSCj4+CmVuZG9iago5IDAg
+b2JqCjw8Ci9UeXBlIC9Gb250Ci9TdWJ0eXBlIC9UeXBlMAovQmFzZUZvbnQg
+L0ludGVyLU1lZGl1bQovRW5jb2RpbmcgL0lkZW50aXR5LUgKL0Rlc2NlbmRh
+bnRGb250cyBbMTcgMCBSXQovVG9Vbmljb2RlIDE4IDAgUgo+PgplbmRvYmoK
+MTAgMCBvYmoKPDwKL1R5cGUgL0Fubm90Ci9TdWJ0eXBlIC9MaW5rCi9GIDQK
+L0JvcmRlciBbMCAwIDBdCi9SZWN0IFszMCA1MTMuNzUgNzQuMjUgNTI1XQov
+QSA8PAovVHlwZSAvQWN0aW9uCi9TIC9VUkkKL1VSSSAoaHR0cHM6Ly9pbnZv
+aWNlLnN0cmlwZS5jb20vaS9hY2N0XzFNRXhROUJqSVFyUlFudXgvbGl2ZV9Z
+V05qZEY4eFRVVjRVVGxDYWtsUmNsSlJiblY0TEY5Vk9EQjJZM1p2VFVwbVZF
+MXhVRkF6TlZkRU4wRTNZVEpETlVwVlJsVkhMREUyTXpjMk9URTNOUTAyMDBH
+dUw3ZHNSUz9zPXBkKQo+Pgo+PgplbmRvYmoKMTEgMCBvYmoKPDwKL0xlbmd0
+aCAzNDM4Ci9GaWx0ZXIgL0ZsYXRlRGVjb2RlCj4+CnN0cmVhbQ0KeJztHNuO
+3bbxfb/iPBeozOFwOCRgBNhd7+apD20XaF+DNBcUTtqkKdDP71ASRYrUHEnH
+69xgH9jeJQ/Jud840mAxjn8uRj5/HKpfOdrLl9/d/XCXZiwRXBANXH786u5v
+f7h8L+NuAJ/+0Lh2/ZsshEv6/OXzy/TDj9/cvfkcL9/8Z9wvgL+AIZ+2+/pu
+iA7sJf9rZU6W9YOyRVrrZcBNC814mHx5+kG+8PBy9+bZXeQrL18LCCNW6T/A
+y8t3d2+Nj/azy8s/755e7v4snx/uwLphRNle0NiYsKCLRSM4sxkCoqXjOM8Y
+zkDwQCsoyOFAHAQUJjeBA+xHcNzA3gJQ2unlHxeZeA7zhLXRoeAzT9hwP08Q
+G3S4jHs3j6PniLQs8BEyxhpcHgdvIoYCF5nn3UU8mDUy+SQ7gOwWzQIbGp5h
+c+wcV7jQvIANxYh8AmYOg/OBaRPmibXC9cJckWBhabRhgBVHcfw97Zp/qhYd
+EeME9iiMWZ7oApzEJ8kQGT+cOm7e3MlSyxf04QLT7s6EcSjCMiJqmkaA8wgJ
+OGlEVucRmkd8HvHGNt/xbhpJgM8jnpvvsJlGfMwjk0rW/4462w4KvUbIGTpk
+ommHRAi7IRu6IbciTEX2itujAtsbqT/KnFgBtxI5oYadRc08ToLrB4reixou
+Ev08STqIaSCB3SwKjfeTfgIOyBaida12yBqhSXRlxt7zfIxIr+jEspl1Pm8W
+iGPw1JqBrDnUmkLBwjdY4GBjsMChxSJpuLgB71sk/OADhVhWZBxYthI5saFF
+IdGb2UNoUfAiJyEY22HAA4AtNqQYFznWW9uRnAcET+xggSngAlOkYiifzUQ7
+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
++YWIC0EK7zhEqs3Twjv2kZ3rOuKFE8QikdDyDgdwjsURtiw6/p6pHMH3b/Mo
+3k4ISsXblSi+wSOXBl/3LYVNZbJ9+yVj7FKRrfe8pL9onB8valIr+uGX/FUv
+RWT0dVv8/wH6cdkODQplbmRzdHJlYW0KZW5kb2JqCjEyIDAgb2JqCjw8Ci9M
+ZW5ndGggMzA4MAovVHlwZSAvWE9iamVjdAovU3VidHlwZSAvSW1hZ2UKL1dp
+ZHRoIDU4MAovSGVpZ2h0IDU4MAovQ29sb3JTcGFjZSAvRGV2aWNlR3JheQov
+Qml0c1BlckNvbXBvbmVudCA4Ci9GaWx0ZXIgL0ZsYXRlRGVjb2RlCj4+CnN0
+cmVhbQ0KeJzt3Y152zYbhlEPkXm6QsfoJN8cmSSLZImO0O96Y6dJ459IwgPy
+JXDOADZFGsAtUJSfngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYF+f/8n5Y+A4
+Pv0dOohPsVPDbT6Frtw3/xs5kv91OAge8Ffoyn3z98gc8EfqIGLnhtt8DV25
+Z3+OHMqX0EGMrKjcLzX4X3wZOZbUlDh0ENwtWdRFVW8nWtRlKGhTi5mqPlK0
+qIuq3k62qMtQVacOR1UfJ1zUZShoU1tEqvo46aIuqnor8aIuqnor8aIuQ0Gr
+qq8mX9RlKGhV9bVMKOqiqjcyo6jLSNCq6kuZUtRFVW9jSlEXVb2NOUVdVPUm
+JhV1UdWbmFXURVVvYVpRF1W9hWlFXVT1FuYVdRkK2tRipqrnmljURVVvYGZR
+l6Gq7nAQ/M7Uoi6qenlTi7q0qOqvqdPFG+YWdVHVi5tc1EVVL252UZcOVT30
+pBIfmV7URVUvbXpRF1W9tPlFXVT1wg4o6qKqF3ZEURdVvaxDirqo6mUdUtRF
+VS/rmKIuqnpRBxV1UdWLOqqoi6pe0mFFXVT1kg4r6qKql3RcURdVvaADi7q0
+qGqLWdaRRV1U9XJiD5HeqkVV/5U6fTwdXNSlRVXbIko6tqiLql7MwUVdVPVi
+ji7qoqqXcnhRF1W9lMOLuqjqpRxf1EVVL+SEoi6qeiFnFHVR1cs4paiLql7G
+KUVdVPUyzinqoqoXcVJRF1W9iLOKuqjqNZy3lKnqRZxW1EVVLyE1mh+jqhdw
+6CNBr6nqBZxZ1EVVX9+ZRV1U9eWdWtRl6EFBVd3BuUVdVPXFnVzURVVf3NlF
+/c9g0Krq851d1EVVX9rpRV1U9aWdX9RFVV9Yg6IuqvrCGhR1UdUX1qGoi6q+
+rBZFXYaq+s/QQajqR/Qo6jIStLGnUlT1/ZoUdVHVF9WkqMtQ0Ka2iFT1/boU
+dVHVl9SmqIuqvqTQ6A0Vraq+oFBRfw1NAkOLmao+R6io/wpNAqr6gkJF/Sk1
+CQwFrao+Q6ioP8cmgaGgVdVnCI3cP7I/6lGq+gSpoq6fFZrSVPXFhIr62ylX
+1XuKFXVR1TsKLT8vCaqqdxQatd8HbWhWU9UXkizqElrMVPWFhIr68/efF/qb
+VNUXEi3qEl4bH5Kq6j+HT+8OskVdOlR16rMsqvoWE2YNnwDZy4x6UdV7SRd1
+UdV7mbKbo6p3EmrPr1N+qqq+hDkzRqpoVfUFpJ5M/DUaVPU+ZhR1CRWtqr6A
+UFG/7k5VvYs5RR38yaq6vdBIfaMYVPUmZhV1mffneTtVPV+oqN+c61X1HkJF
+/Xb4hhYSVd1a6FPH73xLR2ghUdWthUbpq82hZ6nYalHVFrO3zb7Iqnp9ofP7
+7hdOLVXVA8ewsqlFXVaqaltEb0k9x/f+NKGqVze3qEtqIVHVTR3xtklVr212
+UZfQQqKqm5pe1E+5hURVtzS/qIuqXllodP7mxKrqhaWK+nc3I1X1uo4o6qKq
+1xUq6g82h56p6mUdU9TlmO76mKqe4bgrq6oXlSrqW1aY0PVT1c3MeyTotdD1
+U9XNHFXU5cg5712qOu3YRlHVKwo9EnTjf8xU1Qs6enVR1etJTey3jklVvZ4j
+i7qkrp+qbuP4PlHVqzm2qEvq+qnqJk7Yr0ldP1XdxNFFXVT1WkJFfVcXpK7f
+0NdvqOqUc94kqeqVHF/UJRUjqrqBVFHfvDmU/bWquoEzirqEFjNV3cAZRV1a
+VHXoxW9e1efddgjFyFDQphazvas6VNQPLCmqehEnFXXyVw8FbWqLaOeqPvPG
+lapeQygq79wcepZ6pE1Vn+rUD/KkYkRVnypU1A8mZer6jSxmqnrQiUVdUrOg
+qj7R2R8FS1X1yDlQ1WPOLOpy9t9w8iRsWtWnryWq+vLOLeqiqi8uVdQDA/D0
+mbCo6selamTkKa9QjKjqk5xd1KXDjVdV/bDU8Htwc+hZg/VUVT/u/KIuqRgZ
+qurQMWxX1S1mAFV9aR2KuoTeWbeo6qE0vKDUO6LR+btFVae2iPaq6hZFXVqs
+qar6EamiHh95K1X18Kx8JamTFiiA1McZVfXBuhT1U+5+lao+WGprNjF3q+pL
+alPUyYNR1YdKFfXQIxX/UtUX1KioSyrOVPWBWly0H1T1BXUq6tJis0pV36NF
+xLY7IFV9j9SwD2wOvegwMarqOzQr6tLiS+1U9e1SRR3ZHHoWmwNGDkJV367D
+wvGrFl8Vrapv1XK4qepL6VfUpcODgqr6Rk0f61yqqrPDq5+GRV1aPCjYYkW9
+gK4P5Knqy2hZ1KXFP2BpsaK217Oon5p0mqq+QYsr9bYWc4Cq/r0WK8bbVPVF
+pIo68wHG/1LVl9C2qEuLObLFitpaqqjDm0PPWrSaqv6NFlfpfS0+fKGqP9Zi
+tXifqr6AVFHPGmMtgrbFQbTVuqhLiw9fqOqPtC7q0uJL7VT1B2JF/eXzLKkj
+VNWTpIr6AlT1JKnxdQWqeopYbFyBqp4iVdTXoKpnSG0OXYOqnmCjoi6qeoKd
+irqo6ritirqo6ri9ivqfwaBV1W/Zq6iLqg7brKjL0J1hVf3abkVdVHXUdkVd
+VHXUdkVdVHXUfkVdVHXQhkVdVHXQjkVdRoI29om9Nap6y6Iuqjpmy6IuQ0Eb
+e1Jpiares6iLqg7ZtKjLUFWn/knoClW9a1EXVR2xbVEXVR2xbVEXVR2xb1GX
+oaBV1c82LuoytJip6mc7F3VR1cO2LuoyFLSqumxd1EVVD9u7qIuqHrR5URdV
+PWj3oi6qesj2RV1U9ZDti7qo6iGKuqjqAYr6m6Ggbf6d3tMp6meq+mGK+oWq
+fpiifqGqH6aov2tR1TP+59tsivpfqvpBivoHVf0QRf0TVf0QRf0TVf0QRf0z
+Vf0ARf0fqvoBivq/VPXdFPUvVPXdFPUvVPXdFPWvVPWdFPUrqvpOivo1VX0X
+Rf0GVX2X1Cteiqq+i6J+S4uqvspilnqybjGq+g6K+m0tqvoai5mifoeqvpmi
+fkePqo5d55kU9XtU9Y1iRf31SxepFlHVN4oVdZ/6i70kVX2TWFE3Gi+pFlHV
+t4kVdadvGUhNAar6JqmiHvpfF2k9BsYuVR0r6s9nv5Kf9Vigd6nqFvmZ1+Jl
+bVLVsQHbailT1UfqEQ4TqOrDxPaou023PQbHDlUdm/JbFXWJvTJV/RuxR4L6
+DRRVfYxVi7rEHlVR1R+KneduRf0UnAJU9YeWLeqiqo/Qoztn6fHqVq/qWFH3
+fKRXVc+3clEXVT1f7By32xx6pqrnW7qoS2wxG1qrV67qHs05U49XuHJVx4q6
+4ebQi9RipqrftnpRl9gWkap+0+pFXWLjRFW/KVbUHVvvO1U9U6w3Gy9lqnqu
+DYr6Kdizqvq13Hd99Hpdv+pR1anFrFdV71DUJbaYqepXtijq0qOqU6e709ne
+o6hLbMIdCtrUktqpqvco6qKqJ9mlqIuqnqPHBH+MXFV3OIo+VR0r6vZL2VOX
+tw+rVfU+RV1ii5mq/kmsqJtvDj3rEX+LVXWPk3qc2BaRqv7XTkVdVHXeVkVd
+WmwRLVXVPW4hHUlVp+1V1KVHAC5U1bkT2mFSvY2qzooV9SU2h57FvvxWVX+z
+XVE/dbnxGmv7sxeAWFE3WJZvp6qT9ivq0mPkpFL05DfEOxZ1UdU5OxZ1ib3u
+FlV97smPFfX5bzDvoqpjenTBGVR1Sqyoz35rcLceo2eBqs4V9YU2h170WMWv
+X9W7FnWJLWabV3VsLF5qc+hZk12Nq1d1jyY4S2yLaOuq3reoS48RdPGq3rmo
+S2yLaOOqzu3VXnEpU9UJOxd1UdXDcj1wrdutP6jqUbGivuDm0LPYYr5rVefu
+Ol6zqJ+Sp2DTqu4xCM+1VlUfv5jtXtSlSRJetaqbnL6TrVXVRy9mirr0WNAv
+WtVNcvJsTU5Dajo89t1NjwF4vth0vGFVx4r6krdbf2iShVetagAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAoI//A1UYyrMNCmVuZHN0cmVhbQplbmRvYmoK
+MTMgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0ZvbnREZXNjcmlwdG9yIDE5IDAg
+UgovQmFzZUZvbnQgL0ludGVyLVJlZ3VsYXIKL1N1YnR5cGUgL0NJREZvbnRU
+eXBlMgovQ0lEVG9HSURNYXAgL0lkZW50aXR5Ci9DSURTeXN0ZW1JbmZvIDw8
+Ci9SZWdpc3RyeSAoQWRvYmUpCi9PcmRlcmluZyAoSWRlbnRpdHkpCi9TdXBw
+bGVtZW50IDAKPj4KL1cgWzAgWzk5NC4zMTgxOCAwIDY3Ni4xMzYzNV0KIDY1
+IFs2NTAuNTY4MThdCiA3MyBbNzI3LjI3MjcxXQogODQgWzcxOC43NV0KIDk1
+IFs1OTguMDExMzVdCjEzNyBbNTg2LjY0NzcxXQogMTYxIFs3NDAuMDU2ODJd
+CiAxOTcgWzI2NC4yMDQ1Nl0KIDI3MCBbNjUxLjk4ODY1XQogMjkxIFs4ODku
+MjA0NTNdCjI5OSBbNzUyLjg0MDg4XQogMzIwIFs3NjEuMzYzNjVdCiAzNzQg
+WzYzNC45NDMxOF0KIDM4MSBbNzYxLjM2MzY1IDYzOS4yMDQ1M10KIDM5NSBb
+NjM3Ljc4NDEyXQo0MDkgWzY0Mi4wNDU0N10KIDQyMSBbNzQxLjQ3NzI5XQog
+NDUzIFs2NzYuMTM2MzUgMCAwIDk0OC44NjM2NV0KIDQ2OSBbNjY0Ljc3Mjcx
+XQogNTA0IFs1NjMuOTIwNDddCjU3NSBbNjIwLjczODY1XQogNTgyIFs1NTgu
+MjM4NjVdCiA1OTQgWzYyMC43Mzg2NV0KIDYxMiBbNTgyLjM4NjM1XQogNjQ1
+IFszNjAuNzk1NDRdCjY1MCBbNjA5LjM3NV0KIDY2MCBbNTkwLjkwOTEyXQog
+Njc5IFsyMzcuMjE1OTFdCiA3MTUgWzU0NC4wMzQxMl0KIDcyMyBbMjM3LjIx
+NTkxXQo3NTIgWzg2OS4zMTgxOF0KIDc1OSBbNTg1LjIyNzI5XQogNzc1IFs1
+OTYuNTkwODhdCiA4MjcgWzYwOS4zNzVdCiA4MzcgWzM3Mi4xNTkwOV0KODY3
+IFs1MjIuNzI3MjldCiA4ODQgWzM2My42MzYzNV0KIDg5OSBbNTgwLjk2NTg4
+XQogOTMyIFs1NTYuODE4MTggMCAwIDAgODEyLjVdCiA5NDUgWzUzOS43NzI3
+MV0KOTUwIFs1NTYuODE4MThdCiAxMjYyIFs2MzcuNzg0MTJdCiAxMjk0IFs2
+MjUgNDY0LjQ4ODY1IDYwNS4xMTM2NSAwIDYzNi4zNjM2NSA2NDIuMDQ1NDcg
+NjA3Ljk1NDUzIDAgNjIzLjU3OTUzIDU3MS4wMjI3MQo2MTYuNDc3MjkgNjIz
+LjU3OTUzXQogMTM0NyBbOTM2LjA3OTUzIDM2Mi4yMTU5MSAzNjIuMjE1OTFd
+CiAxMzYxIDEzNzQKNDYwLjIyNzI2IDEzODUgWzE5OC44NjM2M10KIDE0MDMg
+WzI3OS44Mjk1NiAyNzUuNTY4MTggMCAwIDAgMjc1LjU2ODE4XQogMTYyOCBb
+ODEyLjVdCiAxNjgxIDE2ODIgMjgxLjI1XQovRFcgMAo+PgplbmRvYmoKMTQg
+MCBvYmoKPDwKL0xlbmd0aCA1MzIKL0ZpbHRlciAvRmxhdGVEZWNvZGUKPj4K
+c3RyZWFtDQp4nF2UzY6bMBSF9zyFl9PFCGNjG6QoEoFEyqI/aqYPQMBJkRpA
+hCzy9oVzPNNRkRL0cf+PucTlsTr23SziH9PQnPwsLl3fTv4+PKbGi7O/dn2U
+KNF2zRwI/82tHqN4CT4977O/HfvLEG02QsQ/F+t9np7ipWiHs/8Sxd+n1k9d
+fxUvv8rTwqfHOP7xN9/PQkbbrWj9Zcn0tR6/1TcvYoS9HtvF3s3P1yXmn8fb
+c/RCgRN20wytv49146e6v/poI5drKzaH5dpGvm//sxvDsPOl+V1PcFeLu5Rp
+so14AylSTtIgk5JS0oFkQFnwtKAiZMlApSHlKyVyT9qBlCZVpB1pD0ol6QBy
+FmQkKKOnQWdJzuoGnSUF6xl0loTqxpIykgNVwcbODrRZKKE057NQQqWsblFP
+GWpmUU9Z6mJRT2XMaS2pIKGeyoMndFGFI6G6KjmRhS6qoi62BB2ohK1IIQ4q
+aRkIKmnNLA4q6ZS9OMygLXM6zKAde3GYQWfBhhl0EWyWRF0cZtA7nq3LSNTF
+YYZ0z7NVyGnScLaSxJwykPlMhjlVRdp/ttn1bNVy4iDH+VRJKklQwmTyU5w1
+wYaJbB4q0Jbz/AqJFQm7kL5vxvsmJa5a3RLHfgzeC8P31yQsptlkoviQM2rN
+h5YP+XJqG4ox/bqa6yfkY++bxzQtK4/vDHZ93fKu9x+fonEY16j19xcW1x2Q
+DQplbmRzdHJlYW0KZW5kb2JqCjE1IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9G
+b250RGVzY3JpcHRvciAyMCAwIFIKL0Jhc2VGb250IC9JbnRlci1TZW1pQm9s
+ZAovU3VidHlwZSAvQ0lERm9udFR5cGUyCi9DSURUb0dJRE1hcCAvSWRlbnRp
+dHkKL0NJRFN5c3RlbUluZm8gPDwKL1JlZ2lzdHJ5IChBZG9iZSkKL09yZGVy
+aW5nIChJZGVudGl0eSkKL1N1cHBsZW1lbnQgMAo+PgovVyBbMCBbMTAzMS4y
+NSAwIDcyMy43MjE2Ml0KIDY1IFs2NTcuMzE1MzddCiA3MyBbNzQzLjYwNzk3
+XQogODQgWzcyNC40MzE4Ml0KIDE0MSBbNzU0Ljk3MTYyXQoxOTcgWzI3NC44
+NTc5NF0KIDI5MSBbOTA2LjI1XQogMzc0IFs2NDMuNDY1ODhdCiAzODEgWzc3
+NS41NjgxOF0KIDM5NSBbNjQ5LjE0NzcxXQo0MjEgWzczMy42NjQ3OV0KIDQ1
+NiBbMTAwNi43NDcxM10KIDQ5MyBbNjUyLjY5ODg1XQogNTA0IFs1NzQuNTcz
+ODVdCiA1NzUgWzYzMC4zMjY3Ml0KNTgyIFs1NzcuNDE0NzldCiA1OTQgWzYz
+MC4zMjY3Ml0KIDYxMiBbNTkyLjY4NDYzXQogNjYwIFs2MTIuOTI2MTVdCiA2
+NzkgNzIzCjI2MC42NTM0MSA3NTIgWzg5Ny43MjcyOV0KIDc1OSBbNjA5Ljcz
+MDFdCiA3NzUgWzYwNy45NTQ1M10KIDgyNyBbNjI0LjY0NDldCiA4MzcKWzM5
+Ni42NjE5M10KIDg4NCBbMzc5Ljk3MTU5XQogODk5IFs2MDguMzA5NjNdCiA5
+MzIgOTUwIDU3NS45OTQzMiAxMjYyIFs2NDkuMTQ3NzFdCjEyOTQgWzY2Ni45
+MDMzOCA0ODAuODIzODUgNjIxLjQ0ODg1XQogMTMwMiBbNjQ4LjA4MjRdCiAx
+Mzc0IFs0NjUuOTA5MDldCiAxNDAzIFsyOTUuMDk5NDMgMjkwLjQ4Mjk0XQog
+MTY4MSAxNjgyCjI0OC4yMjQ0M10KL0RXIDAKPj4KZW5kb2JqCjE2IDAgb2Jq
+Cjw8Ci9MZW5ndGggNDMwCi9GaWx0ZXIgL0ZsYXRlRGVjb2RlCj4+CnN0cmVh
+bQ0KeJxdk0uLo0AUhff+ilr2LBrrYVkGgmBrAlnMg0nPDzBaSQsdlYpZ5N+P
+nmN6YASVj/s49+qpuDxUh76bRPwrDM3RT+Lc9W3wt+EeGi9O/tL1kdKi7Zpp
+JTybaz1G8Vx8fNwmfz305yHaboWIf8/R2xQe4qVoh5P/FsU/Q+tD11/Ey5/y
+OPPxPo6f/ur7Scgoz0Xrz3On7/X4o756EaPs9dDO8W56vM41/zLeH6MXGqw4
+TTO0/jbWjQ91f/HRVs5XLrb7+coj37f/xY1j2encfNQB6XpOlzJRecQXSJM2
+JAOyCSkBZRXJgUpL2iyktCFVIJeCrCSxzkJPZW8kKKiCXawFlRkJCmq31hWg
+PWMpumizJ2FqnVAvRU9tuV+KqXXKHVIo6M1KGahwJOygK+6QlqC9JFWkNXO3
+kJEr7UGGGzlsaxJu5DCZcdRzmMVkVHCYxRRrLAW9cQeHWZLdDqRRZxVjBpnW
+MiahZx3VdUkqSZgz3fDfaknidykkbLL6QT3d8XSTlWhvFfc3z2zGF38t5+DL
+vM09hNm3OCww7GLVrvdf52kcxqVquf8Cc0jf2w0KZW5kc3RyZWFtCmVuZG9i
+agoxNyAwIG9iago8PAovVHlwZSAvRm9udAovRm9udERlc2NyaXB0b3IgMjEg
+MCBSCi9CYXNlRm9udCAvSW50ZXItTWVkaXVtCi9TdWJ0eXBlIC9DSURGb250
+VHlwZTIKL0NJRFRvR0lETWFwIC9JZGVudGl0eQovQ0lEU3lzdGVtSW5mbyA8
+PAovUmVnaXN0cnkgKEFkb2JlKQovT3JkZXJpbmcgKElkZW50aXR5KQovU3Vw
+cGxlbWVudCAwCj4+Ci9XIFswIFsxMDEyLjc4NDEyXQogODQgWzcyMS41OTA4
+OF0KIDI5MSBbODk3LjcyNzI5XQogNTA0IFs1NjkuMjQ3MTNdCiA1ODIgWzU2
+Ny44MjY3Ml0KNTk0IFs2MjUuNzEwMjFdCiA2MTIgWzU4Ny4zNTc5N10KIDY0
+NSBbMzY4Ljk2MzA3XQogNjYwIFs2MDEuOTE3Nl0KIDY3OSBbMjQ4LjkzNDY2
+XQo3NzUgWzYwMi4yNzI3MV0KIDgzNyBbMzg0LjIzMjk0XQogODY3IFs1MzUu
+ODY2NDZdCiA4ODQgWzM3MS44MDM5OV0KIDg5OSBbNTk0LjQ2MDIxXQoxMjk0
+IFs2NDUuOTUxNzIgNDcyLjY1NjI1IDYxMy4yODEyNV0KIDEzMDIgWzYzNS42
+NTMzOF0KIDE0MDMgWzI4Ny42NDIwNl0KIDE2ODEgWzI2NC45MTQ3Nl0KXQov
+RFcgMAo+PgplbmRvYmoKMTggMCBvYmoKPDwKL0xlbmd0aCAzMzYKL0ZpbHRl
+ciAvRmxhdGVEZWNvZGUKPj4Kc3RyZWFtDQp4nF2Sz26DMAzG7zxFjt2hIgkE
+qISQunaVOOyPRvcANDEd0ghRoAfefolDO2mRQPrp82c7duJDfax1P5P4w46y
+gZl0vVYWpvFmJZALXHsdMU5UL+eV8C+H1kSxMzfLNMNQ626MypKQ+NOp02wX
+stmr8QJPUfxuFdheX8nm69A4bm7G/MAAeiY0qiqioHOZXlvz1g5AYrRta+X0
+fl62zvMXcV4MEI7MQjdyVDCZVoJt9RWikrpTkfLkThWBVv90lgfbpZPfrfXh
+InXhlKZp5YjxJNAR6VQgZcwTT7NACZLggdDHs5AlE0iFCJQh7VatQNrngXae
+ErrSCSkNvpwjZaGXHOsleciSY72kWDWsJ1joLMF6In9G4gdP2Y4FojiO9d7s
+PoX71AR98WGC0ZDpHh10P0e/78eS5M1atx98FLgYv5Jew+PdmNF4l/9+Aec7
+qIQNCmVuZHN0cmVhbQplbmRvYmoKMTkgMCBvYmoKPDwKL1R5cGUgL0ZvbnRE
+ZXNjcmlwdG9yCi9Gb250TmFtZSAvSW50ZXItUmVndWxhcgovRmxhZ3MgNAov
+QXNjZW50IDk2OC43NQovRGVzY2VudCAtMjQxLjQ3NzI4Ci9TdGVtViAzOC43
+MDczODYKL0NhcEhlaWdodCA3MjcuMjcyNzEKL0l0YWxpY0FuZ2xlIDAKL0Zv
+bnRCQm94IFstNzM4LjYzNjM1IC0zMTkuNjAyMjYgMjU4My4wOTY3IDEwOTAu
+OTA5MDZdCi9Gb250RmlsZTIgMjIgMCBSCj4+CmVuZG9iagoyMCAwIG9iago8
+PAovVHlwZSAvRm9udERlc2NyaXB0b3IKL0ZvbnROYW1lIC9JbnRlci1TZW1p
+Qm9sZAovRmxhZ3MgNAovQXNjZW50IDk2OC43NQovRGVzY2VudCAtMjQxLjQ3
+NzI4Ci9TdGVtViA1NS4zOTc3MjgKL0NhcEhlaWdodCA3MjcuMjcyNzEKL0l0
+YWxpY0FuZ2xlIDAKL0ZvbnRCQm94IFstNzM4LjYzNjM1IC0zMTkuNjAyMjYg
+MjU4My4wOTY3IDEwOTAuOTA5MDZdCi9Gb250RmlsZTIgMjMgMCBSCj4+CmVu
+ZG9iagoyMSAwIG9iago8PAovVHlwZSAvRm9udERlc2NyaXB0b3IKL0ZvbnRO
+YW1lIC9JbnRlci1NZWRpdW0KL0ZsYWdzIDQKL0FzY2VudCA5NjguNzUKL0Rl
+c2NlbnQgLTI0MS40NzcyOAovU3RlbVYgNDQuMzg5MjA2Ci9DYXBIZWlnaHQg
+NzI3LjI3MjcxCi9JdGFsaWNBbmdsZSAwCi9Gb250QkJveCBbLTczOC42MzYz
+NSAtMzE5LjYwMjI2IDI1ODMuMDk2NyAxMDkwLjkwOTA2XQovRm9udEZpbGUy
+IDI0IDAgUgo+PgplbmRvYmoKMjIgMCBvYmoKPDwKL0xlbmd0aCA1Nzg1Ci9M
+ZW5ndGgxIDE3NTIwCi9GaWx0ZXIgL0ZsYXRlRGVjb2RlCj4+CnN0cmVhbQ0K
+eJztOgtYVNW6a+29Z8+AhAMMj5Q84BCQkSJvj95E0y4ZdUjNSFFBHiIiDohK
+ijoX0ShRUckI8T0pKcpDOJpioQJionGCz8gzdTh+3D6OzbHRUAeYWXP/tWdA
+NEk9Wnbucf3svddej3/97/WvPSCMEHoKKRGLwv40aZjPsnznpQjhBmiNnDR5
+zOSryd+Mh/cseA+Jnhel2Ns5tgAhxhvapLOjFiigXQpXK1yS2YnvxNUXf/sO
+QrbBCDleio+NinnhVBSdHwb9AfHQMOi6w0x494J3t/h5qWmHg73/hNAQN4QG
+TEicHx1VtKTsIEIiJyDKc15UmoIvwjyM1cDlkhQ1L9b99f++hBAL+PEFxfwF
+qcQXVUHdivYrUmIV8Xz2Kqir4RIfwcZVJdxa6EbYaET94Yn4TSgXWSEFEtO3
+XkUE76ypSrwpzrsUmGFZaAhH6BnlzZb2dueEO3AgfqPQwnLfPl+WPGNm/1HX
+0cB+Qo/62rGB9Pntm2EXbrbo050TrIQJiOnBjZFEeJMJdzfELJ4dn4r7I7Qg
+MSkVS6Gfgz5KI4MdcQ48Kula0A7vFIXxBtw48VDoEwH77nw+vDeanuxFVMXC
+k0EiAQPilKibX1OZOOm1ScC3i4uTiUfLQqYQyNpuIlNCHy7ISphrmikT1qZP
+DunhOQgsgUXWMOpZNBSNQC+jV9Cr6C30NpoD8n4H7XBxAi1QLG7IC3mjYBQC
+/a9BfxSai1JM/XxyL5JOwfrpZvVc+983hNWcYZ3ByA9mI+GaiGahRNMY7gof
+IVoqekOULrIW9RdJRbYiO5FM5CByFDmJnha9BJSPAZomo5noPbQT1WA5fh4H
+40V4GV6O1+CP8Me4BtdhHTOaeZmZyMQwq5j3mVxmL3OWaWS0zE1WzI5kx7PR
+bCq7klWxhWwp+2dY1hItp5LgLKCeg+rMdQztn5nrDEilxFxngXOluc6hASjO
+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
+zU3kfwF6euR0Uid1Uic9bdRR32KP1D+RZIvdyXruNP/b7kPGVSSro216lkhs
+RY50tE52BCliHciHHa23kzqpk/64xBwwlP8HW8NiFg0KZW5kc3RyZWFtCmVu
+ZG9iagoyNCAwIG9iago8PAovTGVuZ3RoIDI1MzMKL0xlbmd0aDEgMTMxMjQK
+L0ZpbHRlciAvRmxhdGVEZWNvZGUKPj4Kc3RyZWFtDQp4nO1aC1hUVR7/n3Nn
+7hCMMgPMgIHAAEIlIgIzZvZZvgrtA1F8hGkwIE95jDDiCx9Ivmm1JDW18FNM
+KkkY1xVk1ydZua6ZmZKrLtb2tZmJuhiieGb/5w4aWluZ7qJ98/t/557/ef1f
+53/Pvd/cAQIAnWAOCBAzLLZn2MxrBfUA5CD2JsSO7D+yUfP5QGwvxPagpCyj
+yXu2bwgADcb2qlRjnglrFZZ/YnFIzZyW8szsZw8ByMoAFCFpycYJPfYZB+P6
+GBw3pGGH92VtPLb5+oC0LPPU2dXKDwE8WgEejszMSTK612unAzgdRaMCs4xT
+TeK7RMS557D4ZhuzkoNynuuH+utQxmlTTp6ZhcNu5JV83JSbbEoTi+chfxKL
+oppY51XKXsZhIFYrOGMN4qtQAkowgYK32kGObcHGslAu8yeAKxzLrz8P0HVO
+c0NTk1fGbTK4dN4jyE595bYvJt75ycvg6SSNnLxU68nrU6NijjU3tBZ4ZSil
+BUBvyibgILXcpGsA0CmpaWbiDJCXmW0mKhyXgcqmkXQhTVwPtihx5z3W7/Ei
+U4RgvxxdDxRXY/tTWy2cgN0C1hTk3EOKcuBWy0fERsWiz74w2eafYzktxyml
+NhMdeOULSmktSFFyk3TzWgYvYe2Blgk40ReCIQwMMAiiwAgpkA45MBljD9JI
+6M2RJEjDkVyrVZwkHyY7LWvA9cfISq6IrrrdOoSjlGVY6DN0BJ1A59ESukkY
+LCQJZqEIR5xgMbdI9hDyy6CujSdo1+Y2nkJneLONFyAEM8DGy9rNkaN9T7Tx
+Ivb72XjcAyVo23gV2qJs491/kEm6SPGJgmSYgF5PhiyIhUz0NBvMMAZ70yEV
+fTbDEKknGXKhxy2zR0t9eVLEsjFa4WhjKPSCPtAXV6bjmh7YNoIe+3gck/Ga
+eMusEagxCkvf/6pjBPKpyHG7ctvN8r1l1kC0wATTsP+Gzb64p6FS8YWR2JOM
+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
+DQplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCAyNQowMDAwMDAwMDAwIDY1NTM1
+IGYNCjAwMDAwMDAwMTUgMDAwMDAgbg0KMDAwMDAwMDE4NSAwMDAwMCBuDQow
+MDAwMDAwMDY0IDAwMDAwIG4NCjAwMDAwMDAyNDIgMDAwMDAgbg0KMDAwMDAw
+MDUyMSAwMDAwMCBuDQowMDAwMDAwNTYwIDAwMDAwIG4NCjAwMDAwMDY2OTAg
+MDAwMDAgbg0KMDAwMDAwNjgzMCAwMDAwMCBuDQowMDAwMDA2OTcxIDAwMDAw
+IG4NCjAwMDAwMDcxMTAgMDAwMDAgbg0KMDAwMDAwNzQwNyAwMDAwMCBuDQow
+MDAwMDEwOTIxIDAwMDAwIG4NCjAwMDAwMTQxNzUgMDAwMDAgbg0KMDAwMDAx
+NTM4NyAwMDAwMCBuDQowMDAwMDE1OTk0IDAwMDAwIG4NCjAwMDAwMTY4MjIg
+MDAwMDAgbg0KMDAwMDAxNzMyNyAwMDAwMCBuDQowMDAwMDE3ODgwIDAwMDAw
+IG4NCjAwMDAwMTgyOTEgMDAwMDAgbg0KMDAwMDAxODUzMCAwMDAwMCBuDQow
+MDAwMDE4NzcwIDAwMDAwIG4NCjAwMDAwMTkwMDggMDAwMDAgbg0KMDAwMDAy
+NDg4NCAwMDAwMCBuDQowMDAwMDI4ODk1IDAwMDAwIG4NCnRyYWlsZXIKPDwK
+L1NpemUgMjUKL1Jvb3QgMSAwIFIKL0luZm8gMyAwIFIKL0lEIFs8REQwMzU2
+QzE5RDMwNzExMzQ5RjJERDVBMzJGNTY4REM+IDxERDAzNTZDMTlEMzA3MTEz
+NDlGMkRENUEzMkY1NjhEQz5dCj4+CnN0YXJ0eHJlZgozMTUxOQolJUVPRgo=
+
+----==_mimepart_69b1515af1911_16f1e18543f077928
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename=Receipt-2615-4616-6001.pdf
+
+JVBERi0xLjQKJfbk/N8KMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFn
+ZXMgMiAwIFIKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL0NyZWF0b3IgKCkKL1By
+b2R1Y2VyICgpCi9DcmVhdGlvbkRhdGUgKEQ6MjAyNjAzMTExMTI2MTgrMDAn
+MDAnKQovTW9kRGF0ZSAoRDoyMDI2MDMxMTExMjYxOCswMCcwMCcpCj4+CmVu
+ZG9iagoyIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovQ291bnQgMQovS2lkcyBb
+NCAwIFJdCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9UeXBlIC9QYWdlCi9SZXNv
+dXJjZXMgPDwKL1Byb2NTZXQgWy9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VD
+IC9JbWFnZUldCi9FeHRHU3RhdGUgPDwKL0czIDUgMCBSCj4+Ci9YT2JqZWN0
+IDw8Ci9YNyA2IDAgUgo+PgovRm9udCA8PAovRjQgNyAwIFIKL0Y1IDggMCBS
+Ci9GNiA5IDAgUgo+Pgo+PgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovQ29u
+dGVudHMgMTAgMCBSCi9TdHJ1Y3RQYXJlbnRzIDAKL1BhcmVudCAyIDAgUgo+
+PgplbmRvYmoKNSAwIG9iago8PAovY2EgMQovQk0gL05vcm1hbAo+PgplbmRv
+YmoKNiAwIG9iago8PAovTGVuZ3RoIDU5NDQKL1R5cGUgL1hPYmplY3QKL1N1
+YnR5cGUgL0ltYWdlCi9XaWR0aCA1ODAKL0hlaWdodCA1ODAKL0NvbG9yU3Bh
+Y2UgL0RldmljZVJHQgovU01hc2sgMTEgMCBSCi9CaXRzUGVyQ29tcG9uZW50
+IDgKL0ZpbHRlciAvRmxhdGVEZWNvZGUKPj4Kc3RyZWFtDQp4nO3dDVbbyraF
+UdpxCFH/e/k8rEseCYEY/KO9Vs05dgMSy8il0mf56QkAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+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
+eIECxGfZbRQve968W5L+eDnQS/uPTStARs2+65t1OGZaofqw8uFLuv8iNgXI
+pPG911txsxv+4I9imu4CRJl2E5ag8AebFQMV3wrZ97SzDsdA7dVH3q0BJig+
+c+4T+Fn2cv6WaOdBiTscA+1vj8p3yOt/LWkvhSG6z5z7fy3u5Nl6sgo9HAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABH+T/DDws9DQplbmRz
+dHJlYW0KZW5kb2JqCjcgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUg
+L1R5cGUwCi9CYXNlRm9udCAvSW50ZXItUmVndWxhcgovRW5jb2RpbmcgL0lk
+ZW50aXR5LUgKL0Rlc2NlbmRhbnRGb250cyBbMTIgMCBSXQovVG9Vbmljb2Rl
+IDEzIDAgUgo+PgplbmRvYmoKOCAwIG9iago8PAovVHlwZSAvRm9udAovU3Vi
+dHlwZSAvVHlwZTAKL0Jhc2VGb250IC9JbnRlci1TZW1pQm9sZAovRW5jb2Rp
+bmcgL0lkZW50aXR5LUgKL0Rlc2NlbmRhbnRGb250cyBbMTQgMCBSXQovVG9V
+bmljb2RlIDE1IDAgUgo+PgplbmRvYmoKOSAwIG9iago8PAovVHlwZSAvRm9u
+dAovU3VidHlwZSAvVHlwZTAKL0Jhc2VGb250IC9JbnRlci1NZWRpdW0KL0Vu
+Y29kaW5nIC9JZGVudGl0eS1ICi9EZXNjZW5kYW50Rm9udHMgWzE2IDAgUl0K
+L1RvVW5pY29kZSAxNyAwIFIKPj4KZW5kb2JqCjEwIDAgb2JqCjw8Ci9MZW5n
+dGggMzc1NwovRmlsdGVyIC9GbGF0ZURlY29kZQo+PgpzdHJlYW0NCnic7RxN
+b+W28e5f8c4FqiU5HM4QWASwvXZOObQ10FyDNAlQNGmTpkB/foeSKFKi5kl8
+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
+dPfgQ6jxnVNsAqtPIF5uA3wTx+eJuQB8iHfH7Xff237bB6Vuu8vuB7Lrbb8r
+F+5X8k0aUts1XCROX38v3/FGkj7xMV563kRX2xfEGePOE+LttmOHmfFTY4Bs
+e/6N5OphaYJQvwb8P6m42lINCmVuZHN0cmVhbQplbmRvYmoKMTEgMCBvYmoK
+PDwKL0xlbmd0aCAzMDgwCi9UeXBlIC9YT2JqZWN0Ci9TdWJ0eXBlIC9JbWFn
+ZQovV2lkdGggNTgwCi9IZWlnaHQgNTgwCi9Db2xvclNwYWNlIC9EZXZpY2VH
+cmF5Ci9CaXRzUGVyQ29tcG9uZW50IDgKL0ZpbHRlciAvRmxhdGVEZWNvZGUK
+Pj4Kc3RyZWFtDQp4nO3djXnbNhuGUQ+RebpCx+gk3xyZJItkiY7Q73pjp0nj
+n0jCA/IlcM4ANkUawC1QlJ+eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgX5//
+yflj4Dg+/R06iE+xU8NtPoWu3Df/GzmS/3U4CB7wV+jKffP3yBzwR+ogYueG
+23wNXblnf44cypfQQYysqNwvNfhffBk5ltSUOHQQ3C1Z1EVVbyda1GUoaFOL
+mao+UrSoi6reTraoy1BVpw5HVR8nXNRlKGhTW0Sq+jjpoi6qeivxoi6qeivx
+oi5DQauqryZf1GUoaFX1tUwo6qKqNzKjqMtI0KrqS5lS1EVVb2NKURdVvY05
+RV1U9SYmFXVR1ZuYVdRFVW9hWlEXVb2FaUVdVPUW5hV1GQra1GKmqueaWNRF
+VW9gZlGXoarucBD8ztSiLqp6eVOLurSo6q+p08Ub5hZ1UdWLm1zURVUvbnZR
+lw5VPfSkEh+ZXtRFVS9telEXVb20+UVdVPXCDijqoqoXdkRRF1W9rEOKuqjq
+ZR1S1EVVL+uYoi6qelEHFXVR1Ys6qqiLql7SYUVdVPWSDivqoqqXdFxRF1W9
+oAOLurSoaotZ1pFFXVT1cmIPkd6qRVX/lTp9PB1c1KVFVdsiSjq2qIuqXszB
+RV1U9WKOLuqiqpdyeFEXVb2Uw4u6qOqlHF/URVUv5ISiLqp6IWcUdVHVyzil
+qIuqXsYpRV1U9TLOKeqiqhdxUlEXVb2Is4q6qOo1nLeUqepFnFbURVUvITWa
+H6OqF3DoI0GvqeoFnFnURVVf35lFXVT15Z1a1GXoQUFV3cG5RV1U9cWdXNRF
+VV/c2UX9z2DQqurznV3URVVf2ulFXVT1pZ1f1EVVX1iDoi6q+sIaFHVR1RfW
+oaiLqr6sFkVdhqr6z9BBqOpH9CjqMhK0sadSVPX9mhR1UdUX1aSoy1DQpraI
+VPX9uhR1UdWX1Kaoi6q+pNDoDRWtqr6gUFF/DU0CQ4uZqj5HqKj/Ck0CqvqC
+QkX9KTUJDAWtqj5DqKg/xyaBoaBV1WcIjdw/sj/qUar6BKmirp8VmtJU9cWE
+ivrbKVfVe4oVdVHVOwotPy8Jqqp3FBq13wdtaFZT1ReSLOoSWsxU9YWEivrz
+958X+ptU1RcSLeoSXhsfkqrqP4dP7w6yRV06VHXqsyyq+hYTZg2fANnLjHpR
+1XtJF3VR1XuZspujqncSas+vU36qqr6EOTNGqmhV9QWknkz8NRpU9T5mFHUJ
+Fa2qvoBQUb/uTlW9izlFHfzJqrq90Eh9oxhU9SZmFXWZ9+d5O1U9X6io35zr
+VfUeQkX9dviGFhJV3VroU8fvfEtHaCFR1a2FRumrzaFnqdhqUdUWs7fNvsiq
+en2h8/vuF04tVdUDx7CyqUVdVqpqW0RvST3H9/40oapXN7eoS2ohUdVNHfG2
+SVWvbXZRl9BCoqqbml7UT7mFRFW3NL+oi6peWWh0/ubEquqFpYr6dzcjVfW6
+jijqoqrXFSrqDzaHnqnqZR1T1OWY7vqYqp7huCurqheVKupbVpjQ9VPVzcx7
+JOi10PVT1c0cVdTlyDnvXao67dhGUdUrCj0SdON/zFTVCzp6dVHV60lN7LeO
+SVW9niOLuqSun6pu4/g+UdWrObaoS+r6qeomTtivSV0/Vd3E0UVdVPVaQkV9
+Vxekrt/Q12+o6pRz3iSp6pUcX9QlFSOquoFUUd+8OZT9taq6gTOKuoQWM1Xd
+wBlFXVpUdejFb17V5912CMXIUNCmFrO9qzpU1A8sKap6EScVdfJXDwVtaoto
+56o+88aVql5DKCrv3Bx6lnqkTVWf6tQP8qRiRFWfKlTUDyZl6vqNLGaqetCJ
+RV1Ss6CqPtHZHwVLVfXIOVDVY84s6nL233DyJGxa1aevJar68s4t6qKqLy5V
+1AMD8PSZsKjqx6VqZOQpr1CMqOqTnF3UpcONV1X9sNTwe3Bz6FmD9VRVP+78
+oi6pGBmq6tAxbFfVLWYAVX1pHYq6hN5Zt6jqoTS8oNQ7otH5u0VVp7aI9qrq
+FkVdWqypqvoRqaIeH3krVfXwrHwlqZMWKIDUxxlV9cG6FPVT7n6Vqj5Yams2
+MXer6ktqU9TJg1HVh0oV9dAjFf9S1RfUqKhLKs5U9YFaXLQfVPUFdSrq0mKz
+SlXfo0XEtjsgVX2P1LAPbA696DAxquo7NCvq0uJL7VT17VJFHdkcehabA0YO
+QlXfrsPC8asWXxWtqm/Vcrip6kvpV9Slw4OCqvpGTR/rXKqqs8Orn4ZFXVo8
+KNhiRb2Arg/kqerLaFnUpcU/YGmxorbXs6ifmnSaqr5Biyv1thZzgKr+vRYr
+xttU9UWkijrzAcb/UtWX0LaoS4s5ssWK2lqqqMObQ89atJqq/o0WV+l9LT58
+oao/1mK1eJ+qvoBUUc8aYy2CtsVBtNW6qEuLD1+o6o+0LurS4kvtVPUHYkX9
+5fMsqSNU1ZOkivoCVPUkqfF1Bap6ilhsXIGqniJV1NegqmdIbQ5dg6qeYKOi
+Lqp6gp2KuqjquK2KuqjquL2K+p/BoFXVb9mrqIuqDtusqMvQnWFV/dpuRV1U
+ddR2RV1UddR2RV1UddR+RV1UddCGRV1UddCORV1Ggjb2ib01qnrLoi6qOmbL
+oi5DQRt7UmmJqt6zqIuqDtm0qMtQVaf+SegKVb1rURdVHbFtURdVHbFtURdV
+HbFvUZehoFXVzzYu6jK0mKnqZzsXdVHVw7Yu6jIUtKq6bF3URVUP27uoi6oe
+tHlRF1U9aPeiLqp6yPZFXVT1kO2LuqjqIYq6qOoBivqboaBt/p3e0ynqZ6r6
+YYr6hap+mKJ+oaofpqi/a1HVM/7n22yK+l+q+kGK+gdV/RBF/RNV/RBF/RNV
+/RBF/TNV/QBF/R+q+gGK+r9U9d0U9S9U9d0U9S9U9d0U9a9U9Z0U9Suq+k6K
++jVVfRdF/QZVfZfUK16Kqr6Lon5Li6q+ymKWerJuMar6Dor6bS2q+hqLmaJ+
+h6q+maJ+R4+qjl3nmRT1e1T1jWJF/fVLF6kWUdU3ihV1n/qLvSRVfZNYUTca
+L6kWUdW3iRV1p28ZSE0BqvomqaIe+l8XaT0Gxi5VHSvqz2e/kp/1WKB3qeoW
++ZnX4mVtUtWxAdtqKVPVR+oRDhOo6sPE9qi7Tbc9BscOVR2b8lsVdYm9MlX9
+G7FHgvoNFFV9jFWLusQeVVHVH4qd525F/RScAlT1h5Yt6qKqj9CjO2fp8epW
+r+pYUfd8pFdVz7dyURdVPV/sHLfbHHqmqudbuqhLbDEbWqtXruoezTlTj1e4
+clXHirrh5tCL1GKmqt+2elGX2BaRqn7T6kVdYuNEVb8pVtQdW+87VT1TrDcb
+L2Wqeq4Nivop2LOq+rXcd330el2/6lHVqcWsV1XvUNQltpip6le2KOrSo6pT
+p7vT2d6jqEtswh0K2tSS2qmq9yjqoqon2aWoi6qeo8cEf4xcVXc4ij5VHSvq
+9kvZU5e3D6tV9T5FXWKLmar+Sayom28OPesRf4tVdY+TepzYFpGq/tdORV1U
+dd5WRV1abBEtVdU9biEdSVWn7VXUpUcALlTVuRPaYVK9jarOihX1JTaHnsW+
+/FZVf7NdUT91ufEaa/uzF4BYUTdYlm+nqpP2K+rSY+SkUvTkN8Q7FnVR1Tk7
+FnWJve4WVX3uyY8V9flvMO+iqmN6dMEZVHVKrKjPfmtwtx6jZ4GqzhX1hTaH
+XvRYxa9f1bsWdYktZptXdWwsXmpz6FmTXY2rV3WPJjhLbIto66ret6hLjxF0
+8areuahLbIto46rO7dVecSlT1Qk7F3VR1cNyPXCt260/qOpRsaK+4ObQs9hi
+vmtV5+46XrOon5KnYNOq7jEIz7VWVR+/mO1e1KVJEl61qpucvpOtVdVHL2aK
+uvRY0C9a1U1y8mxNTkNqOjz23U2PAXi+2HS8YVXHivqSt1t/aJKFV61qAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgj/8DVRjKsw0KZW5kc3RyZWFtCmVu
+ZG9iagoxMiAwIG9iago8PAovVHlwZSAvRm9udAovRm9udERlc2NyaXB0b3Ig
+MTggMCBSCi9CYXNlRm9udCAvSW50ZXItUmVndWxhcgovU3VidHlwZSAvQ0lE
+Rm9udFR5cGUyCi9DSURUb0dJRE1hcCAvSWRlbnRpdHkKL0NJRFN5c3RlbUlu
+Zm8gPDwKL1JlZ2lzdHJ5IChBZG9iZSkKL09yZGVyaW5nIChJZGVudGl0eSkK
+L1N1cHBsZW1lbnQgMAo+PgovVyBbMCBbOTk0LjMxODE4IDAgNjc2LjEzNjM1
+XQogNjUgWzY1MC41NjgxOF0KIDczIFs3MjcuMjcyNzFdCiA4NCBbNzE4Ljc1
+XQogOTUgWzU5OC4wMTEzNV0KMTM3IFs1ODYuNjQ3NzFdCiAxNjEgWzc0MC4w
+NTY4Ml0KIDE5NyBbMjY0LjIwNDU2XQogMjcwIFs2NTEuOTg4NjVdCiAyODAg
+WzU2Mi41XQoyOTEgWzg4OS4yMDQ1M10KIDI5OSBbNzUyLjg0MDg4XQogMzIw
+IFs3NjEuMzYzNjVdCiAzNzQgWzYzNC45NDMxOF0KIDM4MSBbNzYxLjM2MzY1
+IDYzOS4yMDQ1M10KMzk1IFs2MzcuNzg0MTJdCiA0MDkgWzY0Mi4wNDU0N10K
+IDQyMSBbNzQxLjQ3NzI5XQogNDUzIFs2NzYuMTM2MzUgMCAwIDk0OC44NjM2
+NV0KIDQ2OSBbNjY0Ljc3MjcxXQo1MDQgWzU2My45MjA0N10KIDU3NSBbNjIw
+LjczODY1XQogNTgyIFs1NTguMjM4NjVdCiA1OTQgWzYyMC43Mzg2NV0KIDYx
+MiBbNTgyLjM4NjM1XQo2NDUgWzM2MC43OTU0NF0KIDY1MCBbNjA5LjM3NV0K
+IDY2MCBbNTkwLjkwOTEyXQogNjc5IFsyMzcuMjE1OTFdCiA3MTUgWzU0NC4w
+MzQxMl0KNzIzIFsyMzcuMjE1OTFdCiA3NTIgWzg2OS4zMTgxOF0KIDc1OSBb
+NTg1LjIyNzI5XQogNzc1IFs1OTYuNTkwODhdCiA4MjcgWzYwOS4zNzVdCjgz
+NyBbMzcyLjE1OTA5XQogODY3IFs1MjIuNzI3MjldCiA4ODQgWzM2My42MzYz
+NV0KIDg5OSBbNTgwLjk2NTg4XQogOTMyIFs1NTYuODE4MTggMCAwIDAgODEy
+LjVdCjk0NSBbNTM5Ljc3MjcxXQogOTUwIFs1NTYuODE4MThdCiAxMjYyIFs2
+MzcuNzg0MTJdCiAxMjk0IFs2MjUgNDY0LjQ4ODY1IDYwNS4xMTM2NSAwIDYz
+Ni4zNjM2NSA2NDIuMDQ1NDcgNjA3Ljk1NDUzIDAgNjIzLjU3OTUzIDU3MS4w
+MjI3MQo2MTYuNDc3MjkgNjIzLjU3OTUzXQogMTM0NyBbOTM2LjA3OTUzIDM2
+Mi4yMTU5MSAzNjIuMjE1OTFdCjEzNjEgMTM3NCA0NjAuMjI3MjYgMTM4NSBb
+MTk4Ljg2MzYzXQogMTQwMyBbMjc5LjgyOTU2IDI3NS41NjgxOCAwIDAgMCAy
+NzUuNTY4MThdCiAxNjI4IFs4MTIuNV0KIDE2ODEKMTY4MiAyODEuMjVdCi9E
+VyAwCj4+CmVuZG9iagoxMyAwIG9iago8PAovTGVuZ3RoIDUzOAovRmlsdGVy
+IC9GbGF0ZURlY29kZQo+PgpzdHJlYW0NCnicXZTNjpswFIX3PIWX08UIbGMb
+pCgSgUTKoj9qpg9AwEmRGkCELPL2hXM801EjJdHH/T/mOi6P1bHvZhH/mIbm
+5Gdx6fp28vfhMTVenP216yOpRNs1cyD8Nrd6jOIl+PS8z/527C9DtNkIEf9c
+rPd5eoqXoh3O/ksUf59aP3X9Vbz8Kk8Lnx7j+MfffD+LJNpuResvS6av9fit
+vnkRI+z12C72bn6+LjH/PN6eoxcKLNlNM7T+PtaNn+r+6qNNsny2YnNYPtvI
+9+1/dmMZdr40v+sJ7mpxT5JUbiP+gRQpJ2mQSUkp6UAyoCx4WlARsmSg0pDy
+lWSyJ+1AMiOVIKVJFWlH2oPShHQAOQsyCSijp0GfMmcvBn3KgtUN+pShF2NJ
+rG4cqAo29nmgzUIXpTmthS4qZXWLespQQYt6ylIli3oqY05rSQUJ9VQePKGS
+KhwJ1VXJiSxUUhV1sVBJHaiErUghDirpJBBU0ppZHFTSKXtxmEFb5nSYQTv2
+4jCDzoINM+gi2CyJujjMoHc8aZeRqIvDDOmeJ62Q06ThbBMScyaBzGcyzKkq
+0v6zza5nq5YTBznOp0pSSYISJks+xVkTbJjI5qECbTnPr0iwMGEz0vc9ed8r
+6arVTTr2Y/BeGL7NRrKYZpNS8SFn1JoPLR/y5dQ2FGP6dVHXC+XjFmge07Rc
+ALh1sPnrzne9/7iYxmFco9bvX+sbIFANCmVuZHN0cmVhbQplbmRvYmoKMTQg
+MCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0ZvbnREZXNjcmlwdG9yIDE5IDAgUgov
+QmFzZUZvbnQgL0ludGVyLVNlbWlCb2xkCi9TdWJ0eXBlIC9DSURGb250VHlw
+ZTIKL0NJRFRvR0lETWFwIC9JZGVudGl0eQovQ0lEU3lzdGVtSW5mbyA8PAov
+UmVnaXN0cnkgKEFkb2JlKQovT3JkZXJpbmcgKElkZW50aXR5KQovU3VwcGxl
+bWVudCAwCj4+Ci9XIFswIFsxMDMxLjI1IDAgNzIzLjcyMTYyXQogNjUgWzY1
+Ny4zMTUzN10KIDczIFs3NDMuNjA3OTddCiA4NCBbNzI0LjQzMTgyXQogMTQx
+IFs3NTQuOTcxNjJdCjE5NyBbMjc0Ljg1Nzk0XQogMjkxIFs5MDYuMjVdCiAz
+NzQgWzY0My40NjU4OF0KIDM4MSBbNzc1LjU2ODE4IDY1MC41NjgxOF0KIDQ1
+NiBbMTAwNi43NDcxM10KNDkzIFs2NTIuNjk4ODVdCiA1MDQgWzU3NC41NzM4
+NV0KIDU3NSBbNjMwLjMyNjcyXQogNTgyIFs1NzcuNDE0NzldCiA1OTQgWzYz
+MC4zMjY3Ml0KNjEyIFs1OTIuNjg0NjNdCiA2NjAgWzYxMi45MjYxNV0KIDY3
+OSA3MjMgMjYwLjY1MzQxIDc1MiBbODk3LjcyNzI5XQogNzU5Cls2MDkuNzMw
+MV0KIDc3NSBbNjA3Ljk1NDUzXQogODI3IFs2MjQuNjQ0OV0KIDgzNyBbMzk2
+LjY2MTkzXQogODY3IFs1NDkuMDA1NjhdCiA4ODQKWzM3OS45NzE1OV0KIDg5
+OSBbNjA4LjMwOTYzXQogOTMyIDk1MCA1NzUuOTk0MzIgMTI2MiBbNjQ5LjE0
+NzcxXQogMTI5NCBbNjY2LjkwMzM4IDQ4MC44MjM4NSA2MjEuNDQ4ODVdCjEz
+MDIgWzY0OC4wODI0XQogMTM3NCBbNDY1LjkwOTA5XQogMTQwMyBbMjk1LjA5
+OTQzIDI5MC40ODI5NF0KIDE2ODEgWzI0OC4yMjQ0M10KXQovRFcgMAo+Pgpl
+bmRvYmoKMTUgMCBvYmoKPDwKL0xlbmd0aCA0MjQKL0ZpbHRlciAvRmxhdGVE
+ZWNvZGUKPj4Kc3RyZWFtDQp4nF2Ty26DMBBF93yFl+2iwg9sJ1KElECQsuhD
+TfsBBJwUqTHIIYv8fc0d0kpFAnQ0c8fXnnFa7Mqd70aWvoW+2buRHTvfBnfp
+r6Fx7OBOnU+EZG3XjDPh25zrIUmjeH+7jO6888c+Wa0YS99j9DKGG3tYt/3B
+PSbpa2hd6PyJPXwW+8j76zB8u7PzI+NJnrPWHWOl53p4qc+OpZA97doY78bb
+U9T8ZXzcBsckWJCbpm/dZagbF2p/csmKxydnqyo+eeJ8+y+uMpIdjs1XHZAu
+YzrnmcgT+oEk0ZJIgXRGlIEWJZEFFZpoOZGQiqgEWQPSHFQsiKATW6qi16CK
+YgZepKqI4EVmVMXAi9Tk2sCLNOTMaNBypgVobYngTJbkzBSgihOVRHPmdiLF
+Z6pAagOy2IPKaLcWzpShmhbOlKXVLZypxRyDM7WeYwa0oR1ZOMu2W5CETguK
+KWRqTTGO1bUlL7IgKojg2iypf5Kj+XOX5b3n9xkRFscuLNXVOG/NQVrQoah7
+CRJNozSN/O+cNtcQ4ojiXmA2p6nsvPu9OkM/TKrp/QHendvEDQplbmRzdHJl
+YW0KZW5kb2JqCjE2IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9Gb250RGVzY3Jp
+cHRvciAyMCAwIFIKL0Jhc2VGb250IC9JbnRlci1NZWRpdW0KL1N1YnR5cGUg
+L0NJREZvbnRUeXBlMgovQ0lEVG9HSURNYXAgL0lkZW50aXR5Ci9DSURTeXN0
+ZW1JbmZvIDw8Ci9SZWdpc3RyeSAoQWRvYmUpCi9PcmRlcmluZyAoSWRlbnRp
+dHkpCi9TdXBwbGVtZW50IDAKPj4KL1cgWzAgWzEwMTIuNzg0MTJdCiA4NCBb
+NzIxLjU5MDg4XQogMjkxIFs4OTcuNzI3MjldCiAzODIgWzY0NC44ODYzNV0K
+IDUwNCBbNTY5LjI0NzEzXQo1NzUgWzYyNS43MTAyMV0KIDU4MiBbNTY3Ljgy
+NjcyXQogNTk0IFs2MjUuNzEwMjFdCiA2MTIgWzU4Ny4zNTc5N10KIDY2MCBb
+NjAxLjkxNzZdCjY3OSBbMjQ4LjkzNDY2XQogNzUyIFs4ODMuNTIyNzFdCiA3
+NTkgWzU5Ny4zMDExNV0KIDgyNyBbNjE3LjE4NzVdCiA4MzcgWzM4NC4yMzI5
+NF0KODg0IFszNzEuODAzOTldCiA4OTkgWzU5NC40NjAyMV0KIDEyOTQgWzY0
+NS45NTE3MiA0NzIuNjU2MjUgNjEzLjI4MTI1IDAgMCA2NTQuMTE5MzIgNjIw
+LjAyODM4IDAgNjM1LjY1MzM4XQogMTM3NCBbNDYzLjA2ODE4XQogMTQwMyBb
+Mjg3LjY0MjA2XQoxNjgxIFsyNjQuOTE0NzZdCl0KL0RXIDAKPj4KZW5kb2Jq
+CjE3IDAgb2JqCjw8Ci9MZW5ndGggMzU3Ci9GaWx0ZXIgL0ZsYXRlRGVjb2Rl
+Cj4+CnN0cmVhbQ0KeJxdkstugzAQRfd8hZfpIsIPDImEkNIkSCz6UGk/gMCQ
+IhWDDFnw97VnSCrVEkjH43tnPOPwWJwK080sfLdDXcLM2s40FqbhZmtgF7h2
+JhCSNV09r4T/uq/GIHTicplm6AvTDkGaMhZ+uOg024VtDs1wgacgfLMN2M5c
+2ebrWDoub+P4Az2YmfEgy1gDrXN6qcbXqgcWomxbNC7ezcvWaf5OfC4jMIks
+qJp6aGAaqxpsZa4QpNytjKW5W1kApvkXl5xkl7b+rqw/riN3nPMoyhwJqYhO
+SMkZSUukfIcUC09S5UQYk1FMpJCcAAk9ZUwZYo20X2mHdEiI9kg5JzoRrbGz
+J6WekRKOFGkizK4S8kwwn9rRHRLMpwVVpmIkTTfi6KIT8pRHT/FeEHFs3Noh
+ee/Xvb+ao4UWVKsiJ6FokwpR0WpBIj8G/1weM65v1rrx4pvCufqJdgYez24c
+Rq/y3y+LCbUFDQplbmRzdHJlYW0KZW5kb2JqCjE4IDAgb2JqCjw8Ci9UeXBl
+IC9Gb250RGVzY3JpcHRvcgovRm9udE5hbWUgL0ludGVyLVJlZ3VsYXIKL0Zs
+YWdzIDQKL0FzY2VudCA5NjguNzUKL0Rlc2NlbnQgLTI0MS40NzcyOAovU3Rl
+bVYgMzguNzA3Mzg2Ci9DYXBIZWlnaHQgNzI3LjI3MjcxCi9JdGFsaWNBbmds
+ZSAwCi9Gb250QkJveCBbLTczOC42MzYzNSAtMzE5LjYwMjI2IDI1ODMuMDk2
+NyAxMDkwLjkwOTA2XQovRm9udEZpbGUyIDIxIDAgUgo+PgplbmRvYmoKMTkg
+MCBvYmoKPDwKL1R5cGUgL0ZvbnREZXNjcmlwdG9yCi9Gb250TmFtZSAvSW50
+ZXItU2VtaUJvbGQKL0ZsYWdzIDQKL0FzY2VudCA5NjguNzUKL0Rlc2NlbnQg
+LTI0MS40NzcyOAovU3RlbVYgNTUuMzk3NzI4Ci9DYXBIZWlnaHQgNzI3LjI3
+MjcxCi9JdGFsaWNBbmdsZSAwCi9Gb250QkJveCBbLTczOC42MzYzNSAtMzE5
+LjYwMjI2IDI1ODMuMDk2NyAxMDkwLjkwOTA2XQovRm9udEZpbGUyIDIyIDAg
+Ugo+PgplbmRvYmoKMjAgMCBvYmoKPDwKL1R5cGUgL0ZvbnREZXNjcmlwdG9y
+Ci9Gb250TmFtZSAvSW50ZXItTWVkaXVtCi9GbGFncyA0Ci9Bc2NlbnQgOTY4
+Ljc1Ci9EZXNjZW50IC0yNDEuNDc3MjgKL1N0ZW1WIDQ0LjM4OTIwNgovQ2Fw
+SGVpZ2h0IDcyNy4yNzI3MQovSXRhbGljQW5nbGUgMAovRm9udEJCb3ggWy03
+MzguNjM2MzUgLTMxOS42MDIyNiAyNTgzLjA5NjcgMTA5MC45MDkwNl0KL0Zv
+bnRGaWxlMiAyMyAwIFIKPj4KZW5kb2JqCjIxIDAgb2JqCjw8Ci9MZW5ndGgg
+NTgwMwovTGVuZ3RoMSAxNzU0NAovRmlsdGVyIC9GbGF0ZURlY29kZQo+Pgpz
+dHJlYW0NCnic7ToNXFRV9ve89+bNoIQDzgAZuYNDQC4pCQiubmJpS0YtqRUp
+KggCEuKgqOTnLKJRfoRKZojfk5JfgOJqikUKSonGBlvkTi3149/PtVmbCnWQ
+mTv/c98Mii6Ybpbtrvfw3rvvfpx7vu+5byBACLmH6AlPYv44uv+A+YU+cwmB
+OmyNHz1m2JjvMj8bge95+B6VODVBl0wWv0AIF4xtrikJM3TYrsSrGS9FSvpL
+ydlfNpUR4jGEEG+SOjkh6aFjCWx+DPYPTMWG3hc8J+J7EL77pU7Nyj6ie/gP
+hPTF8b1Gpk9LTPjr8r/h2jIVEhU4NSFbJ+4CEcea8NJkJEyd7P/0H74ihMfx
+8Ilu2owsGkIqGS2sXzd9si5VXLYY60a85AfBvrhUWI7dBOx20gOfRFxNCogr
+0RE5e+tQZPjOO6o0mOHspOCMbsW2WELu119qamnxSbsOBxFXSS288Lnl8Mpe
+E3sMuUDu6y71GL8/fB97fv5szCeXmqzzfNJcpQmEu4IbiEJ6U0l3P8LNTknN
+gh6EzEjPyAIl9gvYx2jkwAvy8VHB1sJ2fGco7BfxJsj7YZ8M2fcXC/G93vHk
+z5BKHp8ckUkYiKAn7fw6yqjRT41GvjUabweP3Yq5YiRro4NMBXtoiKs01zFT
+Ja3NngKx4NMHLYHHERryAOlHBpHHyRPkefICmYLSfols0nijDhgOPxJEgkkk
+iSJPYm8CeZFMd/SKmdcIe55TMd//3zPSOr1wBQ0ZQB7BuYQ8R5KJzjFCOC/G
+yebKnpHNk7nJesiUMg9ZT5lK5inzknnL7pU9hhQPQ1rGkInkFbKZVIMbeIMW
+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
+7Nz5kvXam8ThyI0n8XfGQUaM04SR1ACtuqfKg6mH7QaMXM5iUvUaX7LmKARu
+20bPVBbsje/lIyRXrSg4MTnxxJr8KgwANtfA+YlHadH3LXTdscSFfU082UMv
+vb4euhu2gOzNldTGJJlvb5IZUC4aJhW0hHaT1fpL66gd6w4MDxFFgY9qpDXF
+uyG8bgsI21Sm+94pevWjGZkfLYtbk+ppUq2ndk0tJH99DlJOZjfmT9n6GrXt
+2UstqyKzx+R9ttChhSZpR5I4vbqep6dXCNtEnKK/wiVbnfeppGe2bYPAo2tK
+xvdSmZp9esXvzVpRlZxUlb/mROLkE5pjMLnle0g6mjg/kGuxEFPfhYkNr4PL
+nl3Ar3yTtm0x0AvrnZw2IqfXreyhVmOUCJXYFdVqpxuEe7lxfNwX9L3djN3s
+c5XT2+L50pQj+uWnMl5qfG38Gxm9m/12XNZUQ6LJBFNOxuyjZz5Nqs2pnbX0
+i4V5e76bH/ZiTGRWSYIjK+LrFPEYSVXoJ7hYT/fQgQNxaS+5tKjanc+1Vlnm
+Hc94PuO+4R5DQ2amiKSm5jIRG3JLY31ca0WPWdNbk5j0bJtkRsmGwxATM4xw
+KeCEuaPctNdIMwwdGhXWHvwkWXp68sN3XtwaXKGZtHPpoe9VvSaWrTlEP9sp
+ybZsYi/v5n20vrKDZG2bnl8ek9t36jPllRDRd+7EUogxm2Di+yjoltaG460z
++eiclh3baP5aOynadGEps6dG567s6djtUa0Srx7oWO6Sp4lQZTKpBn62f71p
+kenI9qwDU1gqguaqnL18PrUftwbzlQc+mFTBdlNEaFFEouR6OPyC74Nuy9Bh
+SthoyhqRmDgCL5FcxhA04dFHJ7ALRzMaGhTsh6puxA3p4B0xhiUJEA5QLgRz
+m8DPFqqiKhPXbCsu5oxcMPhxu2xB1ga2qXMWgzXJyQ1UdchdqkxXcxfsUxyU
+tMFoUzv49JIexL2d26tsq90bm1XBn6xZe3KQcrDprdMgmg4t2LLXvGMJhg2R
+mOe+8src2cupnX7XZhWEHauOvW71FnwWbZ60O9Ma2S7Ztbheu2TVnUm2WTXQ
+uKfoXI6pwpBZlswki6hnvraQ2quYYPefRME6/FDEZMeRp3Tweynk/IsHRtXR
+EyUlMKiuDgaVlNATdRtqJ02q3SDdNcch6bwZko8fp4Xm87ToeMMWUBQWQjeD
+gV4sLKSWLWy9Rlul6CfRjt43mtF+fYRz56+LcI3o6NdFONU1Ec5WqYhsuTbE
+WRtkkZ3EOJQc3yh64+mio6bU/lf0ouxrfLXX0yrXZ/vrSiaL5Oz0FRxn5u8Z
+vzXVGorzCzByhCL1fVHy8n4cU6vK08vL01M6mfTxCwiXggZ6WsADbGNh+AWZ
+d4PqqdyU5Yf1ec2nP3yDfr/vG1r7YJNm38q3jumy7KS+erV9SzPIhOIhYZMf
+/VNibHKfiAGnNufWZddWRcybtzwxZup9QwbUb8ypmV6DEoy1m/h8uQ4tUe2M
+Iu1bdriXKDIZhvFZ1uazpsHjQwMG9Aj2fu7RpPfms0ACustRSYm+LnyDS8/n
+SpcwedhNsmWi00dZ7q6VMDjTABb+hE0mk3Jg8578Jr3pyOrYA/O5LH7ZZQLC
+zK0LAar4Omtkcc3YQ4grHq2yUnTmAFppR5dV2mrMthrM3YqVUMy8UyRtEUKN
+Y7QiX+yQATiAJeZcKA2yQLQSoqwwXAnRFhp0lpZ601KcnCqsbUsXCi4ToahN
+8stsXDVbdOTm4Dw04B/kgQ5BiUmtmZppPoIZzlJvTIKWcVk2YiPcGNsunrkz
+0mKrlCjvKcVS1CFG/XBwZBNuHOiGTPAY8lxuym+DrrACxJYVlLPTVtnTpc7T
+dcrMbFHB+GrVzF4v5Rib7Jh5u7BoEe6QLNxinsgHGyD31lNFO8a5i6iBW0sY
+pdOKGCGdVu53RAHM3aUowA6fAQPYA12EtXryuq/o0eK3YWhTEwx9u5ge/arJ
+kllf8MVlXb3PJfgUnoZo+LS1lT5Iy+le+uAlI5RCPubqs6rokzQTU/VlR5nM
+d6FwDM6MUTqQhQFvsLhSV45IhykrLbfCGDayATXchLRhfJoRBpinte/Q2iuR
+SuTkoPZVN3CG2YVPpuydNqtkomkb/GZfOXhueOZEKQ3lD5ZzzTnv75yQvuG5
+hD0zy0G5di2lGzI/pa1HqEopnRPrUAZDHFn9CKaakKuq0WrDQq5uoKJcO3Cg
+pCZcWa72lGIXn3ecntyvsCqyj87Krc3SNRYZDHPemRK3PTPt8CyZWfwzBJS9
+C8pV+9cdPbOf1vjk/bA58bWn4wzpmbsnGWM3pacWPvfUyuTNP+S9eXnl7pb+
+Sg29dGw7vbSWWZMBN7B0KcdlZ9gwPHpqGbvgztzUwOcWJNlihQqb1QSGWlk+
+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
+wLcJ2UEPOr5G1720ObFmUcYRHRnl9xgno83th4cFV9J/Hj9O36sSEKzHezYM
+faXBbw7hLN2Fw+x6szNsl8xhb6eL+LJTswVLafP5rHm1ZEDlTuJYYU8/ctpV
+ePkWsdYWH5xXSTRbKmjNJ2l7EuJ2zp/2ZkrgvGpHZk49eYE4ECuyljitKKCl
+i0vpQroubNHocnryyBF6aDfh9UeeTzuUMmZh8ZTUIwsEHx1jM7mJXLbwnSyc
+PjfRoOeyqYFwOFdJrZhgYo/fpRAo5Rle6urvrwwIYIKtrf/yjP3HvQd7WVoQ
++8SF9Fb9kyPOEG6J7p5/iPRY8jJzD+bg3yRn/QH5ZE9ivP668uj78OIH4P2/
+MH/5IMywPY6f6MYRPYTX3oMP/qL89Q8xqzCzmc18Fz/DhrMrRN7FNrPN3Lge
+xlN/Mqea2cwPygCWbuJvRWb6mUjaKPwbtpnMZKYfS73qzbnzsEhqb/b1H4H4
+0ZD1a9vQU4n//P45wI+El36krNz/3yKUk/bj9PY04tcIv4/9PMTsE37fNNMP
+Ua9d9/c3v/znO4vfA/G1D+YPbthv12+cHYz/qXv5V3+7uM1kJjOZyUwPh6QO
+sEbiC6X8AeF/43SM+UARfxpqhTZPYf2vZ13PJ4k9HHvYOtnHoPJh6zSTmcz0
++ybmKsD/AOq48voNCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDI0CjAwMDAw
+MDAwMDAgNjU1MzUgZg0KMDAwMDAwMDAxNSAwMDAwMCBuDQowMDAwMDAwMTg1
+IDAwMDAwIG4NCjAwMDAwMDAwNjQgMDAwMDAgbg0KMDAwMDAwMDI0MiAwMDAw
+MCBuDQowMDAwMDAwNTA0IDAwMDAwIG4NCjAwMDAwMDA1NDMgMDAwMDAgbg0K
+MDAwMDAwNjY3MyAwMDAwMCBuDQowMDAwMDA2ODEzIDAwMDAwIG4NCjAwMDAw
+MDY5NTQgMDAwMDAgbg0KMDAwMDAwNzA5MyAwMDAwMCBuDQowMDAwMDEwOTI2
+IDAwMDAwIG4NCjAwMDAwMTQxODAgMDAwMDAgbg0KMDAwMDAxNTQwNCAwMDAw
+MCBuDQowMDAwMDE2MDE3IDAwMDAwIG4NCjAwMDAwMTY4MzYgMDAwMDAgbg0K
+MDAwMDAxNzMzNSAwMDAwMCBuDQowMDAwMDE3OTU2IDAwMDAwIG4NCjAwMDAw
+MTgzODggMDAwMDAgbg0KMDAwMDAxODYyNyAwMDAwMCBuDQowMDAwMDE4ODY3
+IDAwMDAwIG4NCjAwMDAwMTkxMDUgMDAwMDAgbg0KMDAwMDAyNDk5OSAwMDAw
+MCBuDQowMDAwMDI5MDk0IDAwMDAwIG4NCnRyYWlsZXIKPDwKL1NpemUgMjQK
+L1Jvb3QgMSAwIFIKL0luZm8gMyAwIFIKL0lEIFs8RjQwQzREQ0RDNzI0MjBD
+RjE2MTcyOUQ4Njg4NTBCQzg+IDxGNDBDNERDREM3MjQyMENGMTYxNzI5RDg2
+ODg1MEJDOD5dCj4+CnN0YXJ0eHJlZgozMjAyNQolJUVPRgo=
+
+----==_mimepart_69b1515af1911_16f1e18543f077928--

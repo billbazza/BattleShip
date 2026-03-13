@@ -1,0 +1,118 @@
+# 9. Building AI Agent Skills with OpenClaw – Battleship – Midlife Fitness Reset
+
+**Why OpenClaw Skills Are Essential for Battleship**  
+OpenClaw lets you build small, focused, results-oriented "skills" (CLI-based tools) that your Battleship orchestrator can call repeatedly.  
+Each skill does one thing well — no bloated apps, just code that takes input, calls Claude if needed, produces output (usually markdown), and writes to your vault.
+
+This turns Battleship from manual coaching into a semi-autonomous system: intake form → skill → diagnosis report → email; weekly logs → skill → adjusted plan + coach message.
+
+**Core OpenClaw Philosophy for Battleship**  
+- Skills are **results-first**: "Generate a 12-week plan" not "use an API".  
+- Keep them small & composable (orchestrator chains them).  
+- Store as markdown blueprints in `skills/` folder + code in `scripts/` (git-managed).  
+- Use Claude to draft the skill logic → test in code_execution → deploy in OpenClaw.
+
+**Setup OpenClaw (Mac Mini / 2026)**  
+1. Install Node.js v22+ (`brew install node`)  
+2. Global install: `pnpm add -g openclaw@latest` (or npm if you prefer)  
+3. Run onboarding: `openclaw onboard --install-daemon`  
+   - Sets up gateway daemon (runs in background via launchd)  
+   - Configures workspace (~/.openclaw/workspace)  
+   - Add Anthropic API key for Claude  
+4. Verify: `openclaw doctor`  
+5. Create skills folder: `mkdir ~/.openclaw/workspace/skills`  
+6. Sync with vault: symlink or copy `skills/` and `scripts/` folders into workspace.
+
+**Building a Battleship Skill (Step-by-Step Workflow)**
+
+1. **Identify the Need**  
+   Example: "Check-in Agent needs to take weekly logs and output adjustments + message."
+
+2. **Plan in Claude**  
+   Prompt:  
+   "Design an OpenClaw skill called 'battleship-checkin'.  
+   Input: JSON with weekly logs (weight, waist, energy score, steps avg, MyFitnessPal macros, notes).  
+   Output: markdown with:  
+   - Praise section  
+   - One key correction  
+   - Adjusted plan tweaks (volume, exercises, rules)  
+   - Coach message in warm British tone  
+   Include pseudocode structure and how to call Claude API if needed."
+
+3. **Create Blueprint in Vault**  
+   File: `skills/battleship-checkin.md`
+
+   ```markdown
+   # Battleship Check-in Skill
+
+   **Purpose**  
+   Take client's weekly logs → generate adjustments + personalised coach message.
+
+   **Input** (JSON)  
+   {
+     "week": 5,
+     "weight_kg": 92.3,
+     "waist_cm": 102,
+     "energy_score": 6,
+     "steps_avg": 8500,
+     "macros": {"protein_g": 140, "calories": 2200},
+     "notes": "Missed two walks, felt knackered after work"
+   }
+
+   **Output** (markdown)  
+   - Praise  
+   - Key correction  
+   - Adjustments  
+   - Coach message
+
+   **Logic**  
+   1. Compare to targets (steps 10k, protein 160g+, energy >7)  
+   2. Call Claude with prompt: "Analyse logs [paste JSON]. Praise wins, one correction, suggest tweaks."  
+   3. Format as markdown
+
+   **Pseudocode**  
+   ```python
+   def run_checkin(logs_json):
+       # Load logs
+       data = json.loads(logs_json)
+       # Build Claude prompt
+       prompt = f"Analyse these weekly logs for Battleship client:\n{json.dumps(data, indent=2)}\nPraise first, one key correction, next week's focus."
+       # Call Claude API (via openclaw llm call)
+       response = call_claude(prompt)
+       # Format output
+       return format_message(response)
+
+4. **Implement the Skill**  
+- Create real file: `~/.openclaw/workspace/skills/battleship-checkin.js` (or .py if using Python bridge).  
+- Use OpenClaw SDK to register skill and handle input/output.  
+- Test: `openclaw skill run battleship-checkin --input '{"week":5,...}'`
+
+5. **Orchestrator Integration**  
+In main Battleship orchestrator (via OpenClaw or custom loop):  
+- When task = "weekly check-in": call `battleship-checkin` skill → write output to client's vault folder.
+
+**Key Battleship Skills to Build First**
+
+- `battleship-diagnosis`: intake form → tags → diagnosis report  
+- `battleship-plan-gen`: tags + level → 12-week markdown plan  
+- `battleship-checkin`: weekly logs → adjustments + message  
+- `battleship-education`: progress stage → select & write drip lesson  
+- `battleship-alcohol-review`: logs → realistic alcohol impact summary + nudge
+
+**Tips for Battleship Skills**  
+- Always output markdown → easy to email / post in Group.  
+- Use Claude API calls inside skills for heavy reasoning (keep prompts in skill blueprint).  
+- Version in git: commit blueprints + code regularly.  
+- Test ethically: mock client data only.  
+- Scale: once stable, expose as premium Battleship feature (e.g. "AI-powered weekly check-ins").
+
+**Resources**  
+- OpenClaw docs: github.com/openclaw/openclaw (README + examples)  
+- Claude API: docs.anthropic.com (for skill-internal calls)  
+- Vault reference: [[07-Using-Claude-in-Your-Business]] (Claude drafts the skills)
+
+**Next**  
+→ [[00-Agent-Launch-Command]] (orchestrator that calls these skills)  
+→ [[sub-agents/]] (detailed blueprints for each agent/skill)
+
+Battleship skills make the programme resilient and scalable — small, battle-tested tools that do one job brilliantly so you can focus on what only you can do: being the bloke who lived it.       
