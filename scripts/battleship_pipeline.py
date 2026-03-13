@@ -558,6 +558,47 @@ LENGTH: 350–500 words.
 OUTPUT: The message only. No subject line. No preamble.
 """
 
+CHALLENGE_PROMPT = """\
+You are Will Barratt, writing a short personal email to {name} at Week 8 of their Battleship programme.
+
+The purpose of this email is to ask them one question: what challenge do they want to work toward next?
+
+CLIENT STARTING POINT:
+{intake_summary}
+
+PROGRESS TRACKER SO FAR (8 weeks):
+{tracker_text}
+
+YOUR JOB:
+1. Open with one sentence that acknowledges something REAL about their progress — specific to their tracker,
+   not generic. Reference an actual number, change, or observation.
+
+2. Briefly set up the idea: the men who keep going are motivated by something they want to prove to
+   themselves. The question stops being "can I do this?" and starts being "what do I want to do with it?"
+
+3. Give them a SHORT personalised list of 4–6 challenge ideas, CALIBRATED to where they actually are.
+   - If they started very unfit or are still significantly overweight: lead with accessible challenges
+     (Park Run, open water swim, weighted walk, 30-mile cycling day). Don't suggest marathons.
+   - If they've made strong progress and look capable: include mid-tier challenges (10km run,
+     sprint triathlon, half marathon walk/run, 100-mile cycling week).
+   - If they're motoring and came in already somewhat active: include aspirational options
+     (Olympic triathlon, London to Brighton, multi-day hiking, full marathon).
+   - Always include at least one that feels genuinely ambitious for them specifically — the one that
+     makes them think "not sure I could do that" — because that's the one that sticks.
+   - Always include at least one that is clearly doable within 6 months so there's an easy entry point.
+   - Name each challenge concisely on its own line. One-sentence description of what it involves.
+
+4. Ask the question directly:
+   "If you could do something in the next 12 months that would have seemed completely impossible
+    the day you filled in that form — what would it be? Reply to this email. One line is enough."
+
+5. Close with 1–2 lines. Warm, not soppy. Sign off as Will.
+
+TONE: Warm, direct, British. Short paragraphs. No hype. No exclamation marks.
+LENGTH: 200–300 words.
+OUTPUT: Email body only. No subject line. No preamble.
+"""
+
 
 # ── Notion ───────────────────────────────────────────────────────────────────
 
@@ -1588,6 +1629,20 @@ def send_education_drips(state: dict, secrets: dict):
                     "Your number was calculated for you in your diagnosis.",
                     f"Your number was calculated for you in your diagnosis.\n\n{calorie_line}"
                 )
+
+            # Challenge email: generate personalised version via Claude
+            if key == "edu_challenge":
+                tracker_text    = read_client_file(cs["folder"], "progress-tracker.md") if cs.get("folder") else ""
+                intake_tags     = cs.get("tags", {})
+                intake_summary  = "\n".join(f"{k}: {v}" for k, v in intake_tags.items() if v) or "No intake data."
+                challenge_prompt = CHALLENGE_PROMPT.format(
+                    name=cs["name"],
+                    intake_summary=intake_summary,
+                    tracker_text=tracker_text[:2000] if tracker_text else "No tracker data yet.",
+                )
+                content = call_claude(secrets["anthropic"], challenge_prompt, max_tokens=600)
+                # Wrap as plain markdown so the parser below still works
+                content = f"# Week 8: What's your challenge?\n\n{content}"
 
             # Parse lesson markdown: extract title, "This week" block, body
             lines        = content.splitlines()
