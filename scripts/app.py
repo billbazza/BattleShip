@@ -3,7 +3,10 @@ Battleship — Local Dashboard
 Run: python3 scripts/app.py
 Open: http://localhost:5100
 """
+import hashlib
+import hmac
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -339,18 +342,35 @@ def action_note(acct):
     return redirect(url_for("client_detail", acct=acct,
                             flash="Note saved." if note else ""))
 
+def _verify_tally_signature(raw_body: bytes, header: str, secret: str) -> bool:
+    """Verify Tally webhook signature: sha256=<hmac> against raw body."""
+    if not secret:
+        return True  # no secret configured — skip verification
+    expected = "sha256=" + hmac.new(
+        secret.encode(), raw_body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, header or "")
+
 @app.route("/tally-webhook", methods=["POST"])
 def tally_webhook():
     """Receive Tally form submissions and queue them for pipeline processing."""
     try:
-        payload = request.get_json(force=True)
+        raw_body = request.get_data()
+        sig      = request.headers.get("tally-signature", "")
+        secret   = os.environ.get("TALLY_WEBHOOK_SECRET", "")
+
+        if secret and not _verify_tally_signature(raw_body, sig, secret):
+            print("  ⛔ Tally webhook: invalid signature — rejected")
+            return jsonify({"error": "invalid signature"}), 401
+
+        payload = json.loads(raw_body) if raw_body else None
         if not payload:
             return jsonify({"error": "empty payload"}), 400
 
         TALLY_QUEUE.mkdir(parents=True, exist_ok=True)
-        ts       = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        ts          = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         response_id = payload.get("data", {}).get("responseId", ts)
-        filename = TALLY_QUEUE / f"submission-{ts}-{response_id}.json"
+        filename    = TALLY_QUEUE / f"submission-{ts}-{response_id}.json"
         filename.write_text(json.dumps(payload, indent=2))
         print(f"  📥 Tally submission queued: {filename.name}")
 
