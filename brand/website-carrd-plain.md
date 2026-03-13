@@ -12,7 +12,7 @@ HEADLINE (large, Georgia, white):
 No excuses needed — you just need to commit.
 
 SUBHEADLINE (smaller, #888888):
-A 12-week reset for men over 40 who are done making excuses — and ready to do something about it. No gym-bro nonsense. No crash diet. A system that fits real life.
+A reset for men over 40 who are done making excuses. No gym-bro nonsense. No crash diet. A system built for real life — starting with 12 weeks, built to last.
 
 BUTTON (background #c41e3a, white text):
 Take the Free Diagnosis
@@ -89,15 +89,15 @@ HEADLINE (white, Georgia):
 Not a PDF. A proper system.
 
 FEATURE ITEMS (white, one per line — use a list element in Carrd):
-Your personalised 12-week plan, built from your intake form — not a template
+Your personalised plan, built from your intake form — not a template
 Weekly check-ins with real responses. Adjustments made as you progress.
 Weekly education emails: Zone 2, protein, sleep, fat loss science — the facts, not the hype
 Calorie and nutrition guidance based on your weight and goal, not a generic chart
 Training programme built around your injuries, your schedule, your gym access
-Someone in your corner every week for 12 weeks
+Someone in your corner every week — for 12 weeks to start
 
 SUBTEXT (#666666):
-Starts with walking. Adds food awareness. Adds strength when you're ready. In that order. Because that's what actually works.
+Starts with walking. Adds food awareness. Adds strength when you're ready. In that order. The first 12 weeks build the foundation. Most men don't want to stop there.
 
 ---
 
@@ -113,9 +113,9 @@ The free diagnosis is the first step.
 BODY TEXT (#555555):
 Fill in the intake form — 4 minutes, honest answers. I'll review it personally and send you a diagnosis specific to your history, your constraints, and your situation. Not a generic report.
 
-If it resonates and you want to go further, the full 12-week programme is £199 — or 3 payments of £75.
+If it resonates and you want to go further, the reset starts at £199 — or 3 payments of £75. That covers the first 12 weeks. Most men continue beyond that.
 
-No pressure. No countdown timer. No subscription.
+No pressure. No countdown timer. No lock-in.
 
 BUTTON (background #c41e3a, white text):
 Take the Free Diagnosis
