@@ -7,9 +7,10 @@ import hashlib
 import hmac
 import json
 import os
+import socket
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Flask, redirect, render_template_string, request, url_for, jsonify
@@ -45,6 +46,97 @@ STATUS_COLOUR = {
     "diagnosed": "#e8a020",
     "active":    "#2a9d4e",
 }
+
+ENV_FILE  = Path.home() / ".battleship.env"
+LOG_FILE  = VAULT_ROOT / "logs" / "pipeline.log"
+CRON_TAG  = "battleship_pipeline"
+
+def _read_env() -> dict:
+    if not ENV_FILE.exists():
+        return {}
+    out = {}
+    for line in ENV_FILE.read_text().splitlines():
+        if "=" in line and not line.startswith("#"):
+            k, _, v = line.partition("=")
+            out[k.strip()] = v.strip()
+    return out
+
+def _ok(msg=""):   return {"status": "ok",   "label": msg or "OK"}
+def _warn(msg=""):  return {"status": "warn", "label": msg or "—"}
+def _err(msg=""):   return {"status": "err",  "label": msg or "Error"}
+
+def get_system_status() -> dict:
+    env  = _read_env()
+    stat = {}
+
+    # Flask — always up if we're serving this page
+    stat["flask"] = _ok("Running on :5100")
+
+    # Cloudflare tunnel process
+    try:
+        r = subprocess.run(["pgrep", "-f", "cloudflared tunnel run"],
+                           capture_output=True)
+        stat["tunnel"] = _ok("Connected") if r.returncode == 0 else _err("Not running")
+    except Exception:
+        stat["tunnel"] = _warn("Unknown")
+
+    # Webhook DNS
+    try:
+        socket.getaddrinfo("webhook.battleshipreset.com", 443, timeout=3)
+        stat["dns"] = _ok("webhook.battleshipreset.com")
+    except Exception:
+        stat["dns"] = _warn("Propagating…")
+
+    # Cron job
+    try:
+        cron = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        if "battleship_pipeline" in cron.stdout or "battleship" in cron.stdout:
+            # Extract schedule
+            line = next((l for l in cron.stdout.splitlines() if "battleship" in l), "")
+            parts = line.split()
+            schedule = " ".join(parts[:5]) if len(parts) >= 5 else "set"
+            stat["cron"] = _ok(schedule)
+        else:
+            stat["cron"] = _warn("Not scheduled")
+    except Exception:
+        stat["cron"] = _warn("Not scheduled")
+
+    # Claude API
+    stat["claude"] = _ok("Key set") if env.get("ANTHROPIC_KEY") else _err("No key")
+
+    # Stripe
+    stat["stripe"] = _ok("Live key") if (env.get("STRIPE_KEY") or "").startswith("sk_live") else \
+                     _warn("Test/missing")
+
+    # SMTP
+    stat["smtp"] = _ok(env.get("SMTP_USER", "")) if env.get("SMTP_PASS") else _err("No credentials")
+
+    # IMAP (inbound email)
+    stat["imap"] = _ok("Configured") if env.get("IMAP_PASS") else _warn("Not set")
+
+    # Google Sheets
+    creds_path = Path(env.get("GSHEETS_CREDS", "~/.battleship-gsheets.json")).expanduser()
+    stat["gsheets"] = _ok("Creds found") if creds_path.exists() else _warn("No creds")
+
+    # Pipeline last run
+    if LOG_FILE.exists():
+        mtime    = LOG_FILE.stat().st_mtime
+        age_secs = (datetime.now(timezone.utc).timestamp() - mtime)
+        if age_secs < 3600:
+            label = f"{int(age_secs // 60)}m ago"
+        elif age_secs < 86400:
+            label = f"{int(age_secs // 3600)}h ago"
+        else:
+            label = f"{int(age_secs // 86400)}d ago"
+        stat["pipeline"] = _ok(label)
+    else:
+        stat["pipeline"] = _warn("Never run")
+
+    # Queued Tally submissions
+    queued = len(list(TALLY_QUEUE.glob("submission-*.json"))) if TALLY_QUEUE.exists() else 0
+    stat["queue"] = _ok(f"{queued} queued") if queued == 0 else _warn(f"{queued} waiting")
+
+    return stat
 
 # ── Templates ─────────────────────────────────────────────────────────────────
 
@@ -124,6 +216,32 @@ BASE = """<!DOCTYPE html>
     .week-num { font-size: 28px; font-weight: 700; color: #c41e3a; }
     .alert { padding: 12px 16px; border-radius: 3px; margin-bottom: 20px;
              background: #d4f0de; color: #1a5c2a; font-size: 14px; }
+
+    /* ── Status Panel ── */
+    .status-panel { background: #0f0f0f; border-radius: 4px; padding: 24px 28px;
+                    margin-bottom: 32px; border: 1px solid #222; }
+    .status-panel-header { display: flex; align-items: center;
+                           justify-content: space-between; margin-bottom: 20px; }
+    .status-panel-title { font-family: Georgia, serif; font-size: 11px;
+                          text-transform: uppercase; letter-spacing: 3px; color: #555; }
+    .status-refresh { font-size: 11px; color: #444; cursor: pointer; }
+    .status-refresh:hover { color: #888; }
+    .status-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .status-item { background: #1a1a1a; border-radius: 3px; padding: 12px 14px;
+                   border: 1px solid #2a2a2a; }
+    .status-item-name { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+                        color: #555; margin-bottom: 6px; }
+    .status-item-val { display: flex; align-items: center; gap: 7px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .dot-ok   { background: #2a9d4e; box-shadow: 0 0 5px #2a9d4e88; }
+    .dot-warn { background: #e8a020; box-shadow: 0 0 5px #e8a02088; }
+    .dot-err  { background: #c41e3a; box-shadow: 0 0 5px #c41e3a88; }
+    .status-item-label { font-size: 12px; color: #aaa; white-space: nowrap;
+                         overflow: hidden; text-overflow: ellipsis; }
+    .status-divider { border: none; border-top: 1px solid #1e1e1e; margin: 18px 0; }
+    .status-meta { display: flex; gap: 32px; }
+    .status-meta-item { font-size: 11px; color: #444; }
+    .status-meta-item strong { color: #777; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -143,6 +261,35 @@ BASE = """<!DOCTYPE html>
 
 DASHBOARD = BASE.replace("{% block content %}{% endblock %}", """
 {% block content %}
+
+<div class="status-panel">
+  <div class="status-panel-header">
+    <span class="status-panel-title">System Status</span>
+    <span class="status-refresh" onclick="location.reload()">↻ Refresh</span>
+  </div>
+  <div class="status-grid">
+    {% for key, item in status.items() %}
+    <div class="status-item">
+      <div class="status-item-name">{{ key }}</div>
+      <div class="status-item-val">
+        <span class="status-dot dot-{{ item.status }}"></span>
+        <span class="status-item-label" title="{{ item.label }}">{{ item.label }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <hr class="status-divider">
+  <div class="status-meta">
+    <span class="status-meta-item">Active clients: <strong>{{ active_count }}</strong></span>
+    <span class="status-meta-item">Diagnosed: <strong>{{ diagnosed_count }}</strong></span>
+    <span class="status-meta-item">Pipeline: <strong>{{ status.pipeline.label }}</strong></span>
+    <span class="status-meta-item">Queued: <strong>{{ status.queue.label }}</strong></span>
+    <span class="status-meta-item" style="margin-left:auto;color:#333">
+      <a href="https://battleshipreset.com" target="_blank" style="color:#444;font-size:11px">battleshipreset.com ↗</a>
+    </span>
+  </div>
+</div>
+
 <h1>Clients</h1>
 
 {% if clients %}
@@ -293,11 +440,17 @@ RUN_PAGE = BASE.replace("{% block content %}{% endblock %}", """
 
 @app.route("/")
 def dashboard():
-    state   = load_state()
-    clients = sorted(state["clients"].items(), key=lambda x: x[0])
-    flash   = request.args.get("flash", "")
+    state          = load_state()
+    clients        = sorted(state["clients"].items(), key=lambda x: x[0])
+    flash          = request.args.get("flash", "")
+    active_count   = sum(1 for _, cs in clients if cs.get("status") == "active")
+    diagnosed_count= sum(1 for _, cs in clients if cs.get("status") == "diagnosed")
+    sys_status     = get_system_status()
     return render_template_string(DASHBOARD, title="Dashboard",
-                                  clients=clients, flash=flash)
+                                  clients=clients, flash=flash,
+                                  status=sys_status,
+                                  active_count=active_count,
+                                  diagnosed_count=diagnosed_count)
 
 @app.route("/client/<acct>")
 def client_detail(acct):
@@ -381,6 +534,10 @@ def tally_webhook():
         print(f"  ❌ Tally webhook error: {e}")
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/api/status")
+def api_status():
+    return jsonify(get_system_status())
 
 @app.route("/run", methods=["GET", "POST"])
 def run_pipeline_page():
