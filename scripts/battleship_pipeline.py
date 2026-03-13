@@ -962,7 +962,11 @@ def process_new_intake(client: dict, secrets: dict, state: dict):
 
     # Generate diagnosis via Claude
     print("     🧠 Generating diagnosis...")
-    prompt = DIAGNOSIS_PROMPT.format(intake_text=client["raw_text"], name=client["name"])
+    philosophy = ""
+    philosophy_file = VAULT_ROOT / "coaching-philosophy.md"
+    if philosophy_file.exists():
+        philosophy = f"\n\nCOACHING PHILOSOPHY & EDGE CASE GUIDELINES:\n{philosophy_file.read_text()}\n"
+    prompt = DIAGNOSIS_PROMPT.format(intake_text=client["raw_text"], name=client["name"]) + philosophy
     raw = call_claude(secrets["anthropic"], prompt, max_tokens=1800)
 
     # Extract tags JSON — find any JSON block regardless of marker
