@@ -8,8 +8,8 @@ Background colour: #0a0a0a (dark)
 Image: Midlife-fitness-reset.jpg — centred, ~200px wide
 
 HEADLINE (large, Georgia, white):
-You used to be fitter than this.
-You can be again.
+12 weeks. Built around your life.
+No excuses needed — you just need to commit.
 
 SUBHEADLINE (smaller, #888888):
 A 12-week reset for men over 40 who are done making excuses — and ready to do something about it. No gym-bro nonsense. No crash diet. A system that fits real life.

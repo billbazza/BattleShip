@@ -98,6 +98,34 @@ That's what Battleship is.
 
 ---
 
+## HEADLINE BANK
+Use across social posts, email subject lines, ads, website A/B tests.
+
+You know something needs to change.
+This is where you start.
+
+---
+
+Men over 40 don't have a fitness problem.
+They have a system problem.
+
+---
+
+You're not done.
+You're just overdue a reset.
+
+---
+
+12 weeks. Built around your life.
+No excuses needed — you just need to commit.
+
+---
+
+I was unfit, unhealthy, and out of excuses.
+Then I sorted it. So can you.
+
+---
+
 ## ON TESTIMONIALS
 
 Don't fabricate them. In the UK the ASA and CMA both prohibit fake reviews — the risk to the brand isn't worth it.
