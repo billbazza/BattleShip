@@ -1328,7 +1328,8 @@ def send_education_drips(state: dict, secrets: dict):
 
             print(f"  📚 Sending '{key}' to {cs['name']} (Week {week})...")
             send_email(secrets, cs["email"], subject, plain_body, html_body)
-            log_event(cs["folder"], f"Education drip '{key}' sent (Week {week})")
+            if cs.get("folder"):
+                log_event(cs["folder"], f"Education drip '{key}' sent (Week {week})")
             cs["emails_sent"].append(key)
 
 
