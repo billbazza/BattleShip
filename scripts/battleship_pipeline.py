@@ -88,37 +88,106 @@ NOTION_PARENT_PAGE_ID = ""  # e.g. "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d"
 # Format: week_number → list of (state_key, subject, content_file)
 # Week 12 is handled separately by send_week12_close() — not in this dict
 EDUCATION_DRIPS = {
-    # Week 1: Sleep bonus — sent right after onboarding, before any training starts
-    1:  [("edu_sleep",       "Week 1 bonus: sleep — the easiest win in the programme",    "education-lessons/sleep/sleep-for-fat-loss.md")],
-    # Week 2: Zone 2 science + nutrition foundation
-    2:  [("edu_zone2",       "Why slow walking beats hard running — the science",         "education-lessons/exercises/zone2-walking.md"),
-         ("edu_nutrition_1", "The key to success (it's not what you think)",              "education-lessons/nutrition/key-to-success.md")],
-    # Week 3: 80/20 + balanced plate
-    3:  [("edu_8020",        "The 80/20 rule of nutrition",                               "education-lessons/nutrition/80-20-rule.md"),
-         ("edu_plate",       "How to build a balanced plate — no tracking required",      "education-lessons/nutrition/balanced-plate.md")],
-    # Week 4: Fat loss fundamentals
-    4:  [("edu_fatloss_1",   "How to actually lose fat: getting started",                 "education-lessons/fat-loss/getting-started.md"),
-         ("edu_fatloss_2",   "How to actually lose fat: awareness",                       "education-lessons/fat-loss/awareness.md")],
-    # Week 5: Closing the gap + consistency
-    5:  [("edu_fatloss_3",   "How to actually lose fat: closing the gap",                 "education-lessons/fat-loss/closing-the-gap.md"),
-         ("edu_fatloss_4",   "How to actually lose fat: hacking consistency",             "education-lessons/fat-loss/hacking-consistency.md")],
-    # Week 6: Whole foods + training begins
-    6:  [("edu_wholefoods",  "Your whole foods reference card",                           "education-lessons/nutrition/whole-foods-reference.md"),
-         ("edu_training_1",  "Time to add weights — here's what your training looks like","education-lessons/training/workout-overview.md")],
-    # Week 7: Gym basics
-    7:  [("edu_gym_terms",   "Gym terminology decoded — sets, reps, RPE explained",       "education-lessons/training/gym-terminology.md"),
-         ("edu_gymtim",      "Gymtimidation — and why it ends at session three",           "education-lessons/training/gymtimidation.md")],
-    # Week 8: Execution + challenge question
-    8:  [("edu_warmup",      "The warm-up you should never skip (especially over 40)",    "education-lessons/training/warm-ups.md"),
-         ("edu_prep",        "How to prepare for a session — before, during, after",      "education-lessons/training/workout-prep.md"),
-         ("edu_challenge",   "Week 8: What's your challenge?",                            "education-lessons/training/confirmation-challenge.md")],
-    # Week 9: Load and fat loss science
-    9:  [("edu_weight",      "How much weight should you lift? The honest answer",        "education-lessons/training/how-much-weight.md"),
-         ("edu_fatloss_t",   "Why lifting beats cardio for body composition",             "education-lessons/training/training-for-fat-loss.md")],
-    # Week 10: The method
-    10: [("edu_bws",         "The Battleship training method — and why boring works",     "education-lessons/training/bws-method.md")],
-    # Week 11: Arms + what comes next
-    11: [("edu_arms",        "What about arms? Why the basics come first",                "education-lessons/training/arms-and-basics.md")],
+    # One lesson per week — strongest signal for that stage of the programme.
+    # Dropped lessons (key-to-success, balanced-plate, closing-the-gap, hacking-consistency,
+    # whole-foods-reference, gym-terminology, workout-prep, how-much-weight) remain in the vault
+    # for Claude to reference in check-in responses or diagnosis emails.
+    1:  [("edu_sleep",       "Week 1 bonus: sleep — the easiest win in the programme",        "education-lessons/sleep/sleep-for-fat-loss.md")],
+    2:  [("edu_zone2",       "Why slow walking beats hard running — the science",              "education-lessons/exercises/zone2-walking.md")],
+    3:  [("edu_8020",        "The 80/20 rule of nutrition",                                    "education-lessons/nutrition/80-20-rule.md")],
+    4:  [("edu_fatloss_1",   "How to actually lose fat: getting started",                      "education-lessons/fat-loss/getting-started.md")],
+    5:  [("edu_fatloss_2",   "How to actually lose fat: awareness",                            "education-lessons/fat-loss/awareness.md")],
+    6:  [("edu_training_1",  "Time to add weights — here's what your training looks like",     "education-lessons/training/workout-overview.md")],
+    7:  [("edu_gymtim",      "Gymtimidation — and why it ends at session three",               "education-lessons/training/gymtimidation.md")],
+    # Week 8: warmup drip + AI-generated challenge email (challenge sent separately)
+    8:  [("edu_warmup",      "The warm-up you should never skip (especially over 40)",         "education-lessons/training/warm-ups.md"),
+         ("edu_challenge",   "Week 8: What's your challenge?",                                 "education-lessons/training/confirmation-challenge.md")],
+    # Week 9: insulin / fasting — the mid-programme strategy unlock for visceral fat
+    9:  [("edu_fasting",     "Why fasting is the fastest way to burn dangerous belly fat",     "education-lessons/fasting/jamnadas-fasting-visceral-fat.md")],
+    10: [("edu_fatloss_t",   "Why lifting beats cardio for body composition",                  "education-lessons/training/training-for-fat-loss.md")],
+    11: [("edu_bws",         "The Battleship training method — and why boring works",          "education-lessons/training/bws-method.md")],
+    12: [("edu_arms",        "What about arms? Why the basics come first",                     "education-lessons/training/arms-and-basics.md")],
+}
+
+
+# ── Programme library ─────────────────────────────────────────────────────────
+
+PROGRAMS_DIR = VAULT_ROOT / "11-week-programs"
+
+PROGRAM_FILES = {
+    "beginner_bodyweight": "11-week-beginner-bodyweight-strength-training-program.md",
+    "bodyweight_full":     "11-week-bodyweight-full-body-program.md",
+    "bodyweight_hiit":     "11-week bodyweight HIIT (high-intensity-interval-training)-program.md",
+    "resistance_bands":    "11-week-resistance-bands-full-body.md",
+    "dumbbell_full_body":  "11-week-dumbbell-full-body-program.md",
+    "home_complete":       "11-week-home-complete-program.md",
+    "gym_beginner":        "11-week-gym-beginner-machines.md",
+    "gym_intermediate":    "11-week-gym-intermediate-ppl.md",
+}
+
+PROGRAM_LABELS = {
+    "beginner_bodyweight": "Beginner Bodyweight Strength",
+    "bodyweight_full":     "Bodyweight Full-Body",
+    "bodyweight_hiit":     "Bodyweight HIIT",
+    "resistance_bands":    "Resistance Bands Full-Body",
+    "dumbbell_full_body":  "Dumbbell Full-Body",
+    "home_complete":       "Home Complete (Dumbbells + Bands + Pull-Up Bar)",
+    "gym_beginner":        "Gym Beginner (Machines)",
+    "gym_intermediate":    "Gym Intermediate (Push / Pull / Legs)",
+}
+
+# track → {week: nudge_text}  — included at end of coach message
+UPGRADE_NUDGES = {
+    "beginner_bodyweight": {
+        4: "One thing that would upgrade your programme right now: a resistance band (£8–15 online). "
+           "It unlocks pulling movements bodyweight simply can't do — and your programme switches tracks automatically. "
+           "If you get one before your next check-in, just mention it.",
+        7: "You're ready for more resistance. Resistance bands or a pair of light dumbbells would unlock the next stage. Worth it.",
+    },
+    "bodyweight_full": {
+        4: "You're nailing the bodyweight work. A pair of fixed dumbbells — even a 10kg and 15kg from Decathlon (£25–35 total) — "
+           "would let us load the movements you've built and accelerate fat loss significantly. "
+           "Get them before next check-in and your programme upgrades automatically.",
+        6: "If a gym is at all accessible, now is the time. You've built the base — a barbell and cables from Week 7 would be a serious unlock. "
+           "Most gyms are £20–35/month. Just mention it in your check-in if you're open to it.",
+    },
+    "bodyweight_hiit": {
+        4: "HIIT conditions your engine well. To start building more muscle alongside the fat loss — "
+           "which is what really changes body composition long-term — a pair of dumbbells is the next step. "
+           "Bodyweight can only provide so much resistance. Get them before next check-in and I'll switch your programme.",
+    },
+    "resistance_bands": {
+        4: "The bands are working. A pair of dumbbells from here — even a fixed 10kg and 15kg set — would let us load "
+           "squats, rows, and presses with real weight. £25–35 from Decathlon. "
+           "Mention it in your next check-in and your programme upgrades.",
+    },
+    "dumbbell_full_body": {
+        6: "You've been consistent and the dumbbells are working. If a gym is viable — even a budget one at £20–25/month — "
+           "joining before Week 7 unlocks a barbell, cables, and machines. That means heavier squats, real bench press, "
+           "and a Push/Pull/Legs split. A significant step up. Worth considering.",
+    },
+    "home_complete": {
+        6: "Your home programme has been solid. The one thing it genuinely can't replicate is a barbell and heavy cables. "
+           "A gym from Week 7 would move you to Push/Pull/Legs — the format that builds the most muscle per session. "
+           "If you join before your next check-in I'll switch your programme immediately.",
+    },
+}
+
+# Equipment signals in check-in text that indicate a track upgrade
+UPGRADE_SIGNALS: dict[str, tuple[list[str], str]] = {
+    # current_track: (signal_phrases, new_track)
+    "beginner_bodyweight": (["got bands", "bought bands", "resistance band", "got dumbbells",
+                              "bought dumbbells", "got weights", "ordered weights"], "resistance_bands"),
+    "bodyweight_full":     (["got dumbbells", "bought dumbbells", "got weights", "ordered weights",
+                              "picked up weights", "joined gym", "started gym", "gym membership"], "dumbbell_full_body"),
+    "bodyweight_hiit":     (["got dumbbells", "bought dumbbells", "got weights",
+                              "joined gym", "started gym", "gym membership"], "dumbbell_full_body"),
+    "resistance_bands":    (["got dumbbells", "bought dumbbells", "got weights",
+                              "ordered dumbbells", "picked up weights"], "dumbbell_full_body"),
+    "dumbbell_full_body":  (["joined gym", "started gym", "gym membership", "signed up to gym",
+                              "signed up for gym", "got a gym"], "gym_beginner"),
+    "home_complete":       (["joined gym", "started gym", "gym membership",
+                              "signed up to gym", "signed up for gym"], "gym_beginner"),
 }
 
 
@@ -505,6 +574,9 @@ WEEKLY LOG:
 PREVIOUS TRACKER STATE:
 {tracker_text}
 
+NEXT WEEK'S PLAN — always close your coach message with these specific targets:
+{next_week_plan}
+
 IMPORTANT: Reference this client's personal metrics specifically — not generic targets.
 If their goal is fitness/VO2, don't harp on weight. If their goal is fat loss, don't
 ignore the scales. Connect every observation back to what THEY said they care about.
@@ -519,7 +591,8 @@ COACH MESSAGE RULES:
 - Praise specific wins first — use their actual numbers, name their metric
 - One correction only — gentle, non-shaming, actionable
 - Connect progress to their stated goal — make them feel it's working for THEM
-- Next week's focus — one thing only
+- Always close with next week's specific targets from the plan above: exact step count,
+  push-up sets/reps, and strength session details if applicable. Not vague — actual numbers.
 - Warm British tone. No hype. 150–250 words.
 
 Output format:
@@ -529,6 +602,83 @@ Output format:
 [COACH_MESSAGE]
 ...coach message only...
 [/COACH_MESSAGE]
+"""
+
+# ── Adaptive plan — walking/habit targets only, built from Week 1 check-in ────
+# Strength training is delivered weekly from the assigned programme track file.
+
+ADAPTIVE_PLAN_PROMPT = """\
+You are the Walking & Habits Coach for Battleship – Midlife Fitness Reset.
+Build a progressive walking and habit plan for {name} covering Weeks 2–12.
+Strength sessions are handled separately — your job is walk targets, push-up challenge, and habit focus only.
+
+INTAKE PROFILE:
+Name: {name}, Age: {age}
+Goal: {goal}
+Constraints: {constraints}
+Injuries: {injuries}
+Available days: {available_days}
+
+WEEK 1 ACTUAL CHECK-IN DATA:
+{week1_data}
+
+RULES:
+1. Walking: extract their ACTUAL average step count from the check-in. Start from that number.
+   Increase ~20% per week. Target 10,000 steps/day by Week 4–5. State exact steps/day each week.
+2. Push-up challenge: 3 × max reps every day — starts Week 2. Build each week.
+   When they hit 3×15: move to close-grip or feet-elevated.
+3. Habit focus: one per week — nutrition or behaviour. Progress logically
+   (e.g. Week 2: log food, Week 3: hit protein target, Week 4: cut late eating).
+4. If a target was missed based on check-in: hold steady, note it — do NOT advance.
+5. For shoulder/rotator cuff injuries: push-ups are fine if pain-free; note the modification.
+
+FORMAT — use exactly this structure for each week:
+## Week N — [one-word theme]
+**Walk:** X,XXX steps/day
+**Push-up challenge:** 3 × N reps
+**Habit:** [one target]
+**Coach note:** [one sentence]
+
+Output Weeks 2–12 only. No preamble. Under 600 words.
+"""
+
+TRACK_UPGRADE_PROMPT = """\
+You are Will Barratt, coach at Battleship – Midlife Fitness Reset.
+
+{name} has just upgraded their training programme.
+Previous track: {old_label}
+New track: {new_label}
+
+Their first session this week (Week {week}):
+{week_session}
+
+Write a short email (100–130 words) that:
+1. Makes the upgrade feel like a milestone — one sentence of genuine acknowledgement
+2. Tells them exactly what changes: the new session structure in plain English
+3. Gives them their Week {week} session in clear, actionable terms
+4. Closes with one line of energy — not hype, just forward momentum
+
+Sign off as Will. No bullet points. Output email body only.
+"""
+
+GYM_PIVOT_PROMPT = """\
+You are Will Barratt, coach at Battleship – Midlife Fitness Reset.
+
+{name} (Week {week}) was on the gym track but their check-in doesn't suggest they've been.
+
+Their check-in:
+{checkin_data}
+
+Equipment they have at home: {equipment}
+
+Write a coaching email (150–180 words) that:
+1. Doesn't make a big deal of it — one sentence, matter-of-fact
+2. Gives them exactly what to do this week at home: 2 supersets using their available
+   equipment, specific exercises, sets × reps
+3. Leaves the door open — if they join in the next week or two, just reply and we'll switch back
+4. Keeps the energy up — different path, not backwards
+
+Sign off as Will. No bullet points in the body. Output email body only.
 """
 
 WEEK12_PROMPT = """\
@@ -1279,6 +1429,343 @@ def gsheets_parse_row(row: dict) -> dict:
     return parsed
 
 
+# ── Programme library helpers ─────────────────────────────────────────────────
+
+def _parse_table_lines(lines: list) -> tuple:
+    """Parse raw markdown table lines → (headers, list-of-row-dicts)."""
+    if len(lines) < 3:
+        return [], []
+    headers = [h.strip() for h in lines[0].split("|")[1:-1]]
+    rows = []
+    for line in lines[2:]:          # skip the --- separator
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) >= len(headers):
+            rows.append(dict(zip(headers, cells[:len(headers)])))
+    return headers, rows
+
+
+def _parse_md_tables(text: str) -> list:
+    """Return all tables in a markdown file as (label, headers, rows) tuples.
+    Label is taken from the nearest preceding heading or bold-text line."""
+    results = []
+    lines   = text.splitlines()
+    label   = "Programme"
+    buf     = []
+    in_tbl  = False
+
+    for line in lines:
+        s = line.strip()
+        # Capture section headings and bold tracker labels as table labels
+        if s.startswith("#"):
+            if in_tbl and buf:
+                hdrs, rows = _parse_table_lines(buf)
+                if hdrs and rows:
+                    results.append((label, hdrs, rows))
+                buf, in_tbl = [], False
+            label = s.lstrip("#").strip()
+        elif s.startswith("**") and any(w in s for w in ("Tracker", "Day", "Session", "Programme")):
+            if in_tbl and buf:
+                hdrs, rows = _parse_table_lines(buf)
+                if hdrs and rows:
+                    results.append((label, hdrs, rows))
+                buf, in_tbl = [], False
+            label = s.strip("*").strip()
+        # Table lines
+        if s.startswith("|"):
+            in_tbl = True
+            buf.append(s)
+        elif in_tbl:
+            if buf:
+                hdrs, rows = _parse_table_lines(buf)
+                if hdrs and rows:
+                    results.append((label, hdrs, rows))
+            buf, in_tbl = [], False
+
+    if in_tbl and buf:
+        hdrs, rows = _parse_table_lines(buf)
+        if hdrs and rows:
+            results.append((label, hdrs, rows))
+
+    return results
+
+
+def _week_row(rows: list, week: int) -> dict:
+    """Find the row for a specific week number in a parsed table."""
+    for row in rows:
+        val = row.get("Week", row.get(list(row.keys())[0], ""))
+        try:
+            if int(str(val).strip()) == week:
+                return row
+        except (ValueError, TypeError):
+            continue
+    return {}
+
+
+_META_COLS = {
+    "Week", "Sets × Reps", "Sets × Goal", "Sets", "Frequency",
+    "Circuit Structure (per round)", "Work / Rest per Exercise",
+    "Rounds per Session", "Total Time (approx.)",
+    "Notes / Weight Used", "Notes / How It Felt", "Notes / Modifications",
+    "Notes / Variation Used", "Notes / Weight", "Notes",
+    "Key Progression / Focus", "Notes / Modifications",
+}
+
+
+def _format_table_row(label: str, headers: list, row: dict, multi: bool) -> str:
+    """Format one table row as readable plain text for an email."""
+    lines = []
+    if multi:
+        lines.append(f"{label}:")
+
+    # Volume line
+    for k in ("Sets × Reps", "Sets × Goal", "Sets"):
+        if row.get(k):
+            lines.append(f"  Volume: {row[k]}")
+            break
+
+    # HIIT-specific columns
+    for k in ("Circuit Structure (per round)", "Work / Rest per Exercise",
+              "Rounds per Session", "Total Time (approx.)"):
+        if row.get(k) and row[k] not in ("", "—"):
+            lines.append(f"  {k}: {row[k]}")
+
+    # Exercise columns
+    for k, v in row.items():
+        if k not in _META_COLS and v and v.strip() not in ("", "—", "-"):
+            lines.append(f"  • {k}: {v}")
+
+    # Notes / progression cue
+    for k in ("Key Progression / Focus", "Notes / Weight Used", "Notes / How It Felt",
+              "Notes / Modifications", "Notes / Variation Used", "Notes"):
+        if row.get(k) and row[k].strip() not in ("", "—"):
+            lines.append(f"  → {row[k]}")
+            break
+
+    return "\n".join(lines)
+
+
+def extract_program_week(track: str, week: int) -> str:
+    """Return this week's session(s) from the programme file as formatted plain text.
+    Returns empty string if track/file/week not found."""
+    filename = PROGRAM_FILES.get(track, "")
+    if not filename:
+        return ""
+    filepath = PROGRAMS_DIR / filename
+    if not filepath.exists():
+        return ""
+
+    week    = max(1, min(week, 11))   # programmes are 11 weeks; week 12 = close email
+    tables  = _parse_md_tables(filepath.read_text())
+    if not tables:
+        return ""
+
+    multi   = len(tables) > 1
+    parts   = []
+    for label, headers, rows in tables:
+        row = _week_row(rows, week)
+        if row:
+            parts.append(_format_table_row(label, headers, row, multi))
+
+    return "\n\n".join(parts)
+
+
+def select_program_track(tags: dict, week1_data: str = "") -> str:
+    """Select the best programme track from intake tags + Week 1 check-in signals."""
+    equip      = " ".join(tags.get("equipment", [])).lower()
+    w1         = week1_data.lower()
+    constraints = " ".join(tags.get("constraints", [])).lower()
+
+    # Gym access
+    if any(w in equip for w in ("gym", "workplace gym", "office gym", "pool")):
+        return "gym_beginner"
+
+    # Full home kit
+    has_db    = any(w in equip for w in ("dumbbell", "home weight", "weight", "bench"))
+    has_bands = "band" in equip
+    has_bar   = "pull" in equip
+    if has_db and (has_bands or has_bar):
+        return "home_complete"
+    if has_db:
+        return "dumbbell_full_body"
+    if has_bands:
+        return "resistance_bands"
+
+    # Bodyweight — pick tier from fitness signals
+    very_unfit = any(w in w1 for w in (
+        "exhausted", "struggled", "couldn't finish", "very hard",
+        "out of breath", "knackered", "never exercise"
+    )) or any(w in constraints for w in ("mostly sitting", "sedentary", "never"))
+
+    if very_unfit:
+        return "beginner_bodyweight"
+    if any(w in w1 for w in ("hiit", "interval training", "hiit class")):
+        return "bodyweight_hiit"
+    return "bodyweight_full"
+
+
+def detect_equipment_upgrade(parsed: dict, current_track: str) -> str:
+    """Scan check-in text for equipment/gym upgrade signals. Returns new track or empty string."""
+    haystack = " ".join([
+        parsed.get("raw_text", ""),
+        parsed.get("win", ""),
+        parsed.get("questions", ""),
+    ]).lower()
+
+    # Gym keywords — word-level, not phrase-level
+    gym_words    = ("joined the gym", "joined a gym", "gym membership", "started at the gym",
+                    "started the gym", "signed up to the gym", "signed up for the gym",
+                    "going to the gym", "been to the gym", "at the gym", "my gym")
+    db_words     = ("dumbbell", "dumbbells", "a pair of weights", "some weights",
+                    "home weights", "bought weights", "got weights")
+    band_words   = ("resistance band", "bands", "bought bands", "got bands")
+    pullup_words = ("pull-up bar", "pullup bar", "pull up bar")
+
+    has_gym   = any(w in haystack for w in gym_words)
+    has_db    = any(w in haystack for w in db_words)
+    has_bands = any(w in haystack for w in band_words)
+    has_bar   = any(w in haystack for w in pullup_words)
+
+    # Confirm acquisition verb nearby (bought, got, ordered, picked up, joined)
+    acquisition = any(w in haystack for w in ("bought", "got ", "ordered", "picked up",
+                                               "joined", "signed up", "purchased", "found"))
+
+    if has_gym and acquisition:
+        return "gym_beginner"
+
+    bw_tracks = ("bodyweight_full", "bodyweight_hiit", "beginner_bodyweight")
+    if current_track in bw_tracks:
+        if has_db and acquisition:
+            return "dumbbell_full_body"
+        if has_bands and acquisition:
+            return "resistance_bands"
+
+    if current_track == "resistance_bands":
+        if has_db and acquisition:
+            return "dumbbell_full_body"
+
+    if current_track in ("dumbbell_full_body", "home_complete"):
+        if has_gym and acquisition:
+            return "gym_beginner"
+
+    # Check existing UPGRADE_SIGNALS as fallback for exact phrases
+    signals, new_track = UPGRADE_SIGNALS.get(current_track, ([], ""))
+    for signal in signals:
+        if signal in haystack:
+            return new_track
+
+    return ""
+
+
+def get_upgrade_nudge(track: str, week: int) -> str:
+    """Return upgrade nudge text for this track/week, or empty string."""
+    return UPGRADE_NUDGES.get(track, {}).get(week, "")
+
+
+def send_track_upgrade_email(cs: dict, new_track: str, secrets: dict):
+    """Send a programme-upgrade email and update client state."""
+    old_label = PROGRAM_LABELS.get(cs.get("program_track", ""), "previous programme")
+    new_label = PROGRAM_LABELS.get(new_track, new_track)
+    week      = cs.get("current_week", 1) - 1
+    session   = extract_program_week(new_track, week) or "Sessions start this week."
+
+    prompt = TRACK_UPGRADE_PROMPT.format(
+        name        = cs["name"],
+        old_label   = old_label,
+        new_label   = new_label,
+        week        = week,
+        week_session= session,
+    )
+    body = call_claude(secrets["anthropic"], prompt, max_tokens=400)
+    subj = f"Your programme just upgraded, {cs['name']}"
+    send_email(secrets, cs["email"], subj, body)
+
+    cs["program_track"] = new_track
+    log_event(cs["folder"], f"Programme upgraded: {old_label} → {new_label} (Week {week})")
+    print(f"     ⬆️  Programme upgraded for {cs['name']}: {old_label} → {new_label}")
+
+
+# ── Adaptive plan helpers ─────────────────────────────────────────────────────
+
+def _extract_week_section(plan_text: str, week: int) -> str:
+    """Pull ## Week N block from a plan. Returns empty string if not found."""
+    marker      = f"## Week {week}"
+    next_marker = f"## Week {week + 1}"
+    if marker not in plan_text:
+        return ""
+    start = plan_text.index(marker)
+    end   = plan_text.index(next_marker) if next_marker in plan_text else len(plan_text)
+    return plan_text[start:end].strip()
+
+
+def _generate_adaptive_plan(cs: dict, week1_data: str, secrets: dict):
+    """Select programme track + build walking/habit plan from Week 1 check-in data."""
+    tags        = cs.get("tags", {})
+    constraints = ", ".join(tags.get("constraints", [])) or "none noted"
+    injuries    = str(tags.get("risk_flags", {}).get("injuries", [])) or "none"
+    avail_days  = ", ".join(tags.get("available_days", [])) or "flexible"
+
+    # Select the programme track from equipment + Week 1 signals
+    track = select_program_track(tags, week1_data)
+    cs["program_track"]       = track
+    cs["adaptive_plan_built"] = True
+
+    # Gym track: set gate flag so we check attendance at Week 3+
+    gym_tracks = {"gym_beginner", "gym_intermediate"}
+    cs["gym_track"] = "required" if track in gym_tracks else "not_required"
+
+    label = PROGRAM_LABELS.get(track, track)
+    print(f"     📋 Programme track selected: {label}")
+    log_event(cs["folder"], f"Programme track assigned: {label}")
+
+    # Build the walking + habit plan (strength delivered weekly from programme file)
+    prompt = ADAPTIVE_PLAN_PROMPT.format(
+        name          = cs["name"],
+        age           = tags.get("age", "unknown"),
+        goal          = tags.get("main_goal", "general health improvement"),
+        constraints   = constraints,
+        injuries      = injuries,
+        available_days= avail_days,
+        week1_data    = week1_data,
+    )
+    plan_text = call_claude(secrets["anthropic"], prompt, max_tokens=1200)
+    save_client_file(cs["folder"], "plan.md", plan_text)
+    log_event(cs["folder"], f"Walking/habit plan built from Week 1 data")
+    print(f"     ✅ Adaptive plan saved for {cs['name']}")
+    return plan_text
+
+
+def _send_gym_pivot(cs: dict, checkin_data: str, secrets: dict):
+    """Send pivot email and switch client to home track."""
+    tags      = cs.get("tags", {})
+    equipment = ", ".join(tags.get("equipment", [])) or "bodyweight only"
+    week      = cs.get("current_week", 1) - 1
+
+    prompt = GYM_PIVOT_PROMPT.format(
+        name         = cs["name"],
+        week         = week,
+        checkin_data = checkin_data[:600],
+        equipment    = equipment,
+    )
+    body = call_claude(secrets["anthropic"], prompt, max_tokens=600)
+    subj = f"Quick update on your plan, {cs['name']}"
+    send_email(secrets, cs["email"], subj, body)
+    cs["gym_track"] = "pivoted"
+    log_event(cs["folder"], "Gym pivot email sent — switched to home track")
+    print(f"     🏠 Gym pivot sent to {cs['name']}")
+
+
+def _infer_gym_attendance(parsed: dict) -> bool:
+    """Return True if check-in text suggests the client visited a gym this week."""
+    haystack = " ".join([
+        parsed.get("raw_text", ""),
+        parsed.get("workouts", ""),
+        parsed.get("win", ""),
+    ]).lower()
+    gym_signals = ["gym", "joined", "membership", "bench", "cable", "machine",
+                   "squat rack", "lat pull", "weights room", "lifted at"]
+    return any(s in haystack for s in gym_signals)
+
+
 # ── Pipeline: Process Check-In Responses ──────────────────────────────────────
 
 def _process_single_checkin(state: dict, secrets: dict, parsed: dict, row_id: str):
@@ -1298,23 +1785,70 @@ def _process_single_checkin(state: dict, secrets: dict, parsed: dict, row_id: st
 
     print(f"\n  📋 Processing Week {week} check-in for {cs['name']}...")
 
+    # ── Week 1 check-in: build the real adaptive plan ─────────────────────────
+    if week == 1 and not cs.get("adaptive_plan_built"):
+        print(f"  🏗️  Week 1 data received — building adaptive plan for {cs['name']}...")
+        _generate_adaptive_plan(cs, parsed["raw_text"], secrets)
+
+    # ── Equipment / gym upgrade detection ────────────────────────────────────
+    current_track = cs.get("program_track", "")
+    if current_track:
+        new_track = detect_equipment_upgrade(parsed, current_track)
+        # Auto-graduate gym_beginner → gym_intermediate after Week 8
+        if not new_track and current_track == "gym_beginner" and week >= 8:
+            new_track = "gym_intermediate"
+        if new_track and new_track != current_track:
+            send_track_upgrade_email(cs, new_track, secrets)
+            # Upgrade email is supplemental — continue with normal check-in flow
+            current_track = new_track
+
+    # ── Gym gate: Week 3+ on gym track, check they've actually been ───────────
+    if (week >= 3
+            and cs.get("gym_track") == "required"
+            and not _infer_gym_attendance(parsed)):
+        _send_gym_pivot(cs, parsed["raw_text"], secrets)
+        cs["last_checkin_received"] = datetime.now(timezone.utc).isoformat()
+        state.setdefault("processed_checkin_ids", []).append(row_id)
+        return
+
+    if cs.get("gym_track") == "required" and _infer_gym_attendance(parsed):
+        cs["gym_track"] = "confirmed"
+
+    # ── Extract next week's walking/habit plan ────────────────────────────────
+    next_week_plan = ""
+    if cs.get("folder"):
+        plan_text = read_client_file(cs["folder"], "plan.md")
+        if plan_text:
+            next_week_plan = _extract_week_section(plan_text, week + 1)
+    if not next_week_plan:
+        next_week_plan = "No walking plan yet — will be built from this week's data."
+
+    # ── Extract next week's strength session from programme file ──────────────
+    next_session = ""
+    if current_track and week >= 2:
+        next_session = extract_program_week(current_track, week + 1)
+
+    # ── Generate coach response ───────────────────────────────────────────────
     existing_tracker = read_client_file(cs["folder"], "progress-tracker.md")
-    # Build personal metrics string for prompt
     raw_metrics = cs.get("success_metrics", [])
-    if raw_metrics:
-        metrics_text = "\n".join(
-            f"- {m.get('metric','').title()}: {m.get('how','')} ({m.get('unit','')})"
-            for m in raw_metrics
-        )
-    else:
-        metrics_text = "- Weight (weekly)\n- Energy 1–10\n- Steps (daily)"
+    metrics_text = "\n".join(
+        f"- {m.get('metric','').title()}: {m.get('how','')} ({m.get('unit','')})"
+        for m in raw_metrics
+    ) if raw_metrics else "- Weight (weekly)\n- Energy 1–10\n- Steps (daily)"
+
+    # Combine walking plan + strength session for the prompt context
+    full_next_week = next_week_plan[:600]
+    if next_session:
+        full_next_week += f"\n\nStrength sessions next week:\n{next_session[:600]}"
+
     prompt = CHECKIN_PROMPT.format(
-        name=cs["name"],
-        week=week,
-        main_goal=cs.get("goal", "general health improvement"),
-        success_metrics=metrics_text,
-        log_text=parsed["raw_text"],
-        tracker_text=existing_tracker[:2000] if existing_tracker else "No previous tracker.",
+        name            = cs["name"],
+        week            = week,
+        main_goal       = cs.get("goal", cs.get("tags", {}).get("main_goal", "general health improvement")),
+        success_metrics = metrics_text,
+        log_text        = parsed["raw_text"],
+        tracker_text    = existing_tracker[:2000] if existing_tracker else "No previous tracker.",
+        next_week_plan  = full_next_week,
     )
     raw = call_claude(secrets["anthropic"], prompt, max_tokens=2000)
 
@@ -1332,13 +1866,28 @@ def _process_single_checkin(state: dict, secrets: dict, parsed: dict, row_id: st
     if coach_message:
         update_notion_week(cs["folder"], cs, secrets, week, coach_message)
         if cs["email"]:
-            notion_url   = cs.get("notion_url", "")
-            portal_line  = f"\n\nYour programme page: {notion_url}" if notion_url else ""
+            notion_url = cs.get("notion_url", "")
+            portal_line = f"\n\nYour programme page: {notion_url}" if notion_url else ""
+
+            # Append this week's session block and any upgrade nudge
+            session_block = ""
+            this_session = extract_program_week(current_track, week) if current_track else ""
+            if this_session:
+                track_label   = PROGRAM_LABELS.get(current_track, "")
+                session_block = f"\n\n---\nYOUR SESSIONS THIS WEEK — Week {week}"
+                if track_label:
+                    session_block += f" ({track_label})"
+                session_block += f"\n\n{this_session}"
+
+            nudge = get_upgrade_nudge(current_track, week) if current_track else ""
+            nudge_block = f"\n\n---\n{nudge}" if nudge else ""
+
             subj = f"Week {week} review — {cs['name']}"
-            send_email(secrets, cs["email"], subj,
-                       f"Hi {cs['name']},\n\n{coach_message}{portal_line}\n\n— {COACH_NAME}")
-            log_event(cs["folder"], f"Week {week} coach message sent")
-            print(f"     ✅ Coach response sent to {cs['name']}")
+            body = (f"Hi {cs['name']},\n\n{coach_message}"
+                    f"{session_block}{nudge_block}{portal_line}\n\n— {COACH_NAME}")
+            send_email(secrets, cs["email"], subj, body)
+            log_event(cs["folder"], f"Week {week} coach message sent (track: {current_track})")
+            print(f"     ✅ Coach response sent to {cs['name']} (track: {current_track})")
 
     cs["last_checkin_received"] = datetime.now(timezone.utc).isoformat()
     state.setdefault("processed_checkin_ids", []).append(row_id)
@@ -1688,6 +2237,7 @@ def send_education_drips(state: dict, secrets: dict):
                 "edu_gymtim": "Training", "edu_warmup": "Training",
                 "edu_prep": "Training", "edu_weight": "Training",
                 "edu_fatloss_t": "Training", "edu_bws": "Training",
+                "edu_fasting": "Fasting & Insulin", "edu_arms": "Training",
             }
             lesson_label = label_map.get(key, "Education")
 

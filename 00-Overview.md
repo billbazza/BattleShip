@@ -19,10 +19,7 @@ Not a quick fix or plaster — a proper rewrite: simple steps, accountability, r
 Orchestrator routes to sub-agents: Intake, Program, Check-in, Education.
 
 **Tech Stack**  
-- Obsidian vault – persistent memory & planning  
-- Claude – reasoning, generation  
-- ClawPod – web gathering  
-- OpenClaw – modular skills & orchestration  
+- Claude – reasoning, generation    
 - MyFitnessPal – tracking  
 - Pulse / similar – CRM & emails
 

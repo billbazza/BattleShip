@@ -160,6 +160,7 @@ BASE = """<!DOCTYPE html>
     .topbar-brand span { color: #c41e3a; }
     .topbar-nav a { color: #888; font-size: 13px; margin-left: 20px; }
     .topbar-nav a:hover { color: #fff; text-decoration: none; }
+    .topbar-nav a.active { color: #c41e3a; }
 
     .container { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
     h1 { font-family: Georgia, serif; font-weight: normal; font-size: 26px;
@@ -258,6 +259,7 @@ BASE = """<!DOCTYPE html>
     <div class="topbar-brand">Battle<span>ship</span></div>
     <nav class="topbar-nav">
       <a href="/">Dashboard</a>
+      <a href="/simulate">Simulator</a>
       <a href="/run">Run Pipeline</a>
     </nav>
   </div>
@@ -476,6 +478,566 @@ RUN_PAGE = BASE.replace("{% block content %}{% endblock %}", """
 {% endif %}
 {% endblock %}""")
 
+# ── Pipeline Simulator ────────────────────────────────────────────────────────
+
+# Mirrors EDUCATION_DRIPS in battleship_pipeline.py + day_offset within the week
+# (day 0 = Monday, day 3 = Thursday) — matches the idx==1 stagger logic in the pipeline
+_SIM_DRIPS = {
+    # One lesson per week. Day offset: 0=Monday. Week 8 keeps challenge (AI email, separate trigger).
+    1:  [("edu_sleep",       "Week 1 bonus: sleep — the easiest win in the programme",          "education-lessons/sleep/sleep-for-fat-loss.md",                          0)],
+    2:  [("edu_zone2",       "Why slow walking beats hard running — the science",               "education-lessons/exercises/zone2-walking.md",                           0)],
+    3:  [("edu_8020",        "The 80/20 rule of nutrition",                                     "education-lessons/nutrition/80-20-rule.md",                              0)],
+    4:  [("edu_fatloss_1",   "How to actually lose fat: getting started",                       "education-lessons/fat-loss/getting-started.md",                          0)],
+    5:  [("edu_fatloss_2",   "How to actually lose fat: awareness",                             "education-lessons/fat-loss/awareness.md",                                0)],
+    6:  [("edu_training_1",  "Time to add weights — here's what your training looks like",      "education-lessons/training/workout-overview.md",                         0)],
+    7:  [("edu_gymtim",      "Gymtimidation — and why it ends at session three",                "education-lessons/training/gymtimidation.md",                            0)],
+    8:  [("edu_warmup",      "The warm-up you should never skip (especially over 40)",          "education-lessons/training/warm-ups.md",                                 0),
+         ("edu_challenge",   "Week 8: What's your challenge?",                                  "education-lessons/training/confirmation-challenge.md",                   0)],
+    9:  [("edu_fasting",     "Why fasting is the fastest way to burn dangerous belly fat",      "education-lessons/fasting/jamnadas-fasting-visceral-fat.md",             0)],
+    10: [("edu_fatloss_t",   "Why lifting beats cardio for body composition",                   "education-lessons/training/training-for-fat-loss.md",                   0)],
+    11: [("edu_bws",         "The Battleship training method — and why boring works",           "education-lessons/training/bws-method.md",                              0)],
+    12: [("edu_arms",        "What about arms? Why the basics come first",                      "education-lessons/training/arms-and-basics.md",                         0)],
+}
+
+# ── Programme track constants + parser (mirrors battleship_pipeline.py) ───────
+
+_PROGRAMS_DIR = VAULT_ROOT / "11-week-programs"
+
+_PROGRAM_FILES = {
+    "beginner_bodyweight": "11-week-beginner-bodyweight-strength-training-program.md",
+    "bodyweight_full":     "11-week-bodyweight-full-body-program.md",
+    "bodyweight_hiit":     "11-week bodyweight HIIT (high-intensity-interval-training)-program.md",
+    "resistance_bands":    "11-week-resistance-bands-full-body.md",
+    "dumbbell_full_body":  "11-week-dumbbell-full-body-program.md",
+    "home_complete":       "11-week-home-complete-program.md",
+    "gym_beginner":        "11-week-gym-beginner-machines.md",
+    "gym_intermediate":    "11-week-gym-intermediate-ppl.md",
+}
+
+_PROGRAM_LABELS = {
+    "beginner_bodyweight": "Beginner Bodyweight Strength",
+    "bodyweight_full":     "Bodyweight Full-Body",
+    "bodyweight_hiit":     "Bodyweight HIIT",
+    "resistance_bands":    "Resistance Bands Full-Body",
+    "dumbbell_full_body":  "Dumbbell Full-Body",
+    "home_complete":       "Home Complete (Dumbbells + Bands + Pull-Up Bar)",
+    "gym_beginner":        "Gym Beginner (Machines)",
+    "gym_intermediate":    "Gym Intermediate (Push / Pull / Legs)",
+}
+
+_UPGRADE_NUDGES = {
+    "beginner_bodyweight": {
+        4: "💡 Upgrade nudge: A resistance band (£8–15 online) unlocks pulling movements bodyweight can't do. Mention it in your next check-in and your programme switches tracks automatically.",
+        7: "💡 Upgrade nudge: You're ready for more resistance. Bands or light dumbbells would unlock the next stage.",
+    },
+    "bodyweight_full": {
+        4: "💡 Upgrade nudge: A pair of fixed dumbbells — even 10kg + 15kg from Decathlon (£25–35) — would let us load these movements and accelerate fat loss. Get them before next check-in.",
+        6: "💡 Upgrade nudge: If a gym is at all accessible, now is the time. You've built the base. Most gyms are £20–35/month.",
+    },
+    "bodyweight_hiit": {
+        4: "💡 Upgrade nudge: HIIT conditions your engine well. A pair of dumbbells is the next step for building muscle alongside fat loss.",
+    },
+    "resistance_bands": {
+        4: "💡 Upgrade nudge: The bands are working. Dumbbells (£25–35 fixed set) would let us load squats, rows, and presses with real weight.",
+    },
+    "dumbbell_full_body": {
+        6: "💡 Upgrade nudge: If a gym is viable (£20–25/month), joining before Week 7 unlocks a barbell, cables, and machines — Push/Pull/Legs split from here.",
+    },
+    "home_complete": {
+        6: "💡 Upgrade nudge: Your home programme has been solid. A gym from Week 7 moves you to Push/Pull/Legs — the format that builds the most muscle per session.",
+    },
+}
+
+_GYM_TRACKS = {"gym_beginner", "gym_intermediate"}
+_META_COLS_SIM = {
+    "Week", "Sets × Reps", "Sets × Goal", "Sets", "Frequency",
+    "Circuit Structure (per round)", "Work / Rest per Exercise",
+    "Rounds per Session", "Total Time (approx.)",
+    "Notes / Weight Used", "Notes / How It Felt", "Notes / Modifications",
+    "Notes / Variation Used", "Notes / Weight", "Notes",
+    "Key Progression / Focus",
+}
+
+
+def _sim_parse_table_lines(lines: list) -> tuple:
+    if len(lines) < 3:
+        return [], []
+    headers = [h.strip() for h in lines[0].split("|")[1:-1]]
+    rows = []
+    for line in lines[2:]:
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) >= len(headers):
+            rows.append(dict(zip(headers, cells[:len(headers)])))
+    return headers, rows
+
+
+def _sim_parse_md_tables(text: str) -> list:
+    results = []
+    lines = text.splitlines()
+    label = "Programme"
+    buf = []
+    in_tbl = False
+    for line in lines:
+        s = line.strip()
+        if s.startswith("#"):
+            if in_tbl and buf:
+                hdrs, rows = _sim_parse_table_lines(buf)
+                if hdrs and rows:
+                    results.append((label, hdrs, rows))
+                buf, in_tbl = [], False
+            label = s.lstrip("#").strip()
+        elif s.startswith("**") and any(w in s for w in ("Tracker", "Day", "Session", "Programme")):
+            if in_tbl and buf:
+                hdrs, rows = _sim_parse_table_lines(buf)
+                if hdrs and rows:
+                    results.append((label, hdrs, rows))
+                buf, in_tbl = [], False
+            label = s.strip("*").strip()
+        if s.startswith("|"):
+            in_tbl = True
+            buf.append(s)
+        elif in_tbl:
+            if buf:
+                hdrs, rows = _sim_parse_table_lines(buf)
+                if hdrs and rows:
+                    results.append((label, hdrs, rows))
+            buf, in_tbl = [], False
+    if in_tbl and buf:
+        hdrs, rows = _sim_parse_table_lines(buf)
+        if hdrs and rows:
+            results.append((label, hdrs, rows))
+    return results
+
+
+def _sim_week_row(rows: list, week: int) -> dict:
+    for row in rows:
+        val = row.get("Week", row.get(list(row.keys())[0], ""))
+        try:
+            if int(str(val).strip()) == week:
+                return row
+        except (ValueError, TypeError):
+            continue
+    return {}
+
+
+def _sim_format_row(label: str, headers: list, row: dict, multi: bool) -> str:
+    lines = []
+    if multi:
+        lines.append(f"{label}:")
+    for k in ("Sets × Reps", "Sets × Goal", "Sets"):
+        if row.get(k):
+            lines.append(f"  Volume: {row[k]}")
+            break
+    for k in ("Circuit Structure (per round)", "Work / Rest per Exercise",
+              "Rounds per Session", "Total Time (approx.)"):
+        if row.get(k) and row[k] not in ("", "—"):
+            lines.append(f"  {k}: {row[k]}")
+    for k, v in row.items():
+        if k not in _META_COLS_SIM and v and v.strip() not in ("", "—", "-"):
+            lines.append(f"  • {k}: {v}")
+    for k in ("Key Progression / Focus", "Notes / Weight Used", "Notes / How It Felt",
+              "Notes / Modifications", "Notes / Variation Used", "Notes"):
+        if row.get(k) and row[k].strip() not in ("", "—"):
+            lines.append(f"  → {row[k]}")
+            break
+    return "\n".join(lines)
+
+
+def _sim_extract_program_week(track: str, week: int) -> str:
+    filename = _PROGRAM_FILES.get(track, "")
+    if not filename:
+        return ""
+    filepath = _PROGRAMS_DIR / filename
+    if not filepath.exists():
+        return ""
+    week = max(1, min(week, 11))
+    tables = _sim_parse_md_tables(filepath.read_text())
+    if not tables:
+        return ""
+    multi = len(tables) > 1
+    parts = []
+    for label, headers, rows in tables:
+        row = _sim_week_row(rows, week)
+        if row:
+            parts.append(_sim_format_row(label, headers, row, multi))
+    return "\n\n".join(parts)
+
+
+def _sim_week_events(week: int, track: str = "dumbbell_full_body") -> list:
+    """Return ordered list of pipeline events for a given week (read-only, no state changes)."""
+    events = []
+    track_label = _PROGRAM_LABELS.get(track, track)
+    is_gym_track = track in _GYM_TRACKS
+
+    if week == 0:
+        events.append({
+            "type": "intake", "day": 0,
+            "subject": "Intake form submitted",
+            "preview": "Client fills in Tally form → webhook fires to webhook.battleshipreset.com → submission queued.",
+            "content": "Tally → POST /tally-webhook → submission-*.json saved\nTrigger: immediate, then cron picks up within 15min\n\nfunction: process_tally_queue()",
+            "function": "process_tally_queue()",
+        })
+        events.append({
+            "type": "ai_email", "day": 0,
+            "subject": "Your Battleship Diagnosis, [Name]",
+            "preview": "Claude generates a personalised diagnosis from intake data — risk flags, calorie target, injuries, programme overview.",
+            "content": "Claude-generated from intake answers.\n\nIncludes:\n• Weight/height analysis\n• Sleep & stress risk flags\n• Injury notes (modified movement suggestions)\n• Calorie target = TDEE × 0.8 (individual calc)\n• 12-week programme overview\n• Link to book a call (optional)\n\nfunction: generate_diagnosis() → email_diagnosis()",
+            "function": "process_new_intake() → email_diagnosis()",
+        })
+        return events
+
+    if week == 1:
+        events.append({
+            "type": "email", "day": 0,
+            "subject": "Welcome to Battleship, [Name] — here's your plan",
+            "preview": "Onboarding email sent when client pays via Stripe (or manually enrolled). Week 1 is walking only — no strength work yet.",
+            "content": "Triggered by: Stripe webhook payment OR manual --enrol flag\n\nIncludes:\n• Link to personalised Notion plan page\n• Google check-in form link\n• Week 1 instructions: walk every day (Zone 2, 30 min min)\n• Check-in form link — they submit at end of week\n\nfunction: enrol_client() → email_onboarding()",
+            "function": "enrol_client() → email_onboarding()",
+        })
+        events.append({
+            "type": "checkin", "day": 6,
+            "subject": "Week 1 check-in — how did it go, [Name]?",
+            "preview": f"Client submits Week 1 data. Pipeline selects programme track from equipment tags → assigns: {track_label}. Adaptive walking/habit plan built from actual step count.",
+            "content": f"Client submits Google Form check-in.\n\nOn receipt (_process_single_checkin, week==1):\n  1. _generate_adaptive_plan() called:\n     • select_program_track() → assigns track: {track} ({track_label})\n     • Sets starting walk target from ACTUAL steps (not ideal)\n     • Push-up challenge begins Week 2\n     • Walking: simple +20% per week progression\n     • gym_track flagged: {'yes — gym gate active from Week 3' if is_gym_track else 'no'}\n  2. Saves new plan.md (replaces intake plan)\n  3. Sends Week 1 coach message with Week 2 targets\n\nfunction: _process_single_checkin() → _generate_adaptive_plan() → select_program_track()",
+            "function": "_generate_adaptive_plan() → select_program_track()",
+        })
+        # Track assignment card
+        events.append({
+            "type": "track", "day": 6,
+            "subject": f"Programme track assigned: {track_label}",
+            "preview": f"Track selected from equipment tags at Week 1 check-in. Programme file loaded: {_PROGRAM_FILES.get(track, 'N/A')}",
+            "content": f"Track: {track}\nLabel: {track_label}\nFile: {_PROGRAM_FILES.get(track, 'N/A')}\n\nThe programme file is the source of truth for all strength sessions Weeks 2–11.\nClaude wraps each week's session block in a coach message — it does NOT generate the exercises.\n\nUpgrades: detected automatically from check-in text (equipment keywords + acquisition verbs)\nAuto-graduation: {'gym_beginner → gym_intermediate at Week 8' if track == 'gym_beginner' else 'N/A for this track'}\n\nfunction: select_program_track() → state[program_track]",
+            "function": "select_program_track()",
+        })
+
+    # Education drips for this week
+    for (key, subject, filepath, day_offset) in _SIM_DRIPS.get(week, []):
+        content_path = VAULT_ROOT / filepath
+        if content_path.exists():
+            raw = content_path.read_text()
+            preview = " ".join(raw.split())[:300] + ("…" if len(raw) > 300 else "")
+            content = raw
+        else:
+            preview = f"[Content file not found: {filepath}]"
+            content = preview
+        events.append({
+            "type": "education", "day": day_offset,
+            "subject": subject,
+            "preview": preview,
+            "content": content,
+            "function": "send_education_drips()",
+            "key": key,
+        })
+
+    # Weekly check-in request (every week 2+; week 1 check-in is built in the week 1 block above)
+    if week >= 2:
+        gym_note = ""
+        if week == 3 and is_gym_track:
+            gym_note = f"\n\nGYM GATE (active — track: {track}):\n  On receipt, _infer_gym_attendance() scans check-in text for gym signals.\n  If NOT found → _send_gym_pivot() fires instead of normal coach message.\n  Pivot: warm email + home bodyweight session this week + 'join anytime, just reply'"
+        elif week == 3:
+            gym_note = "\n\n(No gym gate — client is on home/bodyweight track)"
+        events.append({
+            "type": "checkin", "day": 0,
+            "subject": f"Week {week} check-in — how's it going, [Name]?",
+            "preview": f"Client submits check-in. Session block for Week {week} ({track_label}) appended to coach message.{' ⚠️ Gym gate active this week.' if week == 3 and is_gym_track else ''}",
+            "content": f"Sent by: send_weekly_checkin_requests()\nCondition: last_checkin_request null OR >6 days ago\n\nOn receipt:\n  1. detect_equipment_upgrade() scans check-in for new equipment signals\n  2. Extract Week {min(week, 11)} session from programme file → appended to email\n  3. Claude generates tracker update + coach message (150–250 words)\n  4. Coach message ALWAYS closes with Week {week + 1} specific targets\n  5. Email sent to client, Notion page updated\n  current_week: {week} → {week + 1}{gym_note}",
+            "function": "send_weekly_checkin_requests() → _process_single_checkin()",
+        })
+
+    # Session block for weeks 2–12 (from programme file)
+    if week >= 2 and track:
+        session_content = _sim_extract_program_week(track, week)
+        if session_content:
+            events.append({
+                "type": "session", "day": 0,
+                "subject": f"Week {min(week, 11)} sessions — {track_label}",
+                "preview": session_content[:200] + ("…" if len(session_content) > 200 else ""),
+                "content": f"Appended to coach message after check-in response.\n\nTrack: {track}\nSource file: {_PROGRAM_FILES.get(track, 'N/A')}\n\n---\n{session_content}",
+                "function": "extract_program_week()",
+            })
+
+    # Upgrade nudge (appended to email at specific weeks)
+    nudge = _UPGRADE_NUDGES.get(track, {}).get(week, "")
+    if nudge:
+        events.append({
+            "type": "upgrade", "day": 0,
+            "subject": f"Upgrade nudge — Week {week}",
+            "preview": nudge[:180] + ("…" if len(nudge) > 180 else ""),
+            "content": f"Appended to coach email at end of Week {week} check-in response.\n\nTrack: {track} ({track_label})\n\n---\n{nudge}",
+            "function": "get_upgrade_nudge()",
+        })
+
+    # Auto-graduation gym_beginner → gym_intermediate at Week 8
+    if week == 8 and track == "gym_beginner":
+        events.append({
+            "type": "upgrade", "day": 6,
+            "subject": "Auto-graduation: Gym Beginner → Gym Intermediate (PPL)",
+            "preview": "Week 8 check-in triggers automatic track upgrade from machine-based programme to Push/Pull/Legs split.",
+            "content": "Trigger: week >= 8 AND track == 'gym_beginner'\n\nPipeline:\n  1. send_track_upgrade_email() called\n  2. Claude generates transition email:\n     • Celebrates machines foundation built\n     • Explains PPL split (Push/Pull/Legs)\n     • Sets expectations: heavier, 3 focused days\n  3. state[program_track] updated to 'gym_intermediate'\n  4. Week 8+ check-ins now load gym_intermediate programme file\n\nNew file: 11-week-gym-intermediate-ppl.md\n\nfunction: send_track_upgrade_email() → detect_equipment_upgrade() auto-path",
+            "function": "send_track_upgrade_email()",
+        })
+
+    # Week 8: challenge email is AI-generated
+    if week == 8:
+        for ev in events:
+            if ev.get("key") == "edu_challenge":
+                ev["type"] = "ai_email"
+                ev["preview"] = "Claude writes a personalised challenge prompt based on client's goals and Week 8 progress. Asks them to name one ambitious target."
+                ev["content"] = "Claude-generated using:\n• Client intake tags (goal, constraints, risk flags)\n• Progress tracker entries\n• Current week plan content\n\nPrompts client to name a specific challenge (event, goal, milestone).\nTheir reply is stored as challenge_goal in state.\n\nfunction: send_education_drips() → CHALLENGE_PROMPT → Claude API"
+
+    # Week 12: personalised close + Phase 2 pitch
+    if week == 12:
+        events.append({
+            "type": "ai_email", "day": 0,
+            "subject": "12 weeks. What comes next, [Name]?",
+            "preview": "Claude writes a personalised end-of-programme letter reviewing their journey, acknowledging wins, and making the Phase 2 offer.",
+            "content": "Claude-generated using full client history:\n• Original intake data\n• All check-in responses\n• Challenge goal (if set)\n• Progress tracker\n\nCovers:\n• Journey reflection — what changed\n• Acknowledgement of specific wins\n• Phase 2 offer: £79/month, no minimum term\n  – Weekly check-ins continue\n  – Strength progression tracked\n  – Plan adjusted monthly\n  – Event/race prep + debrief\n• Direct reply CTA: 'Just reply I'm in'\n\nfunction: send_week12_close()",
+            "function": "send_week12_close()",
+        })
+
+    if week == 13:
+        events.append({
+            "type": "checkin", "day": 0,
+            "subject": "Phase 2 — client replied 'I'm in'",
+            "preview": "Client replies to Week 12 close. Pipeline detects Phase 2 keywords and flags for manual action.",
+            "content": "Trigger: inbound email reply to Week 12 close\nDetection: phase2_keywords match in process_inbound_emails()\n\nPipeline sets: cs['phase2_requested'] = True\nDashboard shows ★ P2 badge on client\n\nManual steps (Will):\n• Set up Stripe subscription (£79/month)\n• Continue weekly check-ins\n• Create new Notion plan page (Phase 2)\n• Reply to confirm start date\n\nfunction: process_inbound_emails()",
+            "function": "process_inbound_emails() → phase2 flag",
+        })
+
+    return sorted(events, key=lambda e: (e["day"], e["type"]))
+
+
+SIMULATOR_PAGE = BASE.replace("{% block content %}{% endblock %}", """
+{% block content %}
+<h1>Pipeline Simulator</h1>
+<p style="color:#666;margin-bottom:28px;font-size:14px;line-height:1.6">
+  Preview every email, trigger, and timing in the 12-week client journey.<br>
+  <strong style="color:#0a0a0a">Nothing is sent. No state is changed.</strong> Virtual client only.
+</p>
+
+<div class="card" style="padding:18px 20px;margin-bottom:12px">
+  <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#999;margin-bottom:10px">Programme track</div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#bbb;width:90px;flex-shrink:0">Bodyweight</span>
+      <button onclick="selectTrack('beginner_bodyweight')" id="track-beginner_bodyweight" class="btn btn-ghost" style="padding:5px 12px;font-size:11px">Beginner</button>
+      <button onclick="selectTrack('bodyweight_full')"     id="track-bodyweight_full"     class="btn btn-ghost" style="padding:5px 12px;font-size:11px">Full-Body</button>
+      <button onclick="selectTrack('bodyweight_hiit')"     id="track-bodyweight_hiit"     class="btn btn-ghost" style="padding:5px 12px;font-size:11px">HIIT</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#bbb;width:90px;flex-shrink:0">Home kit</span>
+      <button onclick="selectTrack('resistance_bands')"   id="track-resistance_bands"   class="btn btn-ghost" style="padding:5px 12px;font-size:11px">Bands</button>
+      <button onclick="selectTrack('dumbbell_full_body')" id="track-dumbbell_full_body" class="btn btn-primary" style="padding:5px 12px;font-size:11px">Dumbbells</button>
+      <button onclick="selectTrack('home_complete')"      id="track-home_complete"      class="btn btn-ghost" style="padding:5px 12px;font-size:11px">Complete (DB+Bands+Bar)</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#bbb;width:90px;flex-shrink:0">Gym</span>
+      <button onclick="selectTrack('gym_beginner')"      id="track-gym_beginner"      class="btn btn-ghost" style="padding:5px 12px;font-size:11px">Beginner (Machines)</button>
+      <button onclick="selectTrack('gym_intermediate')"  id="track-gym_intermediate"  class="btn btn-ghost" style="padding:5px 12px;font-size:11px">Intermediate (PPL)</button>
+    </div>
+  </div>
+  <div id="track-label" style="margin-top:10px;font-size:12px;color:#888">Track: <strong style="color:#333">Dumbbell Full-Body</strong></div>
+</div>
+
+<div class="card" style="padding:18px 20px;margin-bottom:20px">
+  <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#999;margin-bottom:12px">Select stage</div>
+  <div id="week-pills" style="display:flex;flex-wrap:wrap;gap:7px">
+    <button onclick="selectWeek(0)"  id="pill-0"  class="btn btn-ghost" style="padding:7px 14px;font-size:12px;font-weight:700">Intake</button>
+    {% for w in range(1, 13) %}
+    <button onclick="selectWeek({{ w }})" id="pill-{{ w }}" class="btn btn-ghost" style="padding:7px 14px;font-size:12px;font-weight:700">Wk {{ w }}</button>
+    {% endfor %}
+    <button onclick="selectWeek(13)" id="pill-13" class="btn btn-ghost" style="padding:7px 14px;font-size:12px;font-weight:700;opacity:0.6">Phase 2 ↗</button>
+  </div>
+</div>
+
+<div id="sim-timeline" style="display:none;margin-bottom:20px">
+  <div class="card" style="padding:14px 20px;background:#0f0f0f;border-color:#222">
+    <div style="display:flex;align-items:center;gap:16px;overflow-x:auto;padding-bottom:4px">
+      <span id="tl-label" style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#555;white-space:nowrap">Journey</span>
+      <div style="display:flex;align-items:center;gap:0;flex:1;min-width:400px">
+        {% for w in range(14) %}
+        <div style="flex:1;height:3px;background:{% if loop.index0 == 0 %}#c41e3a{% else %}#2a2a2a{% endif %}" id="tl-seg-{{ loop.index0 }}"></div>
+        {% if loop.index0 < 13 %}
+        <div style="width:10px;height:10px;border-radius:50%;background:#2a2a2a;flex-shrink:0;cursor:pointer;border:2px solid #1a1a1a" id="tl-dot-{{ loop.index0 }}" onclick="selectWeek({{ loop.index0 }})"></div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      <span id="tl-week-label" style="font-size:11px;color:#555;white-space:nowrap">Wk 0</span>
+    </div>
+  </div>
+</div>
+
+<div id="sim-output">
+  <div style="color:#999;text-align:center;padding:60px;background:#fff;border-radius:4px;border:1px solid #e0dbd2">
+    Select a week above to preview the pipeline events
+  </div>
+</div>
+
+<style>
+  .ev-card { background:#fff; border-radius:4px; border:1px solid #e0dbd2; margin-bottom:10px; overflow:hidden; }
+  .ev-header { padding:16px 18px; display:flex; align-items:flex-start; gap:14px; cursor:pointer; }
+  .ev-header:hover { background:#faf9f6; }
+  .ev-icon { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+  .ev-meta { flex:1; min-width:0; }
+  .ev-type-badge { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:3px; }
+  .ev-subject { font-size:14px; font-weight:600; color:#0a0a0a; margin-bottom:3px; }
+  .ev-preview { font-size:12px; color:#888; line-height:1.5; }
+  .ev-fn { font-size:11px; color:#bbb; font-family:'SF Mono',Menlo,monospace; background:#f5f3ee; padding:2px 7px; border-radius:2px; white-space:nowrap; }
+  .ev-toggle { flex-shrink:0; background:transparent; border:1px solid #e0dbd2; border-radius:3px; padding:5px 12px; font-size:11px; cursor:pointer; color:#888; align-self:flex-start; }
+  .ev-toggle:hover { border-color:#999; color:#333; }
+  .ev-content { display:none; border-top:1px solid #f0ece4; padding:16px 18px; background:#f8f6f1; }
+  .ev-content pre { font-family:'SF Mono',Menlo,monospace; font-size:12px; color:#333; white-space:pre-wrap; line-height:1.7; margin:0; }
+  .day-header { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#aaa; margin:18px 0 8px 2px; }
+  .day-header:first-child { margin-top:0; }
+</style>
+
+<script>
+const TYPE_CONFIG = {
+  intake:    { bg:'#ddeeff', color:'#1a3a6a', icon:'📥', label:'Trigger' },
+  email:     { bg:'#fdf0d5', color:'#7a3a00', icon:'✉️',  label:'Email' },
+  ai_email:  { bg:'#f5e6ff', color:'#5a1a7a', icon:'✨', label:'AI Email' },
+  education: { bg:'#d4f0de', color:'#1a5c2a', icon:'📚', label:'Education' },
+  checkin:   { bg:'#fff0d4', color:'#6a3a00', icon:'📋', label:'Check-in' },
+  session:   { bg:'#d0f0e0', color:'#0a4a22', icon:'🏋️', label:'Session' },
+  track:     { bg:'#e8f4ff', color:'#0a2a5a', icon:'🗂️', label:'Track Assigned' },
+  upgrade:   { bg:'#fff3cc', color:'#5a3a00', icon:'⬆️', label:'Upgrade' },
+};
+
+const TRACK_LABELS = {
+  beginner_bodyweight: 'Beginner Bodyweight Strength',
+  bodyweight_full:     'Bodyweight Full-Body',
+  bodyweight_hiit:     'Bodyweight HIIT',
+  resistance_bands:    'Resistance Bands Full-Body',
+  dumbbell_full_body:  'Dumbbell Full-Body',
+  home_complete:       'Home Complete (DB+Bands+Bar)',
+  gym_beginner:        'Gym Beginner (Machines)',
+  gym_intermediate:    'Gym Intermediate (PPL)',
+};
+
+const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+let currentWeek = null;
+let currentTrack = 'dumbbell_full_body';
+
+function selectTrack(t) {
+  currentTrack = t;
+  // Update track buttons
+  Object.keys(TRACK_LABELS).forEach(k => {
+    const btn = document.getElementById('track-' + k);
+    if (btn) btn.className = 'btn ' + (k === t ? 'btn-primary' : 'btn-ghost');
+    if (btn) btn.style.cssText = 'padding:5px 12px;font-size:11px';
+  });
+  // Update label
+  const lbl = document.getElementById('track-label');
+  if (lbl) lbl.innerHTML = 'Track: <strong style="color:#333">' + (TRACK_LABELS[t] || t) + '</strong>';
+  // Reload current week if one is selected
+  if (currentWeek !== null) loadWeek(currentWeek);
+}
+
+function selectWeek(w) {
+  // Update pills
+  for (let i = 0; i <= 13; i++) {
+    const p = document.getElementById('pill-' + i);
+    if (p) p.className = 'btn ' + (i === w ? 'btn-primary' : 'btn-ghost');
+    if (p) p.style.cssText = 'padding:7px 14px;font-size:12px;font-weight:700' + (i === 13 ? ';opacity:' + (w===13?'1':'0.6') : '');
+  }
+  // Update timeline
+  document.getElementById('sim-timeline').style.display = 'block';
+  for (let i = 0; i < 14; i++) {
+    const seg = document.getElementById('tl-seg-' + i);
+    const dot = document.getElementById('tl-dot-' + i);
+    if (seg) seg.style.background = i <= w ? '#c41e3a' : '#2a2a2a';
+    if (dot) dot.style.background = i < w ? '#c41e3a' : (i === w ? '#fff' : '#2a2a2a');
+  }
+  document.getElementById('tl-week-label').textContent = w === 0 ? 'Intake' : w === 13 ? 'Phase 2' : 'Wk ' + w;
+  currentWeek = w;
+  loadWeek(w);
+}
+
+function loadWeek(w) {
+  document.getElementById('sim-output').innerHTML = '<div style="color:#999;text-align:center;padding:40px;background:#fff;border-radius:4px;border:1px solid #e0dbd2">Loading…</div>';
+  fetch('/api/sim/' + w + '?track=' + currentTrack)
+    .then(r => r.json())
+    .then(data => renderWeek(data));
+}
+
+function renderWeek(data) {
+  const events = data.events;
+  const w = data.week;
+  const wLabel = w === 0 ? 'Intake' : w === 13 ? 'Phase 2' : 'Week ' + w;
+
+  if (!events.length) {
+    document.getElementById('sim-output').innerHTML =
+      '<div class="ev-card" style="padding:40px;text-align:center;color:#999">No events scheduled for this week.</div>';
+    return;
+  }
+
+  // Group by day
+  const byDay = {};
+  events.forEach(e => {
+    const d = String(e.day || 0);
+    if (!byDay[d]) byDay[d] = [];
+    byDay[d].push(e);
+  });
+
+  let html = `<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px">
+    <span style="font-family:Georgia,serif;font-size:22px;color:#0a0a0a">${wLabel}</span>
+    <span style="color:#999;font-size:12px">${events.length} event${events.length!==1?'s':''}</span>
+  </div>`;
+
+  const days = Object.keys(byDay).sort((a,b) => +a - +b);
+  days.forEach(day => {
+    const dayInt = parseInt(day);
+    const dayStr = dayInt === 0 ? 'Day 1 — Monday' : `Day ${dayInt+1} — ${DAY_NAMES[dayInt % 7]}`;
+    if (days.length > 1 || byDay[day].length > 1) {
+      html += `<div class="day-header">${dayStr}</div>`;
+    }
+    byDay[day].forEach((ev, idx) => {
+      const cfg = TYPE_CONFIG[ev.type] || TYPE_CONFIG.email;
+      const id = 'ev_' + day + '_' + idx;
+      const escaped_content = ev.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const escaped_preview = ev.preview.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      html += `
+      <div class="ev-card">
+        <div class="ev-header" onclick="toggleEv('${id}', event)">
+          <div class="ev-icon" style="background:${cfg.bg}">${cfg.icon}</div>
+          <div class="ev-meta">
+            <div class="ev-type-badge" style="color:${cfg.color}">${cfg.label}</div>
+            <div class="ev-subject">${ev.subject}</div>
+            <div class="ev-preview">${escaped_preview}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+            <code class="ev-fn">${ev.function || ''}</code>
+            <button class="ev-toggle" id="btn_${id}">Preview ↓</button>
+          </div>
+        </div>
+        <div class="ev-content" id="${id}">
+          <pre>${escaped_content}</pre>
+        </div>
+      </div>`;
+    });
+  });
+
+  document.getElementById('sim-output').innerHTML = html;
+}
+
+function toggleEv(id, e) {
+  // Don't toggle if click was on a button or link
+  if (e && e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'A')) return;
+  const el = document.getElementById(id);
+  const btn = document.getElementById('btn_' + id);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (btn) btn.textContent = open ? 'Preview ↓' : 'Hide ↑';
+}
+
+// Auto-load intake on page load
+selectWeek(0);
+</script>
+{% endblock %}""")
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -616,6 +1178,18 @@ def tally_webhook():
 @app.route("/api/status")
 def api_status():
     return jsonify(get_system_status())
+
+@app.route("/simulate")
+def simulator():
+    return render_template_string(SIMULATOR_PAGE, title="Pipeline Simulator")
+
+@app.route("/api/sim/<int:week>")
+def api_sim_week(week):
+    week  = max(0, min(week, 13))
+    track = request.args.get("track", "dumbbell_full_body")
+    if track not in _PROGRAM_FILES:
+        track = "dumbbell_full_body"
+    return jsonify({"week": week, "track": track, "events": _sim_week_events(week, track)})
 
 @app.route("/run", methods=["GET", "POST"])
 def run_pipeline_page():
