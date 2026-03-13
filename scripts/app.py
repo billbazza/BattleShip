@@ -183,7 +183,16 @@ BASE = """<!DOCTYPE html>
     .badge-diagnosed { background: #fdf0d5; color: #b87000; }
     .badge-active    { background: #d4f0de; color: #1a7a3a; }
     .badge-complete  { background: #d0e8ff; color: #1a4a7a; }
+    .badge-silent    { background: #eeeeee; color: #666666; }
+    .badge-refunded  { background: #fde8e8; color: #a02020; }
+    .badge-archived  { background: #e8e8e8; color: #888888; }
     .badge-unknown   { background: #eee;    color: #666; }
+    .danger-zone { border-top: 1px solid #f0ece4; margin-top: 20px; padding-top: 20px; }
+    .danger-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+                    color: #ccc; margin-bottom: 10px; }
+    .btn-danger  { background: transparent; color: #c41e3a;
+                   border: 1px solid #e0c0c0; }
+    .btn-danger:hover { background: #c41e3a; color: #fff; border-color: #c41e3a; }
 
     .btn { display: inline-block; padding: 9px 20px; border-radius: 3px;
            font-size: 13px; font-weight: 600; cursor: pointer; border: none;
@@ -383,6 +392,37 @@ CLIENT_PAGE = BASE.replace("{% block content %}{% endblock %}", """
       <button class="btn btn-secondary" style="white-space:nowrap">Save Note</button>
     </form>
   </div>
+
+  <div class="danger-zone">
+    <div class="danger-label">Move to</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      {% if cs.status != 'silent' %}
+      <form method="post" action="/action/{{ acct }}/setstatus">
+        <input type="hidden" name="new_status" value="silent">
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px">Went silent</button>
+      </form>
+      {% endif %}
+      {% if cs.status != 'refunded' %}
+      <form method="post" action="/action/{{ acct }}/setstatus">
+        <input type="hidden" name="new_status" value="refunded">
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px">Refunded</button>
+      </form>
+      {% endif %}
+      {% if cs.status != 'archived' %}
+      <form method="post" action="/action/{{ acct }}/setstatus">
+        <input type="hidden" name="new_status" value="archived">
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px">Archive</button>
+      </form>
+      {% endif %}
+      {% if cs.status in ('diagnosed', 'silent', 'refunded', 'archived') %}
+      <span style="flex:1"></span>
+      <form method="post" action="/action/{{ acct }}/delete"
+            onsubmit="return confirm('Permanently remove {{ cs.name }} from state? Their files will be kept on disk.')">
+        <button class="btn btn-danger" style="font-size:12px;padding:6px 14px">Delete record</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
 </div>
 
 {% if tracker %}
@@ -494,6 +534,44 @@ def action_note(acct):
         run_pipeline(f"--note={acct}", note)
     return redirect(url_for("client_detail", acct=acct,
                             flash="Note saved." if note else ""))
+
+@app.route("/action/<acct>/setstatus", methods=["POST"])
+def action_setstatus(acct):
+    allowed = {"silent", "refunded", "archived", "active", "diagnosed"}
+    new_status = request.form.get("new_status", "").strip()
+    if new_status not in allowed:
+        return redirect(url_for("client_detail", acct=acct, flash="Invalid status."))
+    state = load_state()
+    cs = state["clients"].get(acct)
+    if not cs:
+        return redirect(url_for("dashboard", flash=f"Client {acct} not found."))
+    old = cs["status"]
+    cs["status"] = new_status
+    if cs.get("folder"):
+        import json as _json
+        folder_path = CLIENTS_DIR / cs["folder"]
+        log_path = folder_path / "event-log.md"
+        entry = f"\n**{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC** — Status changed: {old} → {new_status}\n"
+        if log_path.exists():
+            log_path.write_text(log_path.read_text() + entry)
+    STATE_FILE.write_text(json.dumps(state, indent=2, default=str))
+    return redirect(url_for("client_detail", acct=acct,
+                            flash=f"Status updated to '{new_status}'."))
+
+@app.route("/action/<acct>/delete", methods=["POST"])
+def action_delete(acct):
+    state = load_state()
+    cs = state["clients"].get(acct)
+    if not cs:
+        return redirect(url_for("dashboard", flash=f"Client {acct} not found."))
+    name = cs.get("name", acct)
+    # Safety: block deletion of active paying clients
+    if cs.get("status") == "active" and not cs.get("complimentary"):
+        return redirect(url_for("client_detail", acct=acct,
+                                flash="Cannot delete an active paying client. Archive or refund first."))
+    del state["clients"][acct]
+    STATE_FILE.write_text(json.dumps(state, indent=2, default=str))
+    return redirect(url_for("dashboard", flash=f"{name} removed. Files kept in clients/{cs.get('folder', acct)}/."))
 
 def _verify_tally_signature(raw_body: bytes, header: str, secret: str) -> bool:
     """Verify Tally webhook signature: sha256=<hmac> against raw body."""
