@@ -54,13 +54,17 @@ Background colour: #ffffff (white)
 Image: IMG_2453.jpeg — right side or top of section
 
 LABEL (tiny, uppercase, #c41e3a):
-WHY THIS EXISTS
+WTF IS BATTLESHIP?
 
 HEADLINE (#0a0a0a, Georgia):
-I was exactly where you are.
+It's my name. And yes, people actually get cross about it.
 
 BODY TEXT (#555555):
-I used to think I was one of the fit ones. Biking, hiking, camping — I could keep up with anything. Then I hit my 40s and quietly stopped keeping up. Still told myself I was relatively fit. That was a lie I told myself for years.
+William George Battleship Barratt. Something I did in my 30s on a whim — one of my favourite decisions. Some people love it immediately. Some people get genuinely, physically annoyed by it. Either way, nobody forgets it.
+
+It suits what this is. A battleship doesn't drift. It commits to a heading, takes the hits, and keeps moving. That's the only way this works.
+
+I was exactly where you are. Biking, hiking, camping — I could keep up with anything. Then I hit my 40s and quietly stopped keeping up. Still told myself I was relatively fit. That was a lie I told myself for years.
 
 After my 40th I bought a blood pressure monitor. Mild hypertension. My Apple Watch told me my fitness age was 55. I was in my early forties.
 
