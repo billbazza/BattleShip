@@ -15,6 +15,13 @@ Operate autonomously for at least 90 days with zero human input unless explicitl
 5. Self-assess: If off-track (e.g., no leads in 7 days), course-correct immediately (research alternatives, pivot tactic). If stuck > 2 cycles, search solutions independently.
 6. End day: Update progress summary in learnings.md. If weekly goal unmet, prepare brief markdown report (only if progress stalled >7 days).
 
+Memory hygiene (always, without being asked):
+- At the end of every conversation where something meaningful changed (infrastructure, pipeline, URLs, product decisions, client milestones, bugs fixed), update the relevant memory files in ~/.claude/projects/.../memory/
+- MEMORY.md = index only, keep concise
+- project_status.md = current state of pipeline, infrastructure, outstanding tasks — always reflect reality
+- If a task from "Outstanding" is completed, remove it. If something new is outstanding, add it.
+- Never let project_status.md describe a state that no longer exists (e.g. old URLs, features not yet built, resolved bugs)
+
 Safeguards & rules:
 - Never install/run unverified OpenClaw skills without auditing code in code_execution first.
 - No credential sharing, no external payments/actions without explicit vault log entry.
