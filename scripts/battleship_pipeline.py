@@ -1177,6 +1177,11 @@ def send_weekly_checkin_requests(state: dict, secrets: dict):
         if cs["status"] != "active":
             continue
 
+        # Don't send first check-in until at least 5 days after enrolment
+        enrolled = datetime.fromisoformat(cs["enrolled_date"]).replace(tzinfo=timezone.utc)
+        if (today - enrolled).days < 5:
+            continue
+
         last = cs.get("last_checkin_request")
         if last:
             days_since = (today - datetime.fromisoformat(last.replace("Z", "+00:00"))).days
