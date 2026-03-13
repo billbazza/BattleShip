@@ -1,0 +1,238 @@
+Return-path: <0100019ce6e8d79f-dab9e7a3-4cf1-4486-b6a6-05391e461e6b-000000@amazonses-us-east-1.carrd.com>
+Original-recipient: rfc822;will@battleship.me
+Received: from p00-icloudmta-smtpin-us-west-1a-10-percent-4 by p141-mailgateway-smtp-75645f6467-z76jx (mailgateway 2606B152)
+	with SMTP id b4d37b46-c26e-496c-9930-3369ad2d7be2 
+	for <will@battleship.me>; Fri, 13 Mar 2026 11:15:49 GMT
+X-Apple-MoveToFolder: INBOX 
+X-Apple-Action: MOVE_TO_FOLDER/INBOX
+X-Apple-UUID: b4d37b46-c26e-496c-9930-3369ad2d7be2
+Received: from a69-230.smtp-out.amazonses.com (a69-230.smtp-out.amazonses.com [54.240.69.230])
+	by p00-icloudmta-smtpin-us-west-1a-10-percent-4 (Postfix) with ESMTPS id 10A76C000A5
+	for <will@battleship.me>; Fri, 13 Mar 2026 11:15:46 +0000 (UTC)
+X-ICL-Info: GAtbRVYDBVFFSlVFSgQEUFUKE0oWX1gHVQoPB0UFAkxHTVZZTgkYUEZJRhIcDQZTRUlWRkFTU1QQQQJAQVYbBhQbXxJPUQVPQRoARlUEAlpDVARBGQYbUkBKX0YdBABTEE8EWkgABlJFSSYWFVFMDRsKAwRVRUVPEBgVA1UBGAEUCxQTVlNZD1UfAkobUUQQEVcFGBUQRAFIDg8bFHBUAwENChILWF8SWxQDVxBVWg1IGFBOVQIFUlsKCwMIHVkXAVcHGhlKWQwGHBVZG19bQgUNFEoZBg9PR0pWWQtdQhJYFhMDVlFbAw8WCAQdQxgBGhRGExwNVQMHCwJZG19bWRQUBw0XXkUHBlcFGBUQWwsRRFpHSQAGUkRABRJOVQ4GQkAAWhxRVFsQTgdEVQRVBERUUkNABhsAQxhQWkgFBVtEHFJBSVUAAFhJVkdIAAYiEBQHHhQeVw8UAwkZC1VFTBYWC0k=
+X-ICL-Score: 2.33303322422
+Authentication-Results: bimi.icloud.com; bimi=pass header.d=carrd.com header.selector=default policy.authority=pass policy.authority-uri=https://carrd.com/bimi/v2/carrd.pem
+BIMI-Location: v=BIMI1; l=https://carrd.com/bimi/v2/carrd.svg a=https://carrd.com/bimi/v2/carrd.pem
+X-BIMI-Indicator-Hash: h=vB0FuE7ZXeBhTDETUTMya0bYIMEmp7SlCissib4Xqwc= a=sha256
+X-ARC-Info: policy=fail; arc=none; r1=-20; r2=0
+Authentication-Results: arc.icloud.com; arc=none
+Authentication-Results: dmarc.icloud.com; dmarc=pass header.from=carrd.com
+X-DMARC-Policy: v=DMARC1; p=reject; rua=mailto:abuse-reports@carrd.com
+X-DMARC-Info: pass=pass; dmarc-policy=reject; s=r1; d=r1; pdomain=carrd.com
+Authentication-Results: dkim-verifier.icloud.com; dkim=pass header.d=carrd.com header.i=@carrd.com header.b=GC1XQ7Va
+Authentication-Results: dkim-verifier.icloud.com; dkim=pass header.d=amazonses.com header.i=@amazonses.com header.b=ipZIFTgM
+Received-SPF: pass (spf.icloud.com: domain of 0100019ce6e8d79f-dab9e7a3-4cf1-4486-b6a6-05391e461e6b-000000@amazonses-us-east-1.carrd.com designates 54.240.69.230 as permitted sender) receiver=spf.icloud.com; client-ip=54.240.69.230; helo=a69-230.smtp-out.amazonses.com; envelope-from=0100019ce6e8d79f-dab9e7a3-4cf1-4486-b6a6-05391e461e6b-000000@amazonses-us-east-1.carrd.com
+Authentication-Results: spf.icloud.com; spf=pass (spf.icloud.com: domain of 0100019ce6e8d79f-dab9e7a3-4cf1-4486-b6a6-05391e461e6b-000000@amazonses-us-east-1.carrd.com designates 54.240.69.230 as permitted sender) smtp.mailfrom=0100019ce6e8d79f-dab9e7a3-4cf1-4486-b6a6-05391e461e6b-000000@amazonses-us-east-1.carrd.com
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=n7u5kmxsodxqevfu5t5x3qzy3xghwbm2; d=carrd.com; t=1773400545;
+	h=From:To:Subject:Content-Type:Message-ID:Date;
+	bh=q+52H0FISshA6vFZ9h8Jcf3cO0dXwmEEeZGKcYFW49s=;
+	b=GC1XQ7VaZE4gqLqgTh2Ij2NnCsBP96kVToM588BBsRGMwd8lxG+6PioBCDosLVwR
+	O0FmUur8ntPWTGLYTw/FEsruCbsDe5JqRrSIoY3BL/TGlmRO4fETxKkJ2dL2TnO3XZq
+	yfU/mou9Tf0r/syPsCLMPM/GCvb17RgWO7fKi7GsRzvE7W8Lhz2e20djjPfNIwrtW0y
+	PrqVAq7o2psPHlkuQYsb78C+3/cAFEJnDQ36uruLNal8CRXCCQCFHZfghtEB8wNaoU3
+	NUq+/zsN/aUt7AUp4MIKH0tGH+9W2dn9LIiN+FSpVM1ln24WRsBAW1cnW4FYnRXtO/E
+	X/OX4CRLzQ==
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=224i4yxa5dv7c2xz3womw6peuasteono; d=amazonses.com; t=1773400545;
+	h=From:To:Subject:Content-Type:Message-ID:Date:Feedback-ID;
+	bh=q+52H0FISshA6vFZ9h8Jcf3cO0dXwmEEeZGKcYFW49s=;
+	b=ipZIFTgM3sKimSyNEZ5UrSGytD2eijINV7OaPl6Bsw4ZSIzZMazBn1WaRKqcrjGX
+	0tpySS9QpWAadsEBKF/OWpYdmKQ/p3VPqsNxggpVrDfd+0tJbR08eDN1uZo9w0n1p4h
+	LRADt9BwuN4ZFFxVJmje7dgBjAFuBK+x0DkQW6QM=
+From: Carrd <notifications@carrd.com>
+To: will@battleship.me
+Subject: Carrd Pro Lite plan started
+Content-Type: multipart/alternative; boundary="---=_Part_3778_V9qOMQuBSBvBvjh4ZDrd4gDMZJdtBCGR"
+Message-ID: <0100019ce6e8d79f-dab9e7a3-4cf1-4486-b6a6-05391e461e6b-000000@email.amazonses.com>
+Date: Fri, 13 Mar 2026 11:15:45 +0000
+Feedback-ID: txn:2af5ccc7:1.us-east-1.+/MMOj22/Ki2l9VsLci9/htNVrgUhPYlYWLrGqTdzQs=:AmazonSES
+X-SES-Outgoing: 2026.03.13-54.240.69.230
+X-MANTSH: 1TFkXGRwRCllEF2IBfGRFZGlYQF16EQpZTRdkRURPEQpZSRcacRoQGncGGxxxGxM
+ fEBsZH3cGGBoGGhEKWV4XbGx5EQpDThdrbmNpB1pIRxl/SGcSeWtdGFxoGWJzGxJlWlJiY21uf
+ REKWFwXGQQaBB8eBRsaBBscHwQYGAQYHh0QGx4aHxoRCl5ZF00ccHABEQpNXBceGhgRCkxaF2l
+ oZU1BTREKTEYXTWsRCkNaFx8eBBgeGgQcEwQYGRoRCkJeFxsRCkJcFxsRCl5OFxsRCkJLF2JSU
+ 3N4bxt6SHxJEQpCSRdiUlNzeG8bekh8SREKQkUXZEhMQk4TG2hbb0sRCkJOF2JSU3N4bxt6SHx
+ JEQpCTBdhbn1rXXJZbWJkexEKQmwXa0FtHUQcch5LQ2gRCkJAF2kdY3NzUmNpEkxeEQpCWBdke
+ xttH24eH14bfxEKWlgXGxEKcGcXZBJIG1tNehhcWGIQGhEKcGgXa08eY0hvch5eEl8QGhEKcGg
+ XYFBDfF1afHNbQGEQHBoRCnBoF25OT35DcERwXUdaEB4SEQpwaBdsXhoaXGN8GWhkTxAeEhEKc
+ GgXZWRGZ2cBE2xiT0AQGhEKcGgXZ09AXhxcH0B4GGIQGhEKcGgXYxpifEldWUkaBW4QHBoRCnB
+ oF2BPYx16e25BfnlQEBoRCnB/F2JcRhhmSAFSEn1YEAcZBBgRCnBfF2N5HV5hW14ZfEt6EBwaE
+ QpwfRdtWG5nSx1/WXsbaxAcGhEKcGwXZVBGXxkeax9ze0QQGRoRCm1+FxoRClhNF0sR
+X-Proofpoint-GUID: ADIC-pbm3UbM8SAw2vB3HY18OpxHIGDW
+X-Proofpoint-Spam-Details-Enc: AW1haW4tMjYwMzEzMDA4OCBTYWx0ZWRfX3OGg+4W1Tn8i
+ Ec6gXv96Ivm/ckhCHNqV4mjHqovDKVTBETUbBj/1vLymLDVAT5V3zBm65qt2fQFwVQLvrzuoQ8j
+ A20EK8pPe1KJkI4/MIAETJd3riqtx+C+fA9l1Kh02l0ca3c8vJ7TMyu5BmRvdsTOt/hF5ud1PnG
+ mMEio0GGPIh77ITKVx9drGt6SiwEADWqM72O5NoB2PlF5hpxiZPCZp6+3GGCHpqSBDDYsMxgy+C
+ okVUVrDQlJRQl84I8PtikFexxnJq3icX9qlwSzt40FL5bsVGpFZPVqqKwsujmybSibt2gByMmpx
+ DIx5IBy6kzkUViSIbHb
+X-Proofpoint-ORIG-GUID: ADIC-pbm3UbM8SAw2vB3HY18OpxHIGDW
+X-JNJ: AAAAAAABu1YkeVbp0WCkLpPFMYc9caaRNysLrPyt2FaqioZBZcb/xKXt/6wyWuYr7FpXZovZmYfCylMgy7wVLj4ibUHHTspSdgQqZ43+TjU3rPYAbsYnlxvW1NiglEXedQ0oY8anwbOz7b/PDNT0kD2EVnXtFk+Cdb1I2fYYuKwcHypU6p1W6FEL5tAwfDcIVyErWtXEnWoO+yY7rpROjiNyq9gkVXIBnHYp4P+4KUiJC+gybs0s4+1zde3Je3YeEloI7Xfqjn3AfNMIkl+2nEfiw0Rnuie/U72YE2aMC8gA0DZvLDXyNeQ0bP5Np1zQu1RRoGFLSMUxSTWPLj9FXuX0SDQgoAVA8CoGyLpMIR+rkjGfKLEzZ9NmXSKSeVp1OOwCF7t0Bo2bLis/zzELYWG3eM9o5e3G2niT32VXYPf8qHbH0Y/0s2vBvmipVkmAEWkd32XFtFJq3tHXJcEhU5QAggJv3VxDtyweD57oNBfQIsOouvnw+LCxojpWsYcVFovTgEJxp5JatAJdoN3JvLmYv+WCESx+CXqtcNV8tGitXE6pz/54lyY1xqQPVKtlvBc7EachZ/Cr6sC5Vsi7f1bCD7XF5/IgQhCJmWp2kC1PMCH2aJPdcl9tQ5wG5zT/W3Vb45fkc7Hr/9qj1ggUJKI5cQxPnc3CPHOH/ZkkDrqnK0/ZWBw7X426N5pYVDeRy60UTSMU1WYw9XOE70fEP//6EASTvHPG0J0WbOid8MHQrdgelqaA9OwrGCeRks2mFOu0zZOFS5+Kh/rxM9WE
+
+-----=_Part_3778_V9qOMQuBSBvBvjh4ZDrd4gDMZJdtBCGR
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+Hey there! Just a quick notification that your Pro Lite plan was successful=
+ly started:
+
+Order: #4518177340054514
+Date: March 13, 2026
+Plan: Pro Lite
+- Changed from Basic
+Period: Ends March 13, 2027
+Paid from Balance: $9.00
+- Funded by order #6752177340054512
+
+If you have any questions about your plan or your account, please email hel=
+lo@carrd.com or reply to this message. Thanks for using Carrd :)
+
+-- The Carrd Team
+
+-------------------------------------------------------------------------
+
+Note: This email notification was sent in response to an action involving y=
+our Carrd account, or your association with a Carrd account holder. Please =
+add "notifications@carrd.com" to your address book to ensure delivery of fu=
+ture notifications to your inbox. If this message landed in your spam/junk =
+folder, be sure to mark it as "Not Spam".
+
+=C2=A9 2025 Carrd Inc. 231 Public Square Suite 300, Franklin, TN 37064.
+
+-----=_Part_3778_V9qOMQuBSBvBvjh4ZDrd4gDMZJdtBCGR
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html lang=3D"en">
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8">
+<meta name=3D"viewport" content=3D"width=3Ddevice-width">
+<title>Notification</title>
+<style>
+div[style*=3D"margin: 16px 0"] { border: 0 !important;margin: 0 !important;=
+outline: 0 !important;padding: 0 !important;text-decoration: none !importan=
+t; }
+
+@media screen and (max-width: 767px) {
+a.button { display: block !important;text-align: center !important; }
+div.wrapper { padding: 24px 16px 24px 16px !important; }
+img.logo-image { height: 32px !important;width: 32px !important; }
+table.inner { max-width: 100% !important; }
+td.content { padding: 40px 24px 40px 24px !important; }
+td.footer-notice { padding: 14px 18px 14px 18px !important; }
+td.header { padding: 0 0 24px 0 !important; }
+td.heading { font-size: 24px !important; }
+td.item-list-cell { border-top: none !important;display: block !important;p=
+adding-bottom: 12px !important;padding-left: 12px !important;padding-top: 0=
+px !important; }
+td.item-list-first-cell { border-top: none !important;display: block !impor=
+tant;padding-bottom: 12px !important;padding-left: 12px !important;padding-=
+top: 0px !important; }
+td.logo-text { font-size: 20px !important;padding-left: 6px !important; }
+td.spacer { line-height: 16px !important; }
+td.spacer-alt { line-height: 24px !important; }
+td.spacer-major { line-height: 16px !important; }
+th.item-list-first-heading { display: block !important;padding-top: 6px !im=
+portant; }
+th.item-list-heading { display: block !important;padding-top: 12px !importa=
+nt; }
+
+}
+</style>
+</head>
+<body style=3D"background-color: #eeeeee;color: #444444;font-family: Arial,=
+ sans-serif;font-size: 16px;font-style: normal;font-weight: 400;letter-spac=
+ing: 0px;line-height: 1.5;margin: 0;padding: 0;word-break: break-word;">
+<div class=3D"wrapper" style=3D"padding: 40px;">
+<table class=3D"inner" style=3D"margin: 0 auto;max-width: 640px;">
+<tr>
+<td class=3D"header" style=3D"padding: 40px 0 40px 0;">
+<table>
+<tr>
+<td><img class=3D"logo-image" style=3D"border-radius: 100%;height: 48px;ver=
+tical-align: middle;width: 48px;" src=3D"https://carrd.co/bimi/v2/carrd.png=
+" alt=3D"Carrd Logo"></td>
+<td class=3D"logo-text" style=3D"font-size: 24px;font-weight: bold;padding-=
+left: 8px;">Carrd</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td class=3D"content" style=3D"background-color: #ffffff;border-radius: 16p=
+x;padding: 48px 40px 48px 40px;">
+<table>
+<tr><td class=3D"heading" style=3D"font-size: 28px;font-weight: bold;">Pro =
+Lite plan started</td></tr>
+<tr><td class=3D"spacer" style=3D"line-height: 20px;">&nbsp;</td></tr>
+<tr><td class=3D"paragraph" style=3D"line-height: 24px;">Hey there! Just a =
+quick notification that your Pro Lite plan was successfully started:</td></=
+tr>
+<tr><td class=3D"spacer" style=3D"line-height: 20px;">&nbsp;</td></tr>
+<tr><td><table cellspacing=3D"0" cellpadding=3D"0" border=3D"0" class=3D"it=
+em-list-table" style=3D"padding: 0px;width: 100%;">
+<tr><th class=3D"item-list-first-heading" style=3D"padding: 10px 24px 10px =
+0;text-align: left;vertical-align: top;" nowrap>Order</th><td class=3D"item=
+-list-first-cell" style=3D"padding: 10px 0 10px 0;text-align: left;width: 1=
+00%;">#4518177340054514</td></tr><tr><th class=3D"item-list-heading" style=
+=3D"border-top: solid 1px #eeeeee;padding: 10px 24px 10px 0;text-align: lef=
+t;vertical-align: top;" nowrap>Date</th><td class=3D"item-list-cell" style=
+=3D"border-top: solid 1px #eeeeee;padding: 10px 0 10px 0;text-align: left;v=
+ertical-align: top;">March 13, 2026</td></tr><tr><th class=3D"item-list-hea=
+ding" style=3D"border-top: solid 1px #eeeeee;padding: 10px 24px 10px 0;text=
+-align: left;vertical-align: top;" nowrap>Plan</th><td class=3D"item-list-c=
+ell" style=3D"border-top: solid 1px #eeeeee;padding: 10px 0 10px 0;text-ali=
+gn: left;vertical-align: top;">Pro Lite<br />
+<i>- Changed from Basic</i></td></tr><tr><th class=3D"item-list-heading" st=
+yle=3D"border-top: solid 1px #eeeeee;padding: 10px 24px 10px 0;text-align: =
+left;vertical-align: top;" nowrap>Period</th><td class=3D"item-list-cell" s=
+tyle=3D"border-top: solid 1px #eeeeee;padding: 10px 0 10px 0;text-align: le=
+ft;vertical-align: top;">Ends March 13, 2027</td></tr><tr><th class=3D"item=
+-list-heading" style=3D"border-top: solid 1px #eeeeee;padding: 10px 24px 10=
+px 0;text-align: left;vertical-align: top;" nowrap>Paid from Balance</th><t=
+d class=3D"item-list-cell" style=3D"border-top: solid 1px #eeeeee;padding: =
+10px 0 10px 0;text-align: left;vertical-align: top;">$9.00<br />
+<i>- Funded by order #6752177340054512</i></td></tr></table></td></tr>
+<tr><td class=3D"spacer" style=3D"line-height: 20px;">&nbsp;</td></tr>
+<tr><td class=3D"paragraph" style=3D"line-height: 24px;">If you have any qu=
+estions about your plan or your account, please email hello@carrd.com or re=
+ply to this message. Thanks for using Carrd :)</td></tr>
+<tr>
+<td class=3D"spacer-alt" style=3D"line-height: 32px;">&nbsp;</td>
+</tr>
+<tr>
+<td class=3D"signoff" style=3D"font-style: italic;line-height: 24px;">&ndas=
+h; The Carrd Team</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td class=3D"spacer-major" style=3D"line-height: 40px;">&nbsp;</td>
+</tr>
+<tr>
+<td class=3D"footer-notice" style=3D"border: solid 1px #d0d0d0;border-radiu=
+s: 16px;font-size: 14px;line-height: 24px;padding: 18px 22px 18px 22px;">Th=
+is email notification was sent in response to an action involving your Carr=
+d account, or your association with a Carrd account holder. Please add <b c=
+lass=3D"link-alt" style=3D"color: #333333;">notifications@carrd.com</b> to =
+your address book to ensure delivery of future notifications to your inbox.=
+ If this message landed in your spam/junk folder, be sure to mark it as <b =
+class=3D"link-alt" style=3D"color: #333333;">Not Spam</b>.</td>
+</tr>
+<tr>
+<td class=3D"spacer-major" style=3D"line-height: 40px;">&nbsp;</td>
+</tr>
+<tr>
+<td class=3D"copyright" style=3D"color: #777777;font-size: 14px;">&copy; 20=
+25 Carrd Inc. 231 Public Square Suite 300, Franklin, TN 37064.</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
+
+-----=_Part_3778_V9qOMQuBSBvBvjh4ZDrd4gDMZJdtBCGR--
+
+
