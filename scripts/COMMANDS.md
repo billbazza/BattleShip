@@ -1,134 +1,194 @@
-# Battleship Pipeline — Command Reference
+# Battleship — Command Reference
+**Last updated:** 2026-03-13
 
-All commands run from the vault root:
-```
+All pipeline commands run from the vault root:
+```bash
 cd /Users/will/Obsidian-Vaults/BattleShip-Vault
 python3 scripts/battleship_pipeline.py [command]
 ```
 
 ---
 
-## Normal Run (automated / cron)
+## Services
+
+### Start / check services
+Both auto-start on login via LaunchAgent. If something looks wrong:
+
+```bash
+# Check what's running
+launchctl list | grep battleship
+
+# Restart Flask dashboard
+launchctl stop com.battleship.dashboard && launchctl start com.battleship.dashboard
+
+# Restart Cloudflare tunnel
+launchctl stop com.battleship.tunnel && launchctl start com.battleship.tunnel
+
+# Check Flask is up
+curl -s http://localhost:5100/api/status
+
+# View live logs
+tail -f logs/app.log
+tail -f logs/tunnel.log
+tail -f logs/pipeline.log
+```
+
+### Dashboard
+Open in browser: http://localhost:5100
+
+System status panel on homepage shows health of all services (tunnel, DNS, SMTP, Stripe, Claude, cron, etc.).
+
+---
+
+## Pipeline — Normal Run (cron / manual)
+
 ```bash
 python3 scripts/battleship_pipeline.py
 ```
-Runs the full pipeline:
-1. Polls Typeform for new intakes → generates diagnosis → sends diagnosis email
-2. Polls Stripe for new payments → enrols paying clients → sends plan + onboarding email
-3. Sends weekly check-in requests (Sundays only)
-4. Processes check-in responses → generates coach replies
-5. Sends education drip emails on schedule
+
+Runs the full pipeline in order:
+1. Processes queued Tally intake submissions → diagnosis → email
+2. Polls Stripe for new payments → auto-enrols paying clients
+3. Sends weekly check-in requests (Sundays only, min 5 days after enrolment)
+4. Processes Google Sheet check-in responses → personalised coach replies
+5. Polls IMAP for inbound emails → Claude auto-replies to coach@/support@
+6. Sends education drip emails on schedule (Mon + Thu stagger)
+7. Sends Week 12 personalised close + Phase 2 offer
+
+Cron schedule: `0 */2 * * *` (every 2 hours)
 
 ---
 
 ## Find a Client
+
 ```bash
 python3 scripts/battleship_pipeline.py --find=fred
 python3 scripts/battleship_pipeline.py --find=fred@email.com
 python3 scripts/battleship_pipeline.py --find=BSR-2026-0001
 ```
-Search by name, email address, or account number. Partial matches work.
 
----
-
-## Enrol a Client (paid — Stripe already confirmed)
-```bash
-python3 scripts/battleship_pipeline.py --enrol=fred
-python3 scripts/battleship_pipeline.py --enrol=BSR-2026-0001
-```
-Client must be in `diagnosed` status. Generates their 12-week plan and sends the onboarding email.
-Use when Stripe payment is confirmed but the pipeline missed it.
-
----
-
-## Enrol Complimentary (friends, testers, no payment)
-```bash
-python3 scripts/battleship_pipeline.py --enrol=fred --free
-```
-Same as above but skips the Stripe requirement. Client is marked `complimentary: true` in state.
-Use for: beta testers, friends, anyone you're putting through for free.
-
----
-
-## Advance a Client's Week
-```bash
-python3 scripts/battleship_pipeline.py --advance=fred
-python3 scripts/battleship_pipeline.py --advance=BSR-2026-0001
-```
-Bumps `current_week` forward by 1. Use to:
-- Skip to a later week for testing
-- Correct a week that got stuck due to a pipeline error
-- Manually advance someone who joined mid-programme
+Search by name, email, or account number. Partial matches work.
 
 ---
 
 ## Full Client Status
+
 ```bash
 python3 scripts/battleship_pipeline.py --status=fred
 python3 scripts/battleship_pipeline.py --status=BSR-2026-0001
 ```
+
 Shows: week, emails sent, last 10 lines of progress tracker, last 8 event log entries.
 
 ---
 
-## Add a Coach Note
+## Enrol a Client
+
+**Paid** (Stripe confirmed, pipeline missed it):
 ```bash
-python3 scripts/battleship_pipeline.py --note=fred "Called today — knee improving, back on plan"
+python3 scripts/battleship_pipeline.py --enrol=BSR-2026-0001
 ```
-Writes a timestamped `[COACH NOTE]` entry to the client's event log. Use for anything that happens outside the automated flow: calls, messages, observations.
+
+**Complimentary** (friends, testers, no payment):
+```bash
+python3 scripts/battleship_pipeline.py --enrol=BSR-2026-0001 --free
+```
+
+Client must be in `diagnosed` status. Generates their 12-week plan and sends onboarding email. Marked `complimentary: true` in state if --free.
 
 ---
 
-## ⚠️  The Tracking Gap
+## Advance a Client's Week
 
-The progress tracker (`progress-tracker.md`) is only written when a client responds to the weekly check-in Typeform. Until that form exists and clients are filling it in, week advancement is just a number — there's no data behind it.
+```bash
+python3 scripts/battleship_pipeline.py --advance=BSR-2026-0001
+```
 
-**Priority: create the weekly check-in Typeform.** It needs to capture:
-- Workouts completed this week (which ones, how many)
-- How the body felt (energy, sleep, soreness, any injury)
-- Weight this week (optional)
-- What got in the way, if anything
-- One win, one hard thing
+Bumps `current_week` forward by 1. Use to correct a stuck week or skip ahead for testing.
 
-Once live, set `CHECKIN_FORM_ID` in the pipeline and the loop closes.
+---
+
+## Add a Coach Note
+
+```bash
+python3 scripts/battleship_pipeline.py --note=BSR-2026-0001 "Called today — knee improving"
+```
+
+Writes a timestamped `[COACH NOTE]` entry to the client's event log.
+
+---
+
+## Client Management (Dashboard)
+
+The following actions are available via the dashboard UI at `http://localhost:5100/client/<acct>`:
+
+| Action | When available | Effect |
+|--------|---------------|--------|
+| Enrol (paid) | `diagnosed` | Generates plan, sends onboarding |
+| Enrol (complimentary) | `diagnosed` | Same, no Stripe required |
+| Advance Week | `active` | Bumps current_week by 1 |
+| Add note | Always | Timestamped entry in event-log.md |
+| Went silent | Any | Sets status → `silent`, logged |
+| Refunded | Any | Sets status → `refunded`, logged |
+| Archive | Any | Sets status → `archived`, logged |
+| Delete record | Non-active only | Removes from state.json, files kept on disk |
 
 ---
 
 ## Client Status Reference
 
-| Status      | Meaning                                              |
-|-------------|------------------------------------------------------|
-| `diagnosed` | Intake received, diagnosis email sent, awaiting payment |
-| `active`    | Paid (or complimentary), plan generated, onboarded  |
+| Status | Meaning |
+|--------|---------|
+| `diagnosed` | Intake received, diagnosis sent, awaiting payment |
+| `active` | Paid or complimentary, plan sent, receiving weekly content |
+| `complete` | Week 12 close sent |
+| `silent` | Stopped responding |
+| `refunded` | Payment returned |
+| `archived` | General archive |
 
 ---
 
 ## Logs
 
-Pipeline log (cron output):
-```
+```bash
+# Pipeline runs (cron output)
 tail -f logs/pipeline.log
-```
 
-Per-client event log:
-```
+# Flask dashboard
+tail -f logs/app.log
+
+# Cloudflare tunnel
+tail -f logs/tunnel.log
+
+# Per-client event log
 cat clients/BSR-2026-0001-name/event-log.md
 ```
 
 ---
 
 ## State File
+
 ```
 clients/state.json
 ```
+
 Direct edits are possible but risky. Use `--find` to verify before touching.
-Back it up first: `cp clients/state.json clients/state.json.bak`
+Always back up first:
+```bash
+cp clients/state.json clients/state.json.bak
+```
 
 ---
 
-## Cron Schedule
-Pipeline runs every 2 hours automatically:
+## Webhook
+
+Tally submissions arrive at: `https://webhook.battleshipreset.com/tally-webhook`
+
+Queued as JSON files in `clients/tally-queue/` — processed on next pipeline run (or immediately via background process triggered by the webhook).
+
+To manually reprocess a stuck submission:
+```bash
+# File will be in clients/tally-queue/
+ls clients/tally-queue/
+python3 scripts/battleship_pipeline.py   # processes all queued files
 ```
-crontab -l
-```
-To disable: `crontab -e` and comment out the battleship line.
