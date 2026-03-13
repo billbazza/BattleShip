@@ -210,11 +210,28 @@ One condition: this only works if you're ready to actually do something about it
 
 ---
 
-## AFTER BUILDING
+## STATUS: LIVE
 
-1. In Tally: Integrations → Webhooks → add your pipeline URL:
-   http://YOUR_SERVER_IP:5100/tally-webhook
+Form URL: https://tally.so/r/rjK752
+Form ID: rjK752
+Built: 13 Mar 2026
 
-2. Note the form ID from the Tally URL (e.g. tally.so/r/XXXXXX) and update TALLY_FORM_ID in the pipeline
+## WEBHOOK SETUP
 
-3. Update the Typeform link on the Carrd website and diagnosis email to the new Tally URL
+Tally webhook needs to point to the Flask dashboard. The dashboard runs on localhost:5100 — to receive
+webhooks from Tally's servers you need a public URL. Options:
+
+**Option A — ngrok (development/testing):**
+```
+ngrok http 5100
+```
+Copy the https://xxxx.ngrok.io URL → Tally: Integrations → Webhooks → https://xxxx.ngrok.io/tally-webhook
+Note: ngrok URL changes each restart on free tier.
+
+**Option B — deploy the dashboard to a VPS/cloud (production):**
+Set webhook to: http://YOUR_SERVER_IP:5100/tally-webhook
+
+**Option C — use a static ngrok domain (ngrok paid, ~$10/mo):**
+One permanent URL, no restarts needed.
+
+Currently: webhook not yet connected — submissions will queue once connected.
