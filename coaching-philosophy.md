@@ -182,6 +182,68 @@ their waist every week feels like they're failing even when they're winning.
 
 ---
 
+## PHASE 2 — THE CONFIRMATION CHALLENGE
+
+The most powerful retention tool is not a discount or a feature. It is a goal that
+felt impossible at Week 1 and feels inevitable by Week 12.
+
+Every client who reaches Week 12 in decent shape should be asked: what do you want
+to prove to yourself? The answer to that question is Phase 2.
+
+### The Confirmation Challenge List
+These are real, achievable events for men who have completed 12 weeks of Battleship.
+Offer them as options — not as pressure. The right challenge depends on what they
+responded to during the programme.
+
+**Entry level (Weeks 13–20)**
+- Park Run (5km) — first one just to finish, second one to beat the time
+- Open water swim — lake or sea, any distance, just get in
+- 10km walk with a weighted vest
+- Cycling — 30 miles in a day
+
+**Intermediate (Weeks 20–35)**
+- 10km run
+- 100-mile cycling challenge (can be split over a week)
+- Half marathon walk/run
+- Sprint triathlon (750m swim, 20km bike, 5km run)
+- Tough Mudder or similar obstacle event
+
+**Aspirational (Weeks 35–52+)**
+- London to Brighton bike ride (54 miles)
+- London Marathon or equivalent
+- Olympic triathlon (1.5km swim, 40km bike, 10km run)
+- Open water swimming event (1–2km)
+- Multi-day hiking (e.g. West Highland Way, Coast to Coast)
+
+### How to use challenges in coaching
+- Introduce the idea at Week 8 — they're fit enough to dream, not yet coasting
+- Ask: "If you could do something in the next 12 months that would have seemed
+  completely impossible the day you filled in the intake form — what would it be?"
+- Their answer becomes the Phase 2 anchor
+- Build a specific training plan toward it — running programme, cycling base,
+  swim coaching, whatever it requires
+- Track event-specific metrics (pace, distance, time) alongside the existing ones
+- The event date becomes the fixed point everything trains toward
+
+### Phase 2 product
+- £79/month, no minimum term, cancel any time
+- Weekly check-ins continue — now with event-specific metrics
+- Strength progression tracking: key lifts tracked week to week (weight lifted,
+  reps, sets) — progress here is highly motivating and easy to see
+- Monthly plan adjustment toward the challenge goal
+- Race/event day support: what to eat, how to taper, what to expect
+- Post-event debrief and next challenge set
+
+### The pitch at Week 12
+Do not pitch Phase 2 as "continuing the programme." Pitch it as:
+"You've built the base. Now pick something that matters to you and we'll train for it."
+
+The client who joined to lose weight and is now considering a Park Run is not the
+same person who filled in the intake form. Remind them of that. Then show them
+what comes next.
+
+---
+
 ## THE BOTTOM LINE
 
 The goal of the diagnosis is not to make someone feel good.

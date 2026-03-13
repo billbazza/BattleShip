@@ -108,9 +108,10 @@ EDUCATION_DRIPS = {
     # Week 7: Gym basics
     7:  [("edu_gym_terms",   "Gym terminology decoded — sets, reps, RPE explained",       "education-lessons/training/gym-terminology.md"),
          ("edu_gymtim",      "Gymtimidation — and why it ends at session three",           "education-lessons/training/gymtimidation.md")],
-    # Week 8: Execution
+    # Week 8: Execution + challenge question
     8:  [("edu_warmup",      "The warm-up you should never skip (especially over 40)",    "education-lessons/training/warm-ups.md"),
-         ("edu_prep",        "How to prepare for a session — before, during, after",      "education-lessons/training/workout-prep.md")],
+         ("edu_prep",        "How to prepare for a session — before, during, after",      "education-lessons/training/workout-prep.md"),
+         ("edu_challenge",   "Week 8: What's your challenge?",                            "education-lessons/training/confirmation-challenge.md")],
     # Week 9: Load and fat loss science
     9:  [("edu_weight",      "How much weight should you lift? The honest answer",        "education-lessons/training/how-much-weight.md"),
          ("edu_fatloss_t",   "Why lifting beats cardio for body composition",             "education-lessons/training/training-for-fat-loss.md")],
@@ -540,15 +541,20 @@ CLIENT INTAKE SUMMARY:
 PROGRESS TRACKER (12 weeks of check-in data):
 {tracker_text}
 
+CONFIRMATION CHALLENGE (what they said they wanted to do — from Week 8 email reply):
+{challenge_goal}
+
 WRITE A PERSONAL CLOSING MESSAGE that:
 1. Opens by naming something specific about THEIR journey — a real moment, a real struggle, a real win from their tracker. Not generic.
 2. Acknowledges what they came in with (their original problem from intake) vs where they are now.
 3. Is honest: 12 weeks is a foundation, not a finish line. Real transformation — the kind that lasts — takes 18–24 months. The men who look and feel genuinely different at 50 vs 45 are the ones who kept going.
-4. Transitions naturally to what Phase 2 looks like: monthly coaching, continued education, weekly check-ins, plan progression — for £79/month. No hard sell. Just an honest offer from a coach who wants to see them finish what they started.
-5. Closes personally. Not "the Battleship team". You. Will.
+4. If they stated a confirmation challenge (see above), name it specifically and tell them you can train them for it. Build the bridge from where they are now to that goal. Make it feel inevitable, not impossible.
+   If they didn't state a challenge, prompt the question: "What would have seemed completely impossible the day you filled in that form? That's what Phase 2 is for."
+5. Makes the Phase 2 offer clearly and simply: £79/month, no minimum term, weekly check-ins continue, strength progression tracked week to week, plan adjusted monthly toward their event, race day prep, post-event debrief. Frame it as: "You've built the base. Now pick something that matters to you and we'll train for it."
+6. Closes personally. Not "the Battleship team". You. Will.
 
 TONE: Warm, direct, British. No hype. No exclamation marks. Reads like a letter, not a marketing email.
-LENGTH: 300–450 words.
+LENGTH: 350–500 words.
 OUTPUT: The message only. No subject line. No preamble.
 """
 
@@ -1469,6 +1475,47 @@ def process_inbound_emails(state: dict, secrets: dict):
         week      = ((datetime.now(timezone.utc).date() - enrolled).days // 7) + 1
         background = cs.get("intake_summary", cs.get("goal", "No background on file."))
 
+        # Detect challenge goal reply — store it and send a short acknowledgement
+        challenge_keywords = ["what's your challenge", "week 8: what", "confirmation challenge"]
+        is_challenge_reply = (
+            is_coach and
+            not cs.get("challenge_goal") and
+            any(kw in subject.lower() for kw in challenge_keywords) and
+            len(body) > 3
+        )
+        if is_challenge_reply:
+            cs["challenge_goal"] = body[:500]
+            if cs.get("folder"):
+                log_event(cs["folder"], f"Challenge goal recorded: {body[:100]}")
+            print(f"  🎯 Challenge goal captured for {cs['name']}: {body[:80]}")
+            # Send a short personal reply acknowledging it
+            ack = (
+                f"Got it.\n\n"
+                f"We'll keep that in mind as you move into the final weeks. "
+                f"By Week 12 we'll talk about what training for that actually looks like.\n\n"
+                f"Keep going.\n\n— Will"
+            )
+            send_email(secrets, sender_email, f"Re: {subject}", ack)
+            mail.store(uid, "+FLAGS", "\\Seen")
+            if cs.get("folder"):
+                log_event(cs["folder"], f"Challenge acknowledgement sent")
+            continue
+
+        # Detect Phase 2 sign-up reply — flag for Will to action
+        phase2_keywords = ["i'm in", "im in", "sign me up", "phase 2", "continue", "keep going"]
+        week12_subject_keywords = ["12 weeks", "what comes next"]
+        is_phase2_reply = (
+            is_coach and
+            cs.get("status") in ("active", "complete") and
+            any(kw in body.lower() for kw in phase2_keywords) and
+            any(kw in subject.lower() for kw in week12_subject_keywords)
+        )
+        if is_phase2_reply and not cs.get("phase2_requested"):
+            cs["phase2_requested"] = True
+            if cs.get("folder"):
+                log_event(cs["folder"], f"Phase 2 interest flagged — client replied: {body[:80]}")
+            print(f"  🚀 PHASE 2 REQUEST from {cs['name']} — needs Stripe setup")
+
         if is_coach:
             prompt = COACH_REPLY_PROMPT.format(
                 name=cs["name"], week=week, message=body, background=background
@@ -1627,18 +1674,27 @@ def send_week12_close(state: dict, secrets: dict):
         intake_tags = cs.get("tags", {})
         intake_summary = "\n".join(f"{k}: {v}" for k, v in intake_tags.items() if v)
 
+        challenge_goal = cs.get("challenge_goal", "")
         prompt = WEEK12_PROMPT.format(
             name=cs["name"],
             intake_summary=intake_summary or "No intake tags recorded.",
             tracker_text=tracker[:3000] if tracker else "No tracker data — client did not submit check-ins.",
+            challenge_goal=challenge_goal or "Not stated — client did not reply to Week 8 challenge email.",
         )
-        message = call_claude(secrets["anthropic"], prompt, max_tokens=1000)
+        message = call_claude(secrets["anthropic"], prompt, max_tokens=1200)
 
-        subj = f"12 weeks — and what comes next, {cs['name'].split()[0]}"
+        first_name = cs["name"].split()[0]
+        subj = f"12 weeks — and what comes next, {first_name}"
+        phase2_cta = (
+            f"Phase 2 is £79/month — no minimum term, cancel any time.\n\n"
+            f"Weekly check-ins continue. Strength tracked week to week. Plan adjusted monthly.\n"
+            f"If you have an event in mind, we build toward it. If you don't yet, we'll find one.\n\n"
+            f"Reply to this email with 'I'm in' and I'll get you set up."
+        )
         body = (
             f"{message}\n\n"
             f"---\n\n"
-            f"If you'd like to continue: reply to this email and I'll send you the details for Phase 2.\n\n"
+            f"{phase2_cta}\n\n"
             f"— {COACH_NAME}\n"
             f"will@battleshipreset.com"
         )
