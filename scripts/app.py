@@ -87,6 +87,7 @@ BASE = """<!DOCTYPE html>
              font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
     .badge-diagnosed { background: #fdf0d5; color: #b87000; }
     .badge-active    { background: #d4f0de; color: #1a7a3a; }
+    .badge-complete  { background: #d0e8ff; color: #1a4a7a; }
     .badge-unknown   { background: #eee;    color: #666; }
 
     .btn { display: inline-block; padding: 9px 20px; border-radius: 3px;
@@ -159,7 +160,7 @@ DASHBOARD = BASE.replace("{% block content %}{% endblock %}", """
       {% for acct, cs in clients %}
       <tr>
         <td><code>{{ acct }}</code></td>
-        <td><strong>{{ cs.name }}</strong>{% if cs.get('complimentary') %} <span style="font-size:11px;color:#888">(comp)</span>{% endif %}</td>
+        <td><strong>{{ cs.name }}</strong>{% if cs.get('complimentary') %} <span style="font-size:11px;color:#888">(comp)</span>{% endif %}{% if cs.get('phase2_requested') %} <span style="font-size:11px;color:#c41e3a;font-weight:700">★ P2</span>{% endif %}</td>
         <td style="color:#666">{{ cs.email }}</td>
         <td>
           <span class="badge badge-{{ cs.status }}">{{ cs.status }}</span>
@@ -197,7 +198,14 @@ CLIENT_PAGE = BASE.replace("{% block content %}{% endblock %}", """
     <div class="meta-item"><label>Email</label><value>{{ cs.email }}</value></div>
     <div class="meta-item"><label>Enrolled</label><value>{{ cs.get('enrolled_date') or 'not yet' }}</value></div>
     {% if cs.get('complimentary') %}<div class="meta-item"><label>Plan</label><value>Complimentary</value></div>{% endif %}
+    {% if cs.get('phase2_requested') %}<div class="meta-item"><label>Phase 2</label><value style="color:#c41e3a;font-weight:700">Requested ★</value></div>{% endif %}
   </div>
+  {% if cs.get('challenge_goal') %}
+  <div style="margin-bottom:12px;padding:12px;background:#f8f6f1;border-radius:3px;border-left:3px solid #c41e3a">
+    <span style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#999">Challenge Goal</span><br>
+    <span style="font-size:14px;color:#1a1a1a">{{ cs.challenge_goal }}</span>
+  </div>
+  {% endif %}
   <div style="font-size:13px;color:#999">Emails sent: {{ ', '.join(cs.get('emails_sent', [])) or 'none' }}</div>
 </div>
 
