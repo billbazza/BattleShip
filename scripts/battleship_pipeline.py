@@ -29,10 +29,11 @@ RUN AS CRON (every 2 hours):
   op://Private/GoogleSheets/creds-path — path to service account JSON e.g. ~/.battleship-gsheets.json (optional)
 """
 
-import subprocess, requests, json, smtplib, sys, os, re
+import subprocess, requests, json, smtplib, sys, os, re, imaplib, email
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.header import decode_header
 from pathlib import Path
 
 try:
@@ -68,7 +69,16 @@ OPTIONAL_SECRETS = {
     "notion":       "op://Private/Notion/api-key",
     "gsheets_id":   "op://Private/GoogleSheets/sheet-id",
     "gsheets_creds":"op://Private/GoogleSheets/creds-path",
+    "imap_host":    "op://Private/IMAP/host",
+    "imap_user":    "op://Private/IMAP/username",
+    "imap_pass":    "op://Private/IMAP/password",
 }
+
+# Inbound email routing
+COACH_EMAIL   = "coach@battleship.me"
+SUPPORT_EMAIL = "support@battleship.me"
+WILL_EMAIL    = "will@battleship.me"
+REPLY_TO      = COACH_EMAIL   # default reply-to on all outgoing client emails
 
 # Notion: ID of the "Battleship Clients" parent page
 # Copy the page URL, take the ID after the last / and before any ?
@@ -184,6 +194,9 @@ def load_secrets() -> dict:
         "stripe":        "STRIPE_KEY",
         "gsheets_id":    "GSHEETS_ID",
         "gsheets_creds": "GSHEETS_CREDS",
+        "imap_host":     "IMAP_HOST",
+        "imap_user":     "IMAP_USER",
+        "imap_pass":     "IMAP_PASS",
     }
     op_map = {**REQUIRED_SECRETS, **OPTIONAL_SECRETS}
 
@@ -747,9 +760,10 @@ def parse_diagnosis_sections(md: str) -> dict:
 
 def send_email(secrets: dict, to: str, subject: str, plain_body: str, html_body: str = None):
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = f"{COACH_NAME} <{secrets['smtp_user']}>"
-    msg["To"]      = to
+    msg["Subject"]  = subject
+    msg["From"]     = f"Will Barratt – Battleship <{secrets['smtp_user']}>"
+    msg["To"]       = to
+    msg["Reply-To"] = COACH_EMAIL
     msg.attach(MIMEText(plain_body, "plain"))
     if html_body:
         msg.attach(MIMEText(html_body, "html"))
@@ -1231,6 +1245,163 @@ def _calorie_target(cs: dict) -> str:
         return "**Your target:** use the formula in the lesson — your weight in lbs × 12 (or × 15 if you find restriction difficult)"
 
 
+def _decode_header(value: str) -> str:
+    """Decode RFC2047 encoded email header."""
+    parts = decode_header(value or "")
+    decoded = []
+    for part, enc in parts:
+        if isinstance(part, bytes):
+            decoded.append(part.decode(enc or "utf-8", errors="replace"))
+        else:
+            decoded.append(part)
+    return "".join(decoded)
+
+
+def _get_email_body(msg) -> str:
+    """Extract plain text body from email message."""
+    if msg.is_multipart():
+        for part in msg.walk():
+            if part.get_content_type() == "text/plain":
+                charset = part.get_content_charset() or "utf-8"
+                return part.get_payload(decode=True).decode(charset, errors="replace")
+    else:
+        charset = msg.get_content_charset() or "utf-8"
+        return msg.get_payload(decode=True).decode(charset, errors="replace")
+    return ""
+
+
+COACH_REPLY_PROMPT = """You are Will Barratt, founder of Battleship – Midlife Fitness Reset.
+A client has emailed coach@battleship.me with a question or update.
+
+Write a reply in Will's voice: direct, warm, no fluff, no corporate tone. Like a knowledgeable mate who happens to know a lot about fitness and nutrition. Short paragraphs. Never use bullet points in replies unless listing specific actions. Sign off as Will.
+
+Client name: {name}
+Client week: {week}
+Their message:
+---
+{message}
+---
+
+Client background (from their intake):
+{background}
+
+Reply only with the email body — no subject line, no preamble."""
+
+
+SUPPORT_REPLY_PROMPT = """You are handling support for Battleship – Midlife Fitness Reset on behalf of Will Barratt.
+A client has emailed support@battleship.me.
+
+Write a helpful, warm reply. If they mention cancellation or a refund, acknowledge it with empathy, ask what's gone wrong, and let them know Will will be in touch personally — do NOT promise a refund or process anything. For technical issues or programme questions, resolve them directly. Sign off as "The Battleship Team".
+
+Client name: {name}
+Their message:
+---
+{message}
+---
+
+Reply only with the email body — no subject line, no preamble."""
+
+
+def process_inbound_emails(state: dict, secrets: dict):
+    """Poll coach@ and support@ inboxes, auto-reply to client emails via Claude."""
+    if not secrets.get("imap_host") or not secrets.get("imap_user") or not secrets.get("imap_pass"):
+        print("  ⚠️  IMAP credentials not set — skipping inbound email processing")
+        return
+
+    print(f"  📬 Connecting to {secrets['imap_host']}...")
+    try:
+        mail = imaplib.IMAP4_SSL(secrets["imap_host"], 993)
+        mail.login(secrets["imap_user"], secrets["imap_pass"])
+    except Exception as e:
+        print(f"  ❌ IMAP login failed: {e}")
+        return
+
+    mail.select("INBOX")
+    _, data = mail.search(None, "UNSEEN")
+    uids = data[0].split()
+    if not uids:
+        print("  📭 No new emails")
+        mail.logout()
+        return
+
+    print(f"  📬 {len(uids)} unread email(s)...")
+    client = anthropic.Anthropic(api_key=secrets["anthropic"])
+
+    for uid in uids:
+        _, msg_data = mail.fetch(uid, "(RFC822)")
+        raw = msg_data[0][1]
+        msg = email.message_from_bytes(raw)
+
+        from_addr  = _decode_header(msg.get("From", ""))
+        to_addr    = _decode_header(msg.get("To", "")).lower()
+        subject    = _decode_header(msg.get("Subject", ""))
+        body       = _get_email_body(msg).strip()
+
+        # Extract sender email from "Name <email>" format
+        sender_email = from_addr
+        if "<" in from_addr and ">" in from_addr:
+            sender_email = from_addr.split("<")[1].rstrip(">").strip().lower()
+
+        # Route: will@ — skip, just flag
+        if WILL_EMAIL in to_addr:
+            print(f"  👤 Email to will@ from {sender_email} — needs your personal reply")
+            mail.store(uid, "+FLAGS", "\\Seen")
+            continue
+
+        # Determine routing
+        is_coach   = COACH_EMAIL in to_addr
+        is_support = SUPPORT_EMAIL in to_addr
+        if not is_coach and not is_support:
+            print(f"  ❓ Unrecognised To: address ({to_addr}) — skipping")
+            continue
+
+        # Find matching client
+        acct, cs = find_client(sender_email, state)
+        if not acct:
+            print(f"  ⚠️  Unknown sender {sender_email} — no matching client, skipping")
+            mail.store(uid, "+FLAGS", "\\Seen")
+            continue
+
+        print(f"  ✉️  {'coach@' if is_coach else 'support@'} from {cs['name']} ({sender_email})")
+
+        # Build prompt
+        enrolled  = datetime.fromisoformat(cs.get("enrolled_date", datetime.now(timezone.utc).isoformat())).date()
+        week      = ((datetime.now(timezone.utc).date() - enrolled).days // 7) + 1
+        background = cs.get("intake_summary", cs.get("goal", "No background on file."))
+
+        if is_coach:
+            prompt = COACH_REPLY_PROMPT.format(
+                name=cs["name"], week=week, message=body, background=background
+            )
+            from_label = COACH_EMAIL
+        else:
+            prompt = SUPPORT_REPLY_PROMPT.format(name=cs["name"], message=body)
+            from_label = SUPPORT_EMAIL
+            # Flag cancellation/refund requests to Will
+            if any(w in body.lower() for w in ["cancel", "refund", "stop", "quit the programme", "quit the program"]):
+                print(f"  🚨 CANCELLATION REQUEST from {cs['name']} — flagged for Will's attention")
+
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=600,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        reply_body = response.content[0].text.strip()
+
+        # Re: subject
+        reply_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
+
+        plain_reply = reply_body
+        send_email(secrets, sender_email, reply_subject, plain_reply)
+        mail.store(uid, "+FLAGS", "\\Seen")
+
+        if cs.get("folder"):
+            log_event(cs["folder"], f"Inbound email replied ({'coach' if is_coach else 'support'}): {subject[:60]}")
+        print(f"  ✅ Replied to {cs['name']}")
+
+    mail.logout()
+
+
 def send_education_drips(state: dict, secrets: dict):
     """Send up to 2 education emails/week to each active client on schedule."""
     today = datetime.now(timezone.utc).date()
@@ -1560,11 +1731,15 @@ def main():
     print("\n📋 Processing check-in responses...")
     process_checkin_responses(state, secrets)
 
-    # 5. Education drips
+    # 5. Inbound email replies (coach@ and support@)
+    print("\n📬 Processing inbound emails...")
+    process_inbound_emails(state, secrets)
+
+    # 6. Education drips
     print("\n📚 Education drip schedule...")
     send_education_drips(state, secrets)
 
-    # 6. Week 12 personal close
+    # 7. Week 12 personal close
     print("\n🎓 Week 12 close...")
     send_week12_close(state, secrets)
 
