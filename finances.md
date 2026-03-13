@@ -19,16 +19,15 @@
 
 ## Expense Log
 
-| Date | Item | Cost (£) | Category | Notes |
-|------|------|---------|----------|-------|
-| Mar 2026 | Domain (battleshipreset.com or similar) | ~£12 | Infrastructure | Annual, Namecheap/123-reg |
-| Mar 2026 | Carrd (landing page) | ~£19 | Infrastructure | Annual plan |
-| Mar 2026 | Public liability insurance | ~£100 | Legal | PolicyBee/Insure4Sport, annual |
-| Mar 2026 | Meta Ads (test budget) | ~£10–20/day | Advertising | Start after landing page live |
-| Mar 2026 | ConvertKit/Pulse (email) | ~£0–29/mo | Marketing | Free tier to start |
-| Mar 2026 | Typeform (intake quiz) | ~£0 | Tools | Free tier (10 responses/mo) |
+| Date | Item | Cost | Currency | Category | Notes |
+|------|------|------|----------|----------|-------|
+| 11 Mar 2026 | GoDaddy — battleshipreset.com .COM registration (2yr) | £25.98 | GBP | Infrastructure | Auto-renews 11/03/2028 @ £37.68 |
+| 11 Mar 2026 | GoDaddy — Full Domain Protection (2yr) | £15.98 | GBP | Infrastructure | Auto-renews 11/03/2028 @ £10.99 |
+| 11 Mar 2026 | GoDaddy — VAT | £8.39 | GBP | Tax | 20% on above |
+| 11 Mar 2026 | Anthropic — Claude API credit (Receipt #2615-4616-6001) | $10.00 + $2.00 VAT | USD | Tools | $12.00 total inc. 20% UK VAT |
+| 13 Mar 2026 | Carrd — Pro Standard plan (annual, ends 13/03/2027) | $19.00 | USD | Infrastructure | Upgraded Lite→Standard same day; $9 credited |
 
-**Total Spend to date: £0 confirmed**
+**Total Spend to date: £50.35 GBP + $31.00 USD (~£75 combined)**
 **Projected Month 1 costs: ~£150–250 (setup) + £300–600 (ads)**
 
 ---
@@ -53,7 +52,7 @@
 
 | Month | Revenue | Costs | Net | Cumulative |
 |-------|---------|-------|-----|------------|
-| Mar 2026 | £0 | ~£250 | -£250 | -£250 |
+| Mar 2026 | £0 | ~£75 confirmed + ads TBD | -£75+ | -£75+ |
 | Apr 2026 | TBD | ~£400 | TBD | TBD |
 | May 2026 | TBD | ~£400 | TBD | TBD |
 | Jun 2026 | Target £3,000 | ~£500 | TBD | TBD |
