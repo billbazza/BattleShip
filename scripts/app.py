@@ -13,7 +13,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Flask, redirect, render_template_string, request, url_for, jsonify
+from flask import Flask, redirect, render_template_string, request, url_for, jsonify, Response
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from skills.tracker_generator import generate_tracker_for_client  # noqa: E402
 
 VAULT_ROOT   = Path(__file__).parent.parent
 CLIENTS_DIR  = VAULT_ROOT / "clients"
@@ -488,7 +491,8 @@ _SIM_DRIPS = {
     2:  [("edu_zone2",       "Why slow walking beats hard running — the science",               "education-lessons/exercises/zone2-walking.md",                           0)],
     3:  [("edu_8020",        "The 80/20 rule of nutrition",                                     "education-lessons/nutrition/80-20-rule.md",                              0)],
     4:  [("edu_fatloss_1",   "How to actually lose fat: getting started",                       "education-lessons/fat-loss/getting-started.md",                          0)],
-    5:  [("edu_fatloss_2",   "How to actually lose fat: awareness",                             "education-lessons/fat-loss/awareness.md",                                0)],
+    5:  [("edu_fatloss_2",   "How to actually lose fat: awareness",                             "education-lessons/fat-loss/awareness.md",                                0),
+         ("edu_mfp",        "Your calorie tracking tool: MyFitnessPal — simple setup guide",   "education-lessons/Myfitnesspal/myfitnesspal-guide.md",                   3)],
     6:  [("edu_training_1",  "Time to add weights — here's what your training looks like",      "education-lessons/training/workout-overview.md",                         0)],
     7:  [("edu_gymtim",      "Gymtimidation — and why it ends at session three",                "education-lessons/training/gymtimidation.md",                            0)],
     8:  [("edu_warmup",      "The warm-up you should never skip (especially over 40)",          "education-lessons/training/warm-ups.md",                                 0),
@@ -691,7 +695,7 @@ def _sim_week_events(week: int, track: str = "dumbbell_full_body") -> list:
             "type": "email", "day": 0,
             "subject": "Welcome to Battleship, [Name] — here's your plan",
             "preview": "Onboarding email sent when client pays via Stripe (or manually enrolled). Week 1 is walking only — no strength work yet.",
-            "content": "Triggered by: Stripe webhook payment OR manual --enrol flag\n\nIncludes:\n• Link to personalised Notion plan page\n• Google check-in form link\n• Week 1 instructions: walk every day (Zone 2, 30 min min)\n• Check-in form link — they submit at end of week\n\nfunction: enrol_client() → email_onboarding()",
+            "content": "Triggered by: Stripe webhook payment OR manual --enrol flag\n\nIncludes:\n• Link to personalised Notion plan page\n• Workout tracker URL (webhook.battleshipreset.com/tracker/BSR-XXXX)\n  → Client saves to phone home screen as PWA\n  → Shows exercises, per-set logging, how-to videos, history\n• Week 1 instructions: walk every day (Zone 2, 30 min min)\n• Check-in form link — they submit at end of week\n\nfunction: enrol_client() → email_onboarding()",
             "function": "enrol_client() → email_onboarding()",
         })
         events.append({
@@ -1040,6 +1044,14 @@ selectWeek(0);
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+@app.route("/brand/<path:filename>")
+def brand_asset(filename):
+    """Serve brand images publicly (used by Instagram API which needs a public URL)."""
+    from flask import send_from_directory
+    brand_dir = VAULT_ROOT / "brand"
+    return send_from_directory(brand_dir, filename)
+
+
 @app.route("/")
 def dashboard():
     state          = load_state()
@@ -1178,6 +1190,17 @@ def tally_webhook():
 @app.route("/api/status")
 def api_status():
     return jsonify(get_system_status())
+
+@app.route("/tracker/<acct>")
+def client_tracker(acct: str):
+    """Serve the PWA workout tracker for a client."""
+    state = load_state()
+    cs = state.get("clients", {}).get(acct)
+    if not cs:
+        return Response("Client not found", status=404)
+    html = generate_tracker_for_client(cs)
+    return Response(html, mimetype="text/html")
+
 
 @app.route("/simulate")
 def simulator():

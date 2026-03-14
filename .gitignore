@@ -17,3 +17,16 @@ clients/*/
 logs/
 scripts/__pycache__/
 .DS_Store
+
+# Brand output and photo folders (images ignored by extension above, folders excluded too)
+brand/output/
+brand/Getting-fit-random-snaps/
+brand/random-snaps/
+brand/catalogue.json
+
+# Generated / temp
+facebook_queue/
+tracker_test.html
+scripts/fb_reorder.py
+scripts/fb_token_setup.py
+skills/__pycache__/
