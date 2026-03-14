@@ -96,7 +96,8 @@ EDUCATION_DRIPS = {
     2:  [("edu_zone2",       "Why slow walking beats hard running — the science",              "education-lessons/exercises/zone2-walking.md")],
     3:  [("edu_8020",        "The 80/20 rule of nutrition",                                    "education-lessons/nutrition/80-20-rule.md")],
     4:  [("edu_fatloss_1",   "How to actually lose fat: getting started",                      "education-lessons/fat-loss/getting-started.md")],
-    5:  [("edu_fatloss_2",   "How to actually lose fat: awareness",                            "education-lessons/fat-loss/awareness.md")],
+    5:  [("edu_fatloss_2",   "How to actually lose fat: awareness",                            "education-lessons/fat-loss/awareness.md"),
+         ("edu_mfp",        "Your calorie tracking tool: MyFitnessPal — simple setup guide",  "education-lessons/Myfitnesspal/myfitnesspal-guide.md")],
     6:  [("edu_training_1",  "Time to add weights — here's what your training looks like",     "education-lessons/training/workout-overview.md")],
     7:  [("edu_gymtim",      "Gymtimidation — and why it ends at session three",               "education-lessons/training/gymtimidation.md")],
     # Week 8: warmup drip + AI-generated challenge email (challenge sent separately)
@@ -261,7 +262,10 @@ def load_secrets() -> dict:
         "smtp_host":     "SMTP_HOST",
         "smtp_user":     "SMTP_USER",
         "smtp_pass":     "SMTP_PASS",
-        "stripe":        "STRIPE_KEY",
+        "stripe":             "STRIPE_KEY",
+        "stripe_phase2_link": "STRIPE_PHASE2_LINK",
+        "fb_ad_account_id":   "FB_AD_ACCOUNT_ID",
+        "fb_user_token":      "FB_USER_TOKEN",
         "gsheets_id":    "GSHEETS_ID",
         "gsheets_creds": "GSHEETS_CREDS",
         "imap_host":     "IMAP_HOST",
@@ -460,8 +464,12 @@ Frame it as investing in yourself, not spending money. Warm and honest. Never pu
 
 ---
 AGENT_TAGS_JSON
-{{"main_goal": "...", "constraints": [...], "risk_flags": {{"sleep": "...", "stress": "...", "injuries": [...], "bp": "..."}}, "equipment": [...], "sessions_per_week": 3, "level": "restart", "success_metrics": [{{"metric": "weight", "how": "weekly, same day, post-toilet", "unit": "kg or lbs"}}, {{"metric": "energy", "how": "self-rate 1-10 each morning", "unit": "1-10"}}]}}
-"""
+{{"main_goal": "...", "constraints": [...], "risk_flags": {{"sleep": "...", "stress": "...", "injuries": [...], "bp": "..."}}, "equipment": [...], "sessions_per_week": 3, "level": "restart", "weight_lbs": 0, "height_inches": 0, "overweight_level": "significant", "success_metrics": [{{"metric": "weight", "how": "weekly, same day, post-toilet", "unit": "kg or lbs"}}, {{"metric": "energy", "how": "self-rate 1-10 each morning", "unit": "1-10"}}]}}
+
+Notes for AGENT_TAGS_JSON:
+- weight_lbs: their current weight in lbs (convert from kg/stone if needed). 0 if not stated.
+- height_inches: their height in inches (convert from cm/ft if needed). 0 if not stated.
+- overweight_level: "significant" if they have a lot to lose (visibly overweight, 2+ stone, BMI likely 30+) or "moderate" if they just want to lose a bit or tone up."""
 
 PLAN_PROMPT = """\
 You are the Program Agent for Battleship – Midlife Fitness Reset.
@@ -581,6 +589,10 @@ IMPORTANT: Reference this client's personal metrics specifically — not generic
 If their goal is fitness/VO2, don't harp on weight. If their goal is fat loss, don't
 ignore the scales. Connect every observation back to what THEY said they care about.
 
+WAIST TRACKING: if a waist measurement appears in the log, always include it in the
+tracker. If the waist is dropping while the scale is flat — explicitly celebrate this.
+Waist loss IS fat loss. This is often the real metric for visceral fat reduction.
+
 PROGRESS TRACKER TEMPLATE STRUCTURE:
 - Header: Client Name, Start Date, Current Week, Age, Main Goal, Personal Metrics
 - Current Progress: their specific metrics with changes vs baseline
@@ -603,6 +615,66 @@ Output format:
 ...coach message only...
 [/COACH_MESSAGE]
 """
+
+# ── Win detection ─────────────────────────────────────────────────────────────
+
+WIN_SIGNALS = [
+    (r"new.*(?:best|record|max|pb)", "personal best"),
+    (r"(?:lifted|pressed|squatted|deadlifted).*(?:first time|never before)", "first lift"),
+    (r"(?:ran|walked|hit)\s+[\d,]+\s*steps.*(?:most|ever|best)", "step record"),
+    (r"lost\s+[\d.]+\s*(?:kg|lbs|pounds|stone)", "weight drop"),
+    (r"waist.*(?:down|smaller|lost|dropped)", "waist drop"),
+    (r"(?:first time|never.*before).*(?:press|push.up|pull.up|squat|deadlift)", "first lift"),
+]
+
+WIN_PROMPT = """\
+You are Will Barratt, coach at Battleship – Midlife Fitness Reset.
+
+A client just submitted their check-in and has hit a win. Write a short celebratory email
+(3–4 sentences, no bullet points). Warm and genuine. Reference the specific win. End with
+one sentence about what this means for where they're headed.
+
+Client name: {name}
+Week: {week}
+Win type: {win_type}
+Context from their check-in: {context}
+
+Reply with the email body only. Sign off as Will."""
+
+def _detect_wins(parsed: dict, tracker_text: str) -> list[str]:
+    combined = (parsed.get("raw_text", "") + " " + tracker_text).lower()
+    return [label for pattern, label in WIN_SIGNALS if re.search(pattern, combined)]
+
+
+# ── Photo prompt schedule ──────────────────────────────────────────────────────
+
+PHOTO_WEEKS = {4: "week4", 8: "week8", 12: "final"}
+
+PHOTO_PROMPT_FILES = {
+    4:  "education-lessons/prompts/progress-photo-week4.md",
+    8:  "education-lessons/prompts/progress-photo-week8.md",
+    12: "education-lessons/prompts/progress-photo-week12.md",
+}
+
+
+# ── Phase 2 email template ─────────────────────────────────────────────────────
+
+PHASE2_EMAIL_BODY = """\
+Hi {name},
+
+Good to hear from you — and yes, let's do it.
+
+Phase 2 is £79/month. Weekly check-ins continue, plan adjusts monthly, strength tracked week to week. No minimum term — cancel whenever you want.
+
+Here's the link to set up the payment:
+
+{stripe_link}
+
+Once that's done, reply and I'll confirm you're set up. Everything else continues as normal from next week.
+
+— Will
+"""
+
 
 # ── Adaptive plan — walking/habit targets only, built from Week 1 check-in ────
 # Strength training is delivered weekly from the assigned programme track file.
@@ -965,6 +1037,42 @@ def render_template(template_path: Path, **kwargs) -> str:
         html = html.replace(f"%%{key}%%", str(value) if value else "")
     return html
 
+
+def render_internal_email(title: str, subtitle: str, sections: list[dict]) -> str:
+    """
+    Render a styled internal email (for Will) using internal_email.html.
+    sections: list of dicts with keys:
+      - heading (optional)
+      - body: HTML string
+      - dark: bool (dark background, default False)
+      - accent: bool (red accent bar, default False)
+    """
+    bg_light = "#ffffff"
+    bg_dark  = "#f8f6f1"
+    html_sections = []
+    for i, sec in enumerate(sections):
+        bg = "#1a1a1a" if sec.get("dark") else (bg_dark if i % 2 == 0 else bg_light)
+        text_color = "#cccccc" if sec.get("dark") else "#2c2c2c"
+        border = "border-top:3px solid #c41e3a;" if sec.get("accent") else "border-top:1px solid #e8e3da;"
+        heading_html = ""
+        if sec.get("heading"):
+            hc = "#ffffff" if sec.get("dark") else "#0a0a0a"
+            heading_html = f'<p style="margin:0 0 14px;font-family:Georgia,serif;font-size:17px;color:{hc};font-weight:normal;padding-bottom:10px;border-bottom:1px solid {"#333" if sec.get("dark") else "#e8e3da"};">{sec["heading"]}</p>'
+        body_html = sec.get("body", "")
+        html_sections.append(
+            f'<tr><td style="padding:28px 44px;background-color:{bg};{border}">'
+            f'{heading_html}'
+            f'<div style="font-size:14px;line-height:1.7;color:{text_color};">{body_html}</div>'
+            f'</td></tr>'
+        )
+    return render_template(
+        TEMPLATES_DIR / "internal_email.html",
+        title=title,
+        subtitle=subtitle,
+        sections="\n".join(html_sections),
+        date=datetime.now().strftime("%d %b %Y"),
+    )
+
 def md_to_html(text: str, text_color: str = "#2c2c2c") -> str:
     """Convert markdown to email-safe inline-styled HTML."""
     lines = text.split("\n")
@@ -1075,12 +1183,13 @@ def email_diagnosis(name: str, diagnosis: str,
     return subj, plain, html
 
 
-def email_onboarding(name: str, notion_url: str = None) -> tuple[str, str, str]:
+def email_onboarding(name: str, notion_url: str = None, tracker_url: str = None) -> tuple[str, str, str]:
     subj = f"You're in — welcome to Battleship, {name}"
 
     # Plain text fallback
     portal = f"\n→ Your programme page: {notion_url}\n" if notion_url else ""
-    plain = f"Hi {name},\n\nWelcome aboard.{portal}\n\nOne thing to do today: a 30-minute walk. That's Week 1.\n\nReply with: weight, waist, energy score, steps yesterday.\n\n— {COACH_NAME}"
+    tracker_line = f"\n→ Your workout tracker: {tracker_url}\n" if tracker_url else ""
+    plain = f"Hi {name},\n\nWelcome aboard.{portal}{tracker_line}\n\nOne thing to do today: a 30-minute walk. That's Week 1.\n\nReply with: weight, waist, energy score, steps yesterday.\n\n— {COACH_NAME}"
 
     # Portal section (optional)
     if notion_url:
@@ -1094,10 +1203,23 @@ def email_onboarding(name: str, notion_url: str = None) -> tuple[str, str, str]:
     else:
         portal_section = ""
 
+    # Tracker section
+    if tracker_url:
+        tracker_section = f"""<tr>
+      <td bgcolor="#0a0a0a" style="padding:20px 44px;background-color:#0a0a0a;border-top:4px solid #c41e3a;text-align:center;">
+        <p style="margin:0 0 8px;font-size:11px;color:#666666;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif;">Your Workout Tracker</p>
+        <a href="{tracker_url}" style="font-family:Arial,sans-serif;font-size:16px;color:#c41e3a;text-decoration:none;font-weight:bold;">Open your tracker &rarr;</a>
+        <p style="margin:10px 0 0;font-size:13px;color:#666666;font-family:Arial,sans-serif;">Tap the link &rarr; Share &rarr; Add to Home Screen in Safari.<br>Your exercises, sets, and weights — all in one place.</p>
+      </td>
+    </tr>"""
+    else:
+        tracker_section = ""
+
     html = render_template(
         TEMPLATES_DIR / "onboarding_email.html",
         name=name,
         portal_section=portal_section,
+        tracker_section=tracker_section,
         coach_name=COACH_NAME,
     )
     return subj, plain, html
@@ -1270,7 +1392,8 @@ def enrol_client(account_no: str, cs: dict, secrets: dict):
     cs["notion_url"]     = notion_url
 
     if cs["email"]:
-        subj5, plain5, html5 = email_onboarding(cs["name"], notion_url)
+        tracker_url = f"https://webhook.battleshipreset.com/tracker/{account_no}"
+        subj5, plain5, html5 = email_onboarding(cs["name"], notion_url, tracker_url)
         send_email(secrets, cs["email"], subj5, plain5, html5)
         log_event(folder, "Onboarding email sent")
 
@@ -1882,12 +2005,57 @@ def _process_single_checkin(state: dict, secrets: dict, parsed: dict, row_id: st
             nudge = get_upgrade_nudge(current_track, week) if current_track else ""
             nudge_block = f"\n\n---\n{nudge}" if nudge else ""
 
+            # Progress photo prompt at Weeks 4, 8, 12
+            photo_block = ""
+            if week in PHOTO_PROMPT_FILES:
+                photo_key = f"photo_prompt_{PHOTO_WEEKS[week]}"
+                if photo_key not in cs.get("emails_sent", []):
+                    photo_path = VAULT_ROOT / PHOTO_PROMPT_FILES[week]
+                    if photo_path.exists():
+                        photo_block = f"\n\n---\n{photo_path.read_text().strip()}"
+                        cs["emails_sent"].append(photo_key)
+
+            # Referral ask at Week 8
+            referral_block = ""
+            if week == 8 and "referral_ask" not in cs.get("emails_sent", []):
+                referral_path = VAULT_ROOT / "education-lessons/referral/week8-referral-ask.md"
+                if referral_path.exists():
+                    referral_block = f"\n\n---\n{referral_path.read_text().strip()}"
+                    cs["emails_sent"].append("referral_ask")
+
             subj = f"Week {week} review — {cs['name']}"
             body = (f"Hi {cs['name']},\n\n{coach_message}"
-                    f"{session_block}{nudge_block}{portal_line}\n\n— {COACH_NAME}")
+                    f"{session_block}{nudge_block}{photo_block}{referral_block}{portal_line}\n\n— {COACH_NAME}")
             send_email(secrets, cs["email"], subj, body)
             log_event(cs["folder"], f"Week {week} coach message sent (track: {current_track})")
             print(f"     ✅ Coach response sent to {cs['name']} (track: {current_track})")
+
+            # Testimonial request at Week 11 — separate short email
+            if week == 11 and "testimonial_ask" not in cs.get("emails_sent", []):
+                testimonial_path = VAULT_ROOT / "education-lessons/testimonial/week11-testimonial.md"
+                if testimonial_path.exists():
+                    t_body = testimonial_path.read_text().strip()
+                    send_email(secrets, cs["email"], f"One question before we close — {cs['name'].split()[0]}", t_body)
+                    cs["emails_sent"].append("testimonial_ask")
+                    log_event(cs["folder"], "Week 11 testimonial request sent")
+                    print(f"     ⭐ Testimonial request sent to {cs['name']}")
+
+    # Win detection — fire separate celebration email if a win is spotted
+    wins = _detect_wins(parsed, tracker_text)
+    win_key = f"win_wk{week}"
+    if wins and win_key not in cs.get("emails_sent", []):
+        win_type = ", ".join(wins)
+        win_prompt = WIN_PROMPT.format(
+            name=cs["name"],
+            week=week,
+            win_type=win_type,
+            context=parsed.get("raw_text", "")[:500],
+        )
+        win_body = call_claude(secrets["anthropic"], win_prompt, max_tokens=300)
+        send_email(secrets, cs["email"], f"That's a big one, {cs['name'].split()[0]}", win_body)
+        cs["emails_sent"].append(win_key)
+        log_event(cs["folder"], f"Win celebration email sent (Week {week}): {win_type}")
+        print(f"     🏆 Win celebration sent to {cs['name']} ({win_type})")
 
     cs["last_checkin_received"] = datetime.now(timezone.utc).isoformat()
     state.setdefault("processed_checkin_ids", []).append(row_id)
@@ -1931,20 +2099,37 @@ def process_checkin_responses(state: dict, secrets: dict):
 # ── Pipeline: Education Drips ─────────────────────────────────────────────────
 
 def _calorie_target(cs: dict) -> str:
-    """Return a personalised calorie target line based on intake weight and food relationship."""
+    """Return a personalised calorie target based on body composition.
+
+    Rule (Will's formula):
+      - Significantly overweight / lot to lose → weight_lbs × 12
+      - Moderate / not really overweight       → weight_lbs × 15
+    """
     tags = cs.get("tags", {})
     weight_raw = tags.get("weight_lbs", "") or tags.get("weight", "")
-    food_rel   = tags.get("food_relationship", "").lower()
 
     try:
-        lbs = float(str(weight_raw).replace("lbs","").replace("lb","").strip())
-        # If they flagged difficulty with restriction, use ×15; otherwise ×12
-        hard = any(w in food_rel for w in ["hard", "difficult", "struggle", "restrict", "comfort", "emotional"])
-        multiplier = 15 if hard else 12
+        lbs = float(str(weight_raw).replace("lbs", "").replace("lb", "").strip())
+        if lbs <= 0:
+            raise ValueError
+
+        # Try BMI first if height available
+        height_raw = tags.get("height_inches", "") or tags.get("height", "")
+        multiplier = 12  # default: assume significant if unsure
+        try:
+            inches = float(str(height_raw).replace("in", "").replace('"', "").strip())
+            if inches > 0:
+                bmi = (lbs / (inches ** 2)) * 703
+                multiplier = 12 if bmi >= 30 else 15
+        except (ValueError, TypeError):
+            # Fall back to Claude's overweight_level tag
+            level = tags.get("overweight_level", "significant").lower()
+            multiplier = 12 if level == "significant" else 15
+
         target = int(lbs * multiplier)
         return f"**Your target: {target} calories/day** (your weight × {multiplier})"
     except (ValueError, TypeError):
-        return "**Your target:** use the formula in the lesson — your weight in lbs × 12 (or × 15 if you find restriction difficult)"
+        return "**Your target:** use the formula in the lesson — your weight in lbs × 12 if you have a significant amount to lose, or × 15 if you're closer to your goal weight"
 
 
 def _decode_header(value: str) -> str:
@@ -2050,10 +2235,20 @@ def process_inbound_emails(state: dict, secrets: dict):
         if "<" in from_addr and ">" in from_addr:
             sender_email = from_addr.split("<")[1].rstrip(">").strip().lower()
 
-        # Route: will@ — skip, just flag
+        # Route: will@ — check for comment approvals, otherwise flag
         if WILL_EMAIL in to_addr:
-            print(f"  👤 Email to will@ from {sender_email} — needs your personal reply")
-            mail.store(uid, "+FLAGS", "\\Seen")
+            if "[COMMENTS]" in subject and sender_email == WILL_EMAIL:
+                # Will replied to a comment approval email
+                try:
+                    from skills.facebook_bot import post_approved_comments
+                    post_approved_comments(body, secrets)
+                    print(f"  ✅ Comment approval processed")
+                except Exception as e:
+                    print(f"  ⚠️  Comment approval failed: {e}")
+                mail.store(uid, "+FLAGS", "\\Seen")
+            else:
+                print(f"  👤 Email to will@ from {sender_email} — needs your personal reply")
+                mail.store(uid, "+FLAGS", "\\Seen")
             continue
 
         # Determine routing
@@ -2112,11 +2307,39 @@ def process_inbound_emails(state: dict, secrets: dict):
             any(kw in body.lower() for kw in phase2_keywords) and
             any(kw in subject.lower() for kw in week12_subject_keywords)
         )
-        if is_phase2_reply and not cs.get("phase2_requested"):
+        if is_phase2_reply and not cs.get("phase2_stripe_sent"):
             cs["phase2_requested"] = True
-            if cs.get("folder"):
-                log_event(cs["folder"], f"Phase 2 interest flagged — client replied: {body[:80]}")
-            print(f"  🚀 PHASE 2 REQUEST from {cs['name']} — needs Stripe setup")
+            stripe_p2 = secrets.get("stripe_phase2_link", "")
+            if stripe_p2:
+                p2_body = PHASE2_EMAIL_BODY.format(
+                    name=cs["name"].split()[0],
+                    stripe_link=stripe_p2,
+                )
+                send_email(secrets, sender_email, f"Phase 2 — you're in, {cs['name'].split()[0]}", p2_body)
+                cs["phase2_stripe_sent"] = True
+                cs["phase2_stripe_sent_at"] = datetime.now(timezone.utc).isoformat()
+                if cs.get("folder"):
+                    log_event(cs["folder"], f"Phase 2 Stripe link auto-sent")
+                print(f"  🚀 Phase 2 Stripe link sent to {cs['name']}")
+                mail.store(uid, "+FLAGS", "\\Seen")
+                continue
+            else:
+                if cs.get("folder"):
+                    log_event(cs["folder"], f"Phase 2 interest flagged — no STRIPE_PHASE2_LINK set")
+                print(f"  🚀 PHASE 2 REQUEST from {cs['name']} — STRIPE_PHASE2_LINK not set, needs manual action")
+
+        # Testimonial capture — detect replies to the Week 11 testimonial ask
+        if (is_coach
+                and "testimonial_ask" in cs.get("emails_sent", [])
+                and not cs.get("testimonial")
+                and len(body) > 20):
+            testimonial_subjects = ["one question", "before we close", "testimonial"]
+            if any(kw in subject.lower() for kw in testimonial_subjects):
+                cs["testimonial"] = body[:2000]
+                cs["testimonial_received_at"] = datetime.now(timezone.utc).isoformat()
+                if cs.get("folder"):
+                    log_event(cs["folder"], f"Testimonial received: {body[:80]}")
+                print(f"  ⭐ Testimonial captured from {cs['name']}")
 
         if is_coach:
             prompt = COACH_REPLY_PROMPT.format(
@@ -2183,13 +2406,19 @@ def send_education_drips(state: dict, secrets: dict):
 
             content = content_path.read_text()
 
-            # Inject personalised calorie target into fat loss lesson
-            if key == "edu_fatloss_1":
+            # Inject personalised calorie target into fat loss + MFP lessons
+            if key in ("edu_fatloss_1", "edu_mfp"):
                 calorie_line = _calorie_target(cs)
-                content = content.replace(
-                    "Your number was calculated for you in your diagnosis.",
-                    f"Your number was calculated for you in your diagnosis.\n\n{calorie_line}"
-                )
+                if key == "edu_fatloss_1":
+                    content = content.replace(
+                        "Your number was calculated for you in your diagnosis.",
+                        f"Your number was calculated for you in your diagnosis.\n\n{calorie_line}"
+                    )
+                elif key == "edu_mfp":
+                    content = content.replace(
+                        "That number is in your plan. Use it.",
+                        f"That number is in your plan. Use it.\n\n{calorie_line}"
+                    )
 
             # Challenge email: generate personalised version via Claude
             if key == "edu_challenge":
@@ -2422,6 +2651,202 @@ def cmd_status(query: str, state: dict):
     print(f"\n{'='*60}\n")
 
 
+# ── Re-engagement Emails ──────────────────────────────────────────────────────
+
+REENGAGE_GENTLE_PROMPT = """\
+You are Will Barratt, coach at Battleship – Midlife Fitness Reset.
+
+A client has gone quiet — they haven't submitted a check-in for {days} days.
+Write a short, warm nudge (3–5 sentences). No guilt. No pressure. Acknowledge that life
+gets in the way. Make it easy to reply with one word about how they're doing. Sign off as Will.
+
+Client name: {name}
+Client week: {week}
+Their main goal: {goal}
+
+Reply with the email body only. No subject line."""
+
+REENGAGE_PERSONAL_PROMPT = """\
+You are Will Barratt, coach at Battleship – Midlife Fitness Reset.
+
+A client has gone quiet for {days} days — this is a longer silence that warrants a personal note.
+Write a genuine, human check-in (4–6 sentences). No blame. Acknowledge they may have had a rough
+patch — that's normal and recoverable. Make it clear you noticed, you're not annoyed, and you just
+want to know they're ok. One CTA: "just reply with how you're doing." Sign off as Will.
+
+Client name: {name}
+Client week: {week}
+Their main goal: {goal}
+
+Reply with the email body only. No subject line."""
+
+
+def send_reengagement_emails(state: dict, secrets: dict):
+    """Nudge silent active clients — gentle at 10 days, personal at 17+ days."""
+    today = datetime.now(timezone.utc).date()
+
+    for slug, cs in state["clients"].items():
+        if cs["status"] != "active" or not cs.get("enrolled_date"):
+            continue
+
+        last_checkin = cs.get("last_checkin_received")
+        if last_checkin:
+            days_silent = (today - datetime.fromisoformat(last_checkin).date()).days
+        else:
+            # No check-in ever — measure from enrolment
+            enrolled = datetime.fromisoformat(cs["enrolled_date"]).date()
+            days_silent = (today - enrolled).days
+
+        week = cs.get("current_week", 1)
+        first = cs["name"].split()[0]
+        goal  = cs.get("goal", cs.get("tags", {}).get("main_goal", "general health"))
+
+        gentle_key  = f"reengage_w{week}"
+        personal_key = f"reengage_w{week}_2"
+
+        if 10 <= days_silent < 17 and gentle_key not in cs.get("emails_sent", []):
+            prompt = REENGAGE_GENTLE_PROMPT.format(
+                name=cs["name"], days=days_silent, week=week, goal=goal
+            )
+            body = call_claude(secrets["anthropic"], prompt, max_tokens=250)
+            send_email(secrets, cs["email"], f"Checking in, {first}", body)
+            cs["emails_sent"].append(gentle_key)
+            if cs.get("folder"):
+                log_event(cs["folder"], f"Re-engagement nudge sent (gentle, {days_silent} days silent)")
+            print(f"  💬 Re-engagement nudge sent to {cs['name']} ({days_silent} days silent)")
+
+        elif days_silent >= 17 and personal_key not in cs.get("emails_sent", []):
+            prompt = REENGAGE_PERSONAL_PROMPT.format(
+                name=cs["name"], days=days_silent, week=week, goal=goal
+            )
+            body = call_claude(secrets["anthropic"], prompt, max_tokens=300)
+            send_email(secrets, cs["email"], f"Just checking you're ok, {first}", body)
+            cs["emails_sent"].append(personal_key)
+            if cs.get("folder"):
+                log_event(cs["folder"], f"Re-engagement personal note sent ({days_silent} days silent)")
+            print(f"  🔴 Personal re-engagement sent to {cs['name']} ({days_silent} days silent)")
+
+
+# ── Weekly Digest to Will ──────────────────────────────────────────────────────
+
+def send_weekly_digest(state: dict, secrets: dict):
+    """Send a Monday morning operations digest to will@battleship.me."""
+    today = datetime.now(timezone.utc)
+    if today.weekday() != 0:  # Monday only
+        return
+
+    week_key = today.strftime("%Y-%W")
+    if ("digest_" + week_key) in state.get("sent_digests", []):
+        return
+
+    active = {k: cs for k, cs in state["clients"].items() if cs["status"] == "active"}
+    diagnosed = {k: cs for k, cs in state["clients"].items() if cs["status"] == "diagnosed"}
+    complete  = {k: cs for k, cs in state["clients"].items() if cs["status"] == "complete"}
+
+    now_date = today.date()
+    rows = []
+    flags = []
+
+    for acct, cs in sorted(active.items()):
+        last_ci = cs.get("last_checkin_received")
+        if last_ci:
+            days_silent = (now_date - datetime.fromisoformat(last_ci).date()).days
+        else:
+            enrolled = datetime.fromisoformat(cs.get("enrolled_date", today.isoformat())).date()
+            days_silent = (now_date - enrolled).days
+
+        silent_flag = " ⚠️ SILENT" if days_silent >= 10 else ""
+        p2_flag     = " ★ P2" if cs.get("phase2_requested") and not cs.get("phase2_stripe_sent") else ""
+        testimonial = " ⭐ TESTIOMINAL" if cs.get("testimonial") and not cs.get("testimonial_used") else ""
+
+        row = (f"  {acct}  {cs['name']:20s}  week {cs.get('current_week', 0):>2d}  "
+               f"last check-in: {days_silent:>2d}d ago{silent_flag}{p2_flag}{testimonial}")
+        rows.append(row)
+
+        if silent_flag:
+            flags.append(f"⚠️  {cs['name']} — {days_silent} days silent (week {cs.get('current_week', 0)})")
+        if p2_flag:
+            flags.append(f"★  {cs['name']} — Phase 2 interest flagged, no Stripe link sent yet")
+
+    body_lines = [
+        f"Battleship — Weekly Digest ({today.strftime('%A %d %B %Y')})",
+        "",
+        f"Active clients: {len(active)}  |  Diagnosed (awaiting payment): {len(diagnosed)}  |  Complete: {len(complete)}",
+        "",
+        "─" * 60,
+        "ACTIVE CLIENTS",
+        "─" * 60,
+    ]
+    body_lines += rows or ["  (none)"]
+    if flags:
+        body_lines += ["", "FLAGS NEEDING ATTENTION"]
+        body_lines += flags
+    if diagnosed:
+        body_lines += ["", "AWAITING PAYMENT"]
+        for acct, cs in diagnosed.items():
+            body_lines.append(f"  {acct}  {cs['name']}  {cs['email']}")
+    plain = "\n".join(body_lines)
+
+    # ── HTML version ──────────────────────────────────────────────────────────
+    def _row_html(label: str, value: str, highlight: bool = False) -> str:
+        color = "#c41e3a" if highlight else "#0a0a0a"
+        return (f'<tr>'
+                f'<td style="padding:6px 0;font-size:13px;color:#888888;width:160px;">{label}</td>'
+                f'<td style="padding:6px 0;font-size:13px;color:{color};font-weight:{"600" if highlight else "normal"};">{value}</td>'
+                f'</tr>')
+
+    stats_html = (
+        '<table cellpadding="0" cellspacing="0" border="0" width="100%">'
+        + _row_html("Active clients", str(len(active)))
+        + _row_html("Awaiting payment", str(len(diagnosed)), bool(diagnosed))
+        + _row_html("Completed", str(len(complete)))
+        + '</table>'
+    )
+
+    clients_html = '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:13px;">'
+    clients_html += '<tr style="border-bottom:1px solid #e8e3da;"><th style="text-align:left;padding:6px 8px 6px 0;color:#aaaaaa;font-weight:normal;font-size:11px;letter-spacing:1px;text-transform:uppercase;">Client</th><th style="text-align:left;padding:6px 8px;color:#aaaaaa;font-weight:normal;font-size:11px;letter-spacing:1px;text-transform:uppercase;">Week</th><th style="text-align:left;padding:6px 0;color:#aaaaaa;font-weight:normal;font-size:11px;letter-spacing:1px;text-transform:uppercase;">Last check-in</th></tr>'
+    for acct, cs in sorted(active.items()):
+        last_ci = cs.get("last_checkin_received")
+        if last_ci:
+            days_silent = (now_date - datetime.fromisoformat(last_ci).date()).days
+        else:
+            enrolled = datetime.fromisoformat(cs.get("enrolled_date", today.isoformat())).date()
+            days_silent = (now_date - enrolled).days
+        silent_badge = ' <span style="background:#c41e3a;color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;">SILENT</span>' if days_silent >= 10 else ""
+        p2_badge = ' <span style="background:#0a0a0a;color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;">PHASE 2</span>' if cs.get("phase2_requested") else ""
+        clients_html += f'<tr style="border-bottom:1px solid #f0ece4;"><td style="padding:8px 8px 8px 0;color:#0a0a0a;">{cs["name"]}{p2_badge}</td><td style="padding:8px;color:#555;">{cs.get("current_week", 0)}</td><td style="padding:8px 0;color:#555;">{days_silent}d ago{silent_badge}</td></tr>'
+    if not active:
+        clients_html += '<tr><td colspan="3" style="padding:12px 0;color:#aaaaaa;">No active clients</td></tr>'
+    clients_html += '</table>'
+
+    sections = [
+        {"heading": "This week at a glance", "body": stats_html, "accent": True},
+        {"heading": "Active clients", "body": clients_html},
+    ]
+    if flags:
+        flags_html = "".join(
+            f'<p style="margin:0 0 10px;padding:10px 14px;background:#fff8f8;border-left:3px solid #c41e3a;font-size:13px;color:#0a0a0a;">{f}</p>'
+            for f in flags
+        )
+        sections.append({"heading": "Flags needing attention", "body": flags_html, "accent": True})
+    if diagnosed:
+        diag_html = "".join(
+            f'<p style="margin:0 0 8px;font-size:13px;color:#0a0a0a;"><strong>{cs["name"]}</strong> · {cs["email"]} · {acct}</p>'
+            for acct, cs in diagnosed.items()
+        )
+        sections.append({"heading": "Awaiting payment", "body": diag_html})
+
+    html = render_internal_email(
+        title=f"Weekly Digest — {today.strftime('%A %d %B %Y')}",
+        subtitle="Operations Report",
+        sections=sections,
+    )
+
+    send_email(secrets, WILL_EMAIL, f"Battleship digest — {today.strftime('%d %b')}", plain, html)
+    state.setdefault("sent_digests", []).append("digest_" + week_key)
+    print(f"  📊 Weekly digest sent to {WILL_EMAIL}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -2506,6 +2931,31 @@ def main():
     # 7. Week 12 personal close
     print("\n🎓 Week 12 close...")
     send_week12_close(state, secrets)
+
+    # 8. Re-engagement nudges for silent clients
+    print("\n💬 Re-engagement check...")
+    send_reengagement_emails(state, secrets)
+
+    # 9. Weekly digest to Will (Mondays only)
+    print("\n📊 Weekly digest (Mondays)...")
+    send_weekly_digest(state, secrets)
+
+    # 10. Facebook bot (posts, comment replies, DMs)
+    print("\n📘 Facebook bot...")
+    try:
+        sys.path.insert(0, str(VAULT_ROOT))
+        from skills.facebook_bot import run as run_facebook
+        run_facebook(secrets, VAULT_ROOT)
+    except Exception as e:
+        print(f"  ⚠️  Facebook bot skipped: {e}")
+
+    # 11. Facebook ads optimisation (daily)
+    print("\n📊 Facebook ads optimisation...")
+    try:
+        from skills.facebook_ads_bot import run as run_ads
+        run_ads(secrets, VAULT_ROOT)
+    except Exception as e:
+        print(f"  ⚠️  Ads bot skipped: {e}")
 
     # Save state
     save_state(state)
