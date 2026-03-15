@@ -224,7 +224,19 @@ def post_scheduled_content(secrets: dict):
 
     idx   = schedule["theme_index"] % len(POST_THEMES)
     theme = POST_THEMES[idx]
-    post  = _claude(POST_PROMPT.format(theme=theme), secrets)
+
+    # Pull arc guidance from marketing bot to keep organic content aligned
+    arc_hint = ""
+    try:
+        from skills.marketing_bot import get_current_arc_guidance
+        arc = get_current_arc_guidance()
+        arc_hint = (f"\n\nARC ALIGNMENT (week {arc['week']}): This post should lean into "
+                    f"'{arc['theme']}' — {arc['description']}. "
+                    f"If relevant, these hooks are performing: {'; '.join(arc['hooks'][:2])}")
+    except Exception:
+        pass
+
+    post  = _claude(POST_PROMPT.format(theme=theme) + arc_hint, secrets)
 
     if _is_live(secrets):
         post_id = _post_live(post, secrets)

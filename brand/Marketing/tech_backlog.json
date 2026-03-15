@@ -1,0 +1,109 @@
+{
+  "gaps": [
+    {
+      "id": "gap_001",
+      "reported_by": "seo_bot",
+      "title": "GBP Automated Posting",
+      "description": "Google Business Profile has no free public API for posts. Bot drafts posts; Will pastes manually.",
+      "estimated_monthly_cost_gbp": 0,
+      "paid_solution": "Semrush Local (\u00a335/mo) or BrightLocal (\u00a329/mo) can post to GBP automatically.",
+      "free_alternative": "Bot drafts post \u2192 Will copies from outputs/ into GBP dashboard. 2 minutes/week.",
+      "revenue_unlock_gbp": 1000,
+      "status": "workaround_active",
+      "impact": "low",
+      "category": "SEO"
+    },
+    {
+      "id": "gap_002",
+      "reported_by": "seo_bot",
+      "title": "GBP Review Monitoring",
+      "description": "No automated way to detect new GBP reviews without paid tools. Will must check manually.",
+      "estimated_monthly_cost_gbp": 29,
+      "paid_solution": "BrightLocal (\u00a329/mo) monitors reviews and alerts via email.",
+      "free_alternative": "Set up Google Alerts for 'battleshipreset.com' + manual weekly check in GBP dashboard.",
+      "revenue_unlock_gbp": 500,
+      "status": "workaround_active",
+      "impact": "medium",
+      "category": "SEO"
+    },
+    {
+      "id": "gap_003",
+      "reported_by": "facebook_bot",
+      "title": "Instagram Scheduling",
+      "description": "Meta API allows posting but not scheduling. All posts are immediate.",
+      "estimated_monthly_cost_gbp": 0,
+      "paid_solution": "Buffer (\u00a315/mo) or Later (\u00a316/mo) enable scheduling.",
+      "free_alternative": "Post immediately at optimal time (7-9am or 7-9pm UK). Bot calculates best window.",
+      "revenue_unlock_gbp": 750,
+      "status": "workaround_active",
+      "impact": "low",
+      "category": "Social"
+    },
+    {
+      "id": "gap_004",
+      "reported_by": "marketing_bot",
+      "title": "Landing Page A/B Testing",
+      "description": "battleshipreset.com (Carrd) has no built-in A/B testing. Can't test headline variants automatically.",
+      "estimated_monthly_cost_gbp": 35,
+      "paid_solution": "Google Optimize (free but deprecated) or VWO (\u00a335/mo) or Unbounce (\u00a355/mo).",
+      "free_alternative": "Manual variant testing: alternate headlines weekly, track CTR from UTM params.",
+      "revenue_unlock_gbp": 1500,
+      "status": "workaround_active",
+      "impact": "medium",
+      "category": "Conversion"
+    },
+    {
+      "id": "gap_005",
+      "reported_by": "orchestrator",
+      "title": "CRM / Pipeline Management",
+      "description": "Client tracking is in a JSON file. No visual pipeline, no automated follow-up sequences beyond email.",
+      "estimated_monthly_cost_gbp": 15,
+      "paid_solution": "HubSpot Free (genuinely free) or Pipedrive (\u00a315/mo).",
+      "free_alternative": "Current clients/ JSON + Flask dashboard. Sufficient below 20 clients.",
+      "revenue_unlock_gbp": 1000,
+      "status": "workaround_active",
+      "impact": "low",
+      "category": "CRM"
+    },
+    {
+      "id": "gap_006",
+      "reported_by": "marketing_bot",
+      "title": "Email Marketing Platform",
+      "description": "All emails sent via Mailgun transactional. No broadcast list, no sequences beyond the pipeline.",
+      "estimated_monthly_cost_gbp": 0,
+      "paid_solution": "Mailchimp free (500 contacts, 1000 sends/month). ConvertKit free (1000 subs).",
+      "free_alternative": "Pipeline handles all client emails. Add Mailchimp free tier when building a lead magnet list.",
+      "revenue_unlock_gbp": 0,
+      "status": "recommended_free",
+      "impact": "high",
+      "category": "Email"
+    },
+    {
+      "id": "gap_007",
+      "reported_by": "accounts_bot",
+      "title": "Accounting Software",
+      "description": "Expenses tracked in finances.md. No VAT tracking, no HMRC-ready reports.",
+      "estimated_monthly_cost_gbp": 10,
+      "paid_solution": "Wave (free forever), Xero (\u00a315/mo), FreeAgent (\u00a320/mo).",
+      "free_alternative": "Wave is free and HMRC-compatible. Set up when revenue starts.",
+      "revenue_unlock_gbp": 0,
+      "status": "recommended_free",
+      "impact": "high",
+      "category": "Finance"
+    },
+    {
+      "id": "gap_008",
+      "reported_by": "seo_bot",
+      "title": "Keyword Rank Tracking",
+      "description": "No way to track where battleshipreset.com ranks for target keywords automatically.",
+      "estimated_monthly_cost_gbp": 0,
+      "paid_solution": "Semrush (\u00a390/mo), Ahrefs (\u00a379/mo), Ubersuggest (\u00a312/mo).",
+      "free_alternative": "Google Search Console (free) \u2014 once site gets traffic. Manual search checks weekly.",
+      "revenue_unlock_gbp": 500,
+      "status": "workaround_active",
+      "impact": "low",
+      "category": "SEO"
+    }
+  ],
+  "created": "2026-03-15T09:39:13.108511+00:00"
+}

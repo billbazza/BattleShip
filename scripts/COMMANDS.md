@@ -180,6 +180,43 @@ cp clients/state.json clients/state.json.bak
 
 ---
 
+## Growth Bots (Orchestrator + SEO + Tech)
+
+### Orchestrator — full daily growth run
+```bash
+python3 skills/orchestrator.py --run        # runs all growth bots, sends Command Report email
+python3 skills/orchestrator.py --brief      # print brand PM brief to console (no email)
+python3 skills/orchestrator.py --status     # show all bot statuses in one view
+```
+
+### SEO Bot — Google Business Profile progression
+```bash
+python3 skills/seo_bot.py --status          # show GBP task progress (0-8 tasks)
+python3 skills/seo_bot.py --run             # run this week's SEO task (generates output, emails Will)
+python3 skills/seo_bot.py --run-task 3      # run specific task by number (0-8)
+python3 skills/seo_bot.py --weekly-post     # generate this week's GBP post copy
+python3 skills/seo_bot.py --confirm 2       # mark task 2 as complete (you made the GBP change)
+```
+Outputs saved to: `brand/Marketing/SEO/outputs/`
+
+### Tech Bot — gap tracking + cost analysis
+```bash
+python3 skills/tech_bot.py --backlog        # show all tech gaps, costs, workarounds
+python3 skills/tech_bot.py --report         # full markdown report with revenue-gated recommendations
+python3 skills/tech_bot.py --flag "GBP API" --cost 35 --unlock 1000  # manually flag a gap
+```
+Backlog stored in: `brand/Marketing/tech_backlog.json`
+
+### Brand/after composites with hooks
+```bash
+python3 skills/brand_manager.py --hook-variants       # generate all 12 hooked before/after images
+python3 skills/brand_manager.py --before-after        # plain before/after (no hook)
+python3 skills/brand_manager.py --before-after --headline "47. Walking. That's it."  # custom hook
+```
+Hook variants saved to: `brand/output/before_after_hook_01.jpg` through `_12.jpg`
+
+---
+
 ## Webhook
 
 Tally submissions arrive at: `https://webhook.battleshipreset.com/tally-webhook`

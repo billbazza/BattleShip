@@ -2957,6 +2957,30 @@ def main():
     except Exception as e:
         print(f"  ⚠️  Ads bot skipped: {e}")
 
+    # 12. Accounts bot — scan receipts, update finances.md, P&L report
+    print("\n🧾 Accounts bot...")
+    try:
+        from skills.accounts_bot import run as run_accounts
+        run_accounts(secrets, state, VAULT_ROOT)
+    except Exception as e:
+        print(f"  ⚠️  Accounts bot skipped: {e}")
+
+    # 13. Marketing bot — daily review, weekly strategy, funnel tracking
+    print("\n📣 Marketing bot...")
+    try:
+        from skills.marketing_bot import run as run_marketing
+        run_marketing(secrets, state, VAULT_ROOT)
+    except Exception as e:
+        print(f"  ⚠️  Marketing bot skipped: {e}")
+
+    # 14. Orchestrator — growth coordination (SEO + brand PM + tech backlog)
+    print("\n🎯 Orchestrator (growth)...")
+    try:
+        from skills.orchestrator import run as run_orchestrator
+        run_orchestrator(secrets, state)
+    except Exception as e:
+        print(f"  ⚠️  Orchestrator skipped: {e}")
+
     # Save state
     save_state(state)
 
