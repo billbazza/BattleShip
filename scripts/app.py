@@ -1558,6 +1558,9 @@ BUSINESS_PAGE = """<!DOCTYPE html>
         <div class="rem-desc">{{ r.description }}</div>
         <div class="rem-meta">Added by {{ r.added_by }} · {{ r.created_at }}{% if r.priority == 'high' %} · <span style="color:#e8a020">⚠ high priority</span>{% endif %}</div>
         <div class="rem-actions">
+          {% if r.get('content_url') %}
+          <a href="{{ r.content_url }}" target="_blank" class="rem-btn" style="border-color:#c41e3a;color:#c41e3a;text-decoration:none">📋 Open content ↗</a>
+          {% endif %}
           <button class="rem-btn done" onclick="dismissReminder('{{ r.id }}')">✓ Done</button>
           <button class="rem-btn" onclick="togglePivot('{{ r.id }}')">↩ Pivot / push back</button>
         </div>
@@ -1749,6 +1752,230 @@ function submitPivot(id) {
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
+_CONTENT_VIEWER = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title }} — Battleship</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+           background: #f2efe8; color: #1a1a1a; font-size: 15px; line-height: 1.7; }
+    .topbar { background: #0a0a0a; padding: 14px 32px; display: flex;
+              align-items: center; justify-content: space-between; }
+    .topbar-brand { font-family: Georgia, serif; font-size: 18px;
+                    letter-spacing: 3px; text-transform: uppercase; color: #fff; }
+    .topbar-brand span { color: #c41e3a; }
+    .topbar-back { color: #555; font-size: 13px; text-decoration: none; }
+    .topbar-back:hover { color: #fff; }
+    .container { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
+    .copy-bar { background: #fff; border: 1px solid #e0dbd2; border-radius: 4px;
+                padding: 14px 18px; margin-bottom: 28px; display: flex;
+                align-items: center; justify-content: space-between; gap: 16px; }
+    .copy-hint { font-size: 13px; color: #888; }
+    .copy-btn { background: #c41e3a; color: #fff; border: none; padding: 8px 20px;
+                border-radius: 3px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .copy-btn:hover { opacity: 0.85; }
+    .content { background: #fff; border: 1px solid #e0dbd2; border-radius: 4px;
+               padding: 32px 36px; }
+    .content h1 { font-family: Georgia, serif; font-weight: normal; font-size: 22px;
+                  color: #0a0a0a; margin: 0 0 20px; padding-bottom: 14px;
+                  border-bottom: 1px solid #e0dbd2; }
+    .content h2 { font-family: Georgia, serif; font-weight: normal; font-size: 17px;
+                  color: #0a0a0a; margin: 28px 0 10px; }
+    .content h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px;
+                  color: #999; margin: 24px 0 8px; font-weight: 600; }
+    .content p { margin-bottom: 14px; color: #333; }
+    .content ul, .content ol { margin: 0 0 14px 20px; color: #333; }
+    .content li { margin-bottom: 6px; }
+    .content hr { border: none; border-top: 2px solid #e0dbd2; margin: 24px 0; }
+    .content table { width: 100%; border-collapse: collapse; margin-bottom: 16px;
+                     font-size: 13px; }
+    .content th { text-align: left; font-size: 10px; text-transform: uppercase;
+                  letter-spacing: 1px; color: #999; padding: 0 12px 8px 0;
+                  border-bottom: 2px solid #e0dbd2; }
+    .content td { padding: 9px 12px 9px 0; border-bottom: 1px solid #f0ece4;
+                  vertical-align: top; color: #555; }
+    .content code { background: #f5f3ee; padding: 2px 6px; border-radius: 3px;
+                    font-family: monospace; font-size: 13px; color: #c41e3a; }
+    .content pre { background: #f5f3ee; padding: 16px; border-radius: 4px;
+                   white-space: pre-wrap; font-size: 13px; border: 1px solid #e8e3da;
+                   margin-bottom: 14px; }
+    .content strong { color: #0a0a0a; font-weight: 600; }
+    .paste-block { background: #f0fdf4; border: 2px solid #2a9d4e; border-radius: 4px;
+                   padding: 20px 22px; margin: 16px 0; position: relative; }
+    .paste-block-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+                         color: #2a9d4e; font-weight: 700; margin-bottom: 10px; }
+    .paste-block pre { background: transparent; border: none; padding: 0;
+                       font-family: -apple-system, Arial, sans-serif; font-size: 14px;
+                       line-height: 1.7; color: #1a1a1a; white-space: pre-wrap; }
+    .paste-copy { position: absolute; top: 12px; right: 12px; background: #2a9d4e;
+                  color: #fff; border: none; padding: 4px 12px; border-radius: 3px;
+                  font-size: 11px; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-brand">Battle<span>ship</span></div>
+  <a href="{{ back_url }}" class="topbar-back">&#8592; Back</a>
+</div>
+<div class="container">
+  <div class="copy-bar">
+    <span class="copy-hint">Content file: <code>{{ filepath }}</code></span>
+    <button class="copy-btn" onclick="copyAll()">Copy all text</button>
+  </div>
+  <div class="content" id="main-content">{{ rendered | safe }}</div>
+</div>
+<script>
+function copyAll() {
+  const el = document.getElementById('main-content');
+  const text = el.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy all text', 2000);
+  });
+}
+function copyBlock(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText).then(() => {
+    const btn = el.parentElement.querySelector('.paste-copy');
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 2000); }
+  });
+}
+</script>
+</body>
+</html>"""
+
+
+@app.route("/content/<path:filepath>")
+def content_viewer(filepath: str):
+    """Render any vault markdown file as a clean readable page. Works on snapshot URL."""
+    import re as _re
+    # Security: only allow files within the vault, no path traversal
+    target = (VAULT_ROOT / filepath).resolve()
+    if not str(target).startswith(str(VAULT_ROOT.resolve())):
+        return Response("Forbidden", status=403)
+    if not target.exists():
+        return Response("File not found", status=404)
+    if target.suffix not in (".md", ".txt"):
+        return Response("Only .md and .txt files supported", status=400)
+
+    raw = target.read_text()
+
+    # Simple markdown → HTML (no external deps)
+    def md_to_html(text: str) -> str:
+        lines = text.splitlines()
+        html_parts = []
+        in_pre = False
+        in_paste = False
+        paste_buf = []
+        paste_id = 0
+
+        for line in lines:
+            # Fenced paste blocks: lines between "---" are paste-ready content
+            if line.strip() == "---" and not in_pre:
+                if not in_paste:
+                    in_paste = True
+                    paste_id += 1
+                    paste_buf = []
+                else:
+                    in_paste = False
+                    pid = f"paste_{paste_id}"
+                    content = "\n".join(paste_buf)
+                    html_parts.append(
+                        f'<div class="paste-block">'
+                        f'<div class="paste-block-label">📋 Paste-ready</div>'
+                        f'<button class="paste-copy" onclick="copyBlock(\'{pid}\')">Copy</button>'
+                        f'<pre id="{pid}">{content}</pre></div>'
+                    )
+                continue
+
+            if in_paste:
+                paste_buf.append(line)
+                continue
+
+            # Code blocks
+            if line.startswith("```"):
+                if not in_pre:
+                    html_parts.append("<pre>")
+                    in_pre = True
+                else:
+                    html_parts.append("</pre>")
+                    in_pre = False
+                continue
+            if in_pre:
+                html_parts.append(line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+                continue
+
+            # Headings
+            m = _re.match(r'^(#{1,3})\s+(.+)', line)
+            if m:
+                lvl = len(m.group(1))
+                text_content = m.group(2)
+                html_parts.append(f"<h{lvl}>{text_content}</h{lvl}>")
+                continue
+
+            # HR
+            if _re.match(r'^[-*]{3,}$', line.strip()):
+                html_parts.append("<hr>")
+                continue
+
+            # Table rows
+            if line.startswith("|"):
+                cells = [c.strip() for c in line.split("|")[1:-1]]
+                if all(set(c) <= set("-: ") for c in cells):
+                    continue  # separator row
+                is_header = html_parts and html_parts[-1].strip().startswith("<table")
+                tag = "th" if not any("<tr>" in p for p in html_parts[-3:]) else "td"
+                if not any("<table>" in p for p in html_parts[-10:]):
+                    html_parts.append("<table>")
+                row_html = "<tr>" + "".join(f"<{tag}>{c}</{tag}>" for c in cells) + "</tr>"
+                html_parts.append(row_html)
+                continue
+            else:
+                if html_parts and html_parts[-1].strip() not in ("</table>", "") and \
+                   html_parts[-1].strip().startswith("<tr>"):
+                    html_parts.append("</table>")
+
+            # List items
+            m = _re.match(r'^[\-\*]\s+(.+)', line)
+            if m:
+                html_parts.append(f"<ul><li>{m.group(1)}</li></ul>")
+                continue
+
+            # Bold/italic inline
+            line = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
+            line = _re.sub(r'\*(.+?)\*', r'<em>\1</em>', line)
+            line = _re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2" target="_blank">\1</a>', line)
+            line = _re.sub(r'`([^`]+)`', r'<code>\1</code>', line)
+
+            # Paragraph
+            if line.strip():
+                html_parts.append(f"<p>{line}</p>")
+            else:
+                html_parts.append("")
+
+        if in_pre:
+            html_parts.append("</pre>")
+
+        return "\n".join(html_parts)
+
+    rendered = md_to_html(raw)
+    title = target.stem.replace("-", " ").replace("_", " ").title()
+    back_url = request.referrer or "/business"
+
+    return render_template_string(
+        _CONTENT_VIEWER,
+        title=title,
+        filepath=str(target.relative_to(VAULT_ROOT)),
+        rendered=rendered,
+        back_url=back_url,
+    )
+
 
 @app.route("/brand/<path:filename>")
 def brand_asset(filename):

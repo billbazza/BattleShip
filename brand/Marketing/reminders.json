@@ -5,20 +5,22 @@
       "added_by": "seo_bot",
       "type": "photo",
       "title": "Upload 5 photos to Google Business Profile",
-      "description": "Needed: before/after transformation photo, outdoor walk photo, workout photo (gym or at-home), website screenshot or logo card, and a testimonial quote card. Go to business.google.com \u2192 Photos.",
+      "description": "Needed: before/after transformation photo, outdoor walk photo, workout photo, website screenshot or logo card, and a testimonial quote card. Go to business.google.com \u2192 Photos. GBP setup checklist linked below.",
       "priority": "high",
       "created_at": "2026-03-15",
-      "status": "pending"
+      "status": "pending",
+      "content_url": "/content/brand/Marketing/SEO/outputs/00_setup_checklist.md"
     },
     {
       "id": "rem_002",
       "added_by": "seo_bot",
       "type": "tech",
       "title": "Paste this week's GBP post into Google Business Profile",
-      "description": "Bot has drafted the post in brand/Marketing/SEO/outputs/. Copy it into business.google.com \u2192 Posts \u2192 Add update. Takes 2 minutes.",
+      "description": "Two posts drafted for this week and next \u2014 paste-ready. Open the link, hit Copy, paste into business.google.com \u2192 Posts \u2192 Add update.",
       "priority": "medium",
       "created_at": "2026-03-15",
-      "status": "pending"
+      "status": "pending",
+      "content_url": "/content/brand/Marketing/SEO/outputs/gbp-post-week1.md"
     },
     {
       "id": "rem_003",
@@ -26,6 +28,17 @@
       "type": "tech",
       "title": "Apply for Meta Standard Access",
       "description": "Full API campaign creation is blocked until Meta approves Standard Access for the Battleship-Reset app. Go to developers.facebook.com \u2192 Your App \u2192 App Review \u2192 Request Standard Access for ads_management. Requires business verification.",
+      "priority": "high",
+      "created_at": "2026-03-15",
+      "status": "pending",
+      "content_url": null
+    },
+    {
+      "id": "rem_0d77eae6",
+      "added_by": "ads_bot",
+      "type": "other",
+      "title": "Top up Meta ad account \u2014 ~\u00a310 remaining",
+      "description": "Ad account balance is approximately \u00a310. Tally quiz campaign is running at \u00a310/day. Top up via adsmanager.facebook.com \u2192 Billing \u2192 Add funds. Recommend \u00a350 minimum to keep campaigns running for 5+ days.",
       "priority": "high",
       "created_at": "2026-03-15",
       "status": "pending"
