@@ -18,12 +18,20 @@ from flask import Flask, redirect, render_template_string, request, url_for, jso
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from skills.tracker_generator import generate_tracker_for_client  # noqa: E402
 
-VAULT_ROOT   = Path(__file__).parent.parent
-CLIENTS_DIR  = VAULT_ROOT / "clients"
-STATE_FILE   = CLIENTS_DIR / "state.json"
-TALLY_QUEUE  = CLIENTS_DIR / "tally-queue"
-PIPELINE     = VAULT_ROOT / "scripts" / "battleship_pipeline.py"
-PYTHON       = sys.executable
+VAULT_ROOT          = Path(__file__).parent.parent
+CLIENTS_DIR         = VAULT_ROOT / "clients"
+STATE_FILE          = CLIENTS_DIR / "state.json"
+TALLY_QUEUE         = CLIENTS_DIR / "tally-queue"
+PIPELINE            = VAULT_ROOT / "scripts" / "battleship_pipeline.py"
+PYTHON              = sys.executable
+
+# Business manager data paths
+MARKETING_STRATEGY_FILE  = CLIENTS_DIR / "marketing_strategy.json"
+SOCIAL_METRICS_FILE      = CLIENTS_DIR / "social_metrics.json"
+SEO_STATE_FILE           = VAULT_ROOT / "brand" / "Marketing" / "SEO" / "seo_state.json"
+TECH_BACKLOG_FILE        = VAULT_ROOT / "brand" / "Marketing" / "tech_backlog.json"
+FINANCES_FILE            = VAULT_ROOT / "finances.md"
+BIZ_HISTORY_FILE         = CLIENTS_DIR / "business_metrics_history.json"
 
 app = Flask(__name__)
 
@@ -140,6 +148,101 @@ def get_system_status() -> dict:
     stat["queue"] = _ok(f"{queued} queued") if queued == 0 else _warn(f"{queued} waiting")
 
     return stat
+
+# ── Business Manager Helpers ──────────────────────────────────────────────────
+
+def _load_json_safe(path: Path, default=None):
+    """Load a JSON file, returning default if missing or malformed."""
+    if default is None:
+        default = {}
+    try:
+        if path.exists():
+            return json.loads(path.read_text())
+    except Exception:
+        pass
+    return default
+
+
+def _parse_finances_spend() -> float:
+    """Parse finances.md expense table and return total spend as float (£)."""
+    total = 0.0
+    if not FINANCES_FILE.exists():
+        return total
+    import re
+    text = FINANCES_FILE.read_text()
+    # Match £ amounts in table cells, e.g. £35.00 or £119.47
+    for match in re.finditer(r'£\s*([\d,]+\.?\d*)', text):
+        try:
+            total += float(match.group(1).replace(",", ""))
+        except ValueError:
+            pass
+    return round(total, 2)
+
+
+def _calc_mrr(state: dict) -> float:
+    """Sum payment_amount for active + complete clients."""
+    total = 0.0
+    for cs in state.get("clients", {}).values():
+        if cs.get("status") in ("active", "complete"):
+            try:
+                total += float(cs.get("payment_amount", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+    return round(total, 2)
+
+
+def record_daily_snapshot(state: dict, strategy: dict, social_metrics: dict, pnl: dict):
+    """Append today's business snapshot to business_metrics_history.json."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    history_data = _load_json_safe(BIZ_HISTORY_FILE, {"history": []})
+
+    # Build snapshot
+    page_data = social_metrics.get("page", {})
+    ig_data   = social_metrics.get("ig", {})
+    ads_data  = social_metrics.get("ads", {})
+
+    # Get most recent page/ig followers
+    fb_followers = 0
+    if page_data:
+        latest_day = max(page_data.keys()) if page_data else None
+        if latest_day:
+            fb_followers = page_data[latest_day].get("followers", 0) or page_data[latest_day].get("fans", 0)
+    ig_followers = 0
+    if ig_data:
+        latest_ig = max(ig_data.keys()) if ig_data else None
+        if latest_ig:
+            ig_followers = ig_data[latest_ig].get("followers_count", 0)
+
+    ad_impressions = 0
+    ad_spend = 0.0
+    last_ad = strategy.get("last_ad_metrics", {})
+    if last_ad:
+        ad_impressions = last_ad.get("impressions", 0)
+        ad_spend = float(last_ad.get("spend", 0) or 0)
+
+    snapshot = {
+        "date":           today,
+        "mrr":            pnl["mrr"],
+        "spend":          pnl["spend"],
+        "net":            pnl["net"],
+        "active_clients": pnl["active_clients"],
+        "fb_followers":   fb_followers,
+        "ig_followers":   ig_followers,
+        "ad_impressions": ad_impressions,
+        "ad_spend":       ad_spend,
+    }
+
+    # Remove any existing entry for today before appending
+    history_data["history"] = [h for h in history_data.get("history", []) if h.get("date") != today]
+    history_data["history"].append(snapshot)
+    # Keep last 90 days
+    history_data["history"] = sorted(history_data["history"], key=lambda h: h.get("date", ""))[-90:]
+
+    try:
+        BIZ_HISTORY_FILE.write_text(json.dumps(history_data, indent=2))
+    except Exception:
+        pass
+
 
 # ── Templates ─────────────────────────────────────────────────────────────────
 
@@ -262,6 +365,7 @@ BASE = """<!DOCTYPE html>
     <div class="topbar-brand">Battle<span>ship</span></div>
     <nav class="topbar-nav">
       <a href="/">Dashboard</a>
+      <a href="/business">&#128202; Business Manager</a>
       <a href="/simulate">Simulator</a>
       <a href="/run">Run Pipeline</a>
     </nav>
@@ -1042,6 +1146,452 @@ selectWeek(0);
 {% endblock %}""")
 
 
+BUSINESS_PAGE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Battleship — Business Manager</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+           background: #0f0f0f; color: #ccc; font-size: 15px; }
+    a { color: #c41e3a; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Snapshot banner ── */
+    .snapshot-banner { background: #222; border-bottom: 1px solid #333; padding: 10px 32px;
+                       font-size: 12px; color: #666; display: flex; align-items: center; gap: 8px; }
+
+    /* ── Topbar ── */
+    .topbar { background: #0a0a0a; padding: 14px 32px; display: flex;
+              align-items: center; justify-content: space-between;
+              border-bottom: 1px solid #1a1a1a; }
+    .topbar-brand { font-family: Georgia, serif; font-size: 20px;
+                    letter-spacing: 3px; text-transform: uppercase; color: #fff; }
+    .topbar-brand span { color: #c41e3a; }
+    .topbar-nav { display: flex; align-items: center; gap: 20px; }
+    .topbar-nav a { color: #555; font-size: 13px; }
+    .topbar-nav a:hover { color: #fff; text-decoration: none; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Section headers ── */
+    .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2.5px;
+                     color: #444; margin: 36px 0 14px; }
+    .section-label:first-child { margin-top: 0; }
+
+    /* ── Page header ── */
+    .page-header { display: flex; align-items: baseline; justify-content: space-between;
+                   margin-bottom: 32px; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: Georgia, serif; font-size: 26px; font-weight: normal; color: #fff; }
+    .page-meta { display: flex; align-items: center; gap: 16px; }
+    .page-date { font-size: 13px; color: #555; }
+    .week-badge { background: #c41e3a; color: #fff; font-size: 11px; font-weight: 700;
+                  letter-spacing: 1px; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; }
+    .back-link { font-size: 13px; color: #555; }
+    .back-link:hover { color: #aaa; text-decoration: none; }
+
+    /* ── KPI cards ── */
+    .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 32px; }
+    @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 560px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+    .kpi-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
+                padding: 18px 16px; }
+    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+                 color: #444; margin-bottom: 8px; }
+    .kpi-value { font-size: 22px; font-weight: 700; color: #e0e0e0; }
+    .kpi-value.red  { color: #c41e3a; }
+    .kpi-value.green { color: #2a9d4e; }
+
+    /* ── Charts ── */
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+    @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+    .chart-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px; padding: 22px; }
+    .chart-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px;
+                   color: #555; margin-bottom: 18px; }
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* ── Marketing arc ── */
+    .arc-row { display: flex; gap: 0; margin-bottom: 32px; }
+    .arc-phase { flex: 1; text-align: center; padding: 12px 6px; background: #1a1a1a;
+                 border: 1px solid #252525; font-size: 11px; color: #444; position: relative;
+                 cursor: default; transition: background 0.15s; }
+    .arc-phase:not(:last-child)::after { content: '▶'; position: absolute; right: -8px; top: 50%;
+      transform: translateY(-50%); color: #333; font-size: 10px; z-index: 1; }
+    .arc-phase.active { background: #2a0810; border-color: #c41e3a; color: #fff; }
+    .arc-phase.active .arc-num { color: #c41e3a; }
+    .arc-num { font-size: 9px; letter-spacing: 1px; display: block; margin-bottom: 4px; color: #333; }
+
+    /* ── Social & Ads row ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+    .dark-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px; padding: 22px; }
+    .dark-card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 2px;
+                       color: #444; margin-bottom: 18px; }
+    .stat-row { display: flex; justify-content: space-between; align-items: baseline;
+                padding: 10px 0; border-bottom: 1px solid #222; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-name { font-size: 13px; color: #666; }
+    .stat-val  { font-size: 15px; font-weight: 600; color: #ddd; }
+    .stat-delta { font-size: 11px; color: #2a9d4e; margin-left: 6px; }
+    .stat-delta.neg { color: #c41e3a; }
+    .no-data { font-size: 13px; color: #444; font-style: italic; line-height: 1.6; }
+
+    /* ── SEO progress ── */
+    .seo-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
+                padding: 22px; margin-bottom: 32px; }
+    .progress-bar-wrap { background: #111; border-radius: 20px; height: 8px;
+                         overflow: hidden; margin-bottom: 20px; }
+    .progress-bar-fill { height: 100%; background: #c41e3a; border-radius: 20px;
+                         transition: width 0.4s; }
+    .seo-task-list { list-style: none; }
+    .seo-task { padding: 9px 0; border-bottom: 1px solid #1e1e1e; display: flex;
+                align-items: center; gap: 10px; font-size: 13px; }
+    .seo-task:last-child { border-bottom: none; }
+    .seo-task-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+    .seo-task-name { color: #888; }
+    .seo-task-name.complete { color: #2a9d4e; }
+    .seo-task-name.current  { color: #fff; }
+    .seo-task-name.pending  { color: #e8a020; }
+
+    /* ── Tech backlog table ── */
+    .table-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
+                  padding: 22px; margin-bottom: 32px; overflow-x: auto; }
+    .biz-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .biz-table th { text-align: left; font-size: 10px; text-transform: uppercase;
+                    letter-spacing: 1.5px; color: #444; padding: 0 12px 10px 0;
+                    border-bottom: 1px solid #252525; white-space: nowrap; }
+    .biz-table td { padding: 11px 12px 11px 0; border-bottom: 1px solid #1e1e1e;
+                    vertical-align: top; color: #888; }
+    .biz-table tr:last-child td { border-bottom: none; }
+    .biz-table td:first-child { color: #ccc; font-weight: 500; }
+    .status-badge { display: inline-block; padding: 2px 9px; border-radius: 20px;
+                    font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .sb-workaround_active         { background: #2a2a2a; color: #888; }
+    .sb-blocked_manual_workaround { background: #3a1f00; color: #e8a020; }
+    .sb-not_yet_needed            { background: #001a2a; color: #4a9fd4; }
+    .sb-identified                { background: #2a2000; color: #e8c020; }
+    .sb-implemented               { background: #001a0a; color: #2a9d4e; }
+    .impact-critical { color: #c41e3a; font-weight: 700; }
+    .impact-high     { color: #e8a020; }
+    .impact-medium   { color: #888; }
+    .impact-low      { color: #555; }
+
+    /* ── Weekly targets ── */
+    .targets-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
+                    padding: 22px; margin-bottom: 32px; }
+    .target-item { margin-bottom: 18px; }
+    .target-item:last-child { margin-bottom: 0; }
+    .target-header { display: flex; justify-content: space-between; margin-bottom: 7px;
+                     font-size: 13px; }
+    .target-label { color: #777; }
+    .target-frac  { color: #555; }
+  </style>
+</head>
+<body>
+
+{% if is_snapshot %}
+<div class="snapshot-banner">
+  &#128248; Read-only snapshot &middot; Generated {{ snapshot_ts }} &middot; battleshipreset.com
+</div>
+{% endif %}
+
+<div class="topbar">
+  <div class="topbar-brand">Battle<span>ship</span></div>
+  {% if not is_snapshot %}
+  <nav class="topbar-nav">
+    <a href="/" class="back-link">&#8592; Dashboard</a>
+  </nav>
+  {% endif %}
+</div>
+
+<div class="container">
+
+  <!-- A. Page header -->
+  <div class="page-header">
+    <span class="page-title">Business Manager</span>
+    <div class="page-meta">
+      <span class="page-date">{{ today }}</span>
+      <span class="week-badge">Week {{ campaign_week }} / 12</span>
+    </div>
+  </div>
+
+  <!-- B. KPI cards -->
+  <div class="section-label">Key Metrics</div>
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-label">MRR</div>
+      <div class="kpi-value">&#163;{{ "%.0f"|format(mrr) }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Gap to &#163;3k</div>
+      <div class="kpi-value{% if gap > 0 %} red{% endif %}">&#163;{{ "%.0f"|format(gap) }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Spend</div>
+      <div class="kpi-value">&#163;{{ "%.2f"|format(spend) }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Net P&amp;L</div>
+      <div class="kpi-value{% if net >= 0 %} green{% else %} red{% endif %}">
+        {% if net >= 0 %}+{% endif %}&#163;{{ "%.2f"|format(net) }}
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active Clients</div>
+      <div class="kpi-value">{{ active_clients }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Week</div>
+      <div class="kpi-value">{{ campaign_week }} <span style="font-size:14px;color:#444;font-weight:400">/ 12</span></div>
+    </div>
+  </div>
+
+  <!-- C. Charts -->
+  <div class="section-label">Trends</div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">Revenue vs Spend</div>
+      <div class="chart-wrap">
+        <canvas id="chartRevSpend"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Funnel</div>
+      <div class="chart-wrap">
+        <canvas id="chartFunnel"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- D. Marketing arc -->
+  <div class="section-label">Marketing Arc — Phase {{ arc_phase_index + 1 }} / 6</div>
+  <div class="arc-row">
+    {% for phase in arc_phases %}
+    <div class="arc-phase{% if loop.index0 == arc_phase_index %} active{% endif %}">
+      <span class="arc-num">{{ loop.index }}</span>
+      {{ phase }}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- E. Social & Ads -->
+  <div class="section-label">Social &amp; Ads</div>
+  <div class="two-col">
+    <div class="dark-card">
+      <div class="dark-card-title">Social</div>
+      <div class="stat-row">
+        <span class="stat-name">FB Followers</span>
+        <span class="stat-val">{{ fb_followers }}
+          {% if fb_delta != 0 %}<span class="stat-delta{% if fb_delta < 0 %} neg{% endif %}">
+            {{ '+' if fb_delta > 0 else '' }}{{ fb_delta }}</span>{% endif %}
+        </span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">IG Followers</span>
+        <span class="stat-val">{{ ig_followers }}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Organic Reach (week)</span>
+        <span class="stat-val">{{ organic_reach_week }}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Link Clicks (week)</span>
+        <span class="stat-val">{{ link_clicks_week }}</span>
+      </div>
+    </div>
+    <div class="dark-card">
+      <div class="dark-card-title">Ads</div>
+      {% if has_ad_data %}
+      <div class="stat-row">
+        <span class="stat-name">Impressions</span>
+        <span class="stat-val">{{ ad_impressions }}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Ad Spend</span>
+        <span class="stat-val">&#163;{{ "%.2f"|format(ad_spend) }}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Results</span>
+        <span class="stat-val">{{ ad_results }}</span>
+      </div>
+      {% else %}
+      <div class="no-data">Add <code>FB_USER_TOKEN</code> to <code>~/.battleship.env</code> to enable ad tracking.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- F. SEO Progress -->
+  <div class="section-label">SEO — Google Business Profile</div>
+  <div class="seo-card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+      <span style="font-size:12px;color:#555">{{ seo_complete }} / 9 tasks complete</span>
+      <span style="font-size:12px;color:#555">{{ seo_pct }}%</span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" style="width:{{ seo_pct }}%"></div>
+    </div>
+    <ul class="seo-task-list">
+      {% for task in seo_tasks %}
+      <li class="seo-task">
+        <span class="seo-task-icon">{{ task.icon }}</span>
+        <span class="seo-task-name {{ task.cls }}">{{ task.name }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- G. Tech backlog -->
+  <div class="section-label">Tech Backlog</div>
+  <div class="table-card">
+    <table class="biz-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Category</th>
+          <th>Impact</th>
+          <th>Status</th>
+          <th>Monthly Cost</th>
+          <th>Revenue Unlock</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for gap in tech_gaps %}
+        <tr>
+          <td>{{ gap.title }}</td>
+          <td style="color:#666">{{ gap.category }}</td>
+          <td><span class="impact-{{ gap.impact }}">{{ gap.impact }}</span></td>
+          <td><span class="status-badge sb-{{ gap.status }}">{{ gap.status | replace('_', ' ') }}</span></td>
+          <td style="color:#666">{% if gap.estimated_monthly_cost_gbp %}&#163;{{ gap.estimated_monthly_cost_gbp }}{% else %}free{% endif %}</td>
+          <td style="color:#666">{% if gap.revenue_unlock_gbp %}&#163;{{ gap.revenue_unlock_gbp }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- H. Weekly targets -->
+  <!-- TODO: wire up actual content/lead counts when tracking is implemented -->
+  <div class="section-label">Weekly Targets</div>
+  <div class="targets-card">
+    {% for t in weekly_targets %}
+    <div class="target-item">
+      <div class="target-header">
+        <span class="target-label">{{ t.label }}</span>
+        <span class="target-frac">{{ t.current }} / {{ t.target }}</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" style="width:{{ [((t.current / t.target * 100) if t.target else 0), 100] | min }}%"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ── Revenue vs Spend chart ─────────────────────────────────────────────────
+(function() {
+  const historyDates  = {{ history_dates | tojson }};
+  const historyMrr    = {{ history_mrr   | tojson }};
+  const historySpend  = {{ history_spend | tojson }};
+
+  const ctx = document.getElementById('chartRevSpend');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: historyDates,
+      datasets: [
+        {
+          label: 'MRR',
+          data: historyMrr,
+          borderColor: '#2a9d4e',
+          backgroundColor: 'rgba(42,157,78,0.08)',
+          tension: 0.3,
+          pointRadius: 3,
+          pointBackgroundColor: '#2a9d4e',
+        },
+        {
+          label: 'Spend',
+          data: historySpend,
+          borderColor: '#c41e3a',
+          backgroundColor: 'rgba(196,30,58,0.08)',
+          tension: 0.3,
+          pointRadius: 3,
+          pointBackgroundColor: '#c41e3a',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#666', font: { size: 11 } } }
+      },
+      scales: {
+        x: { ticks: { color: '#444', font: { size: 10 } }, grid: { color: '#1e1e1e' } },
+        y: { ticks: { color: '#444', font: { size: 10 }, callback: v => '\\u00A3' + v },
+             grid: { color: '#1e1e1e' } }
+      }
+    }
+  });
+})();
+
+// ── Funnel chart ──────────────────────────────────────────────────────────
+(function() {
+  const funnel = {{ funnel | tojson }};
+  const labels = ['Impressions', 'Clicks', 'Quiz Starts', 'Diagnosed', 'Paid'];
+  const values = [
+    funnel.impressions   || 0,
+    funnel.clicks        || 0,
+    funnel.quiz_starts   || 0,
+    funnel.diagnosed     || 0,
+    funnel.paid          || 0,
+  ];
+
+  const ctx = document.getElementById('chartFunnel');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Count',
+        data: values,
+        backgroundColor: [
+          'rgba(196,30,58,0.25)',
+          'rgba(196,30,58,0.35)',
+          'rgba(196,30,58,0.50)',
+          'rgba(196,30,58,0.70)',
+          'rgba(196,30,58,0.90)',
+        ],
+        borderColor: '#c41e3a',
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: { ticks: { color: '#444', font: { size: 10 } }, grid: { color: '#1e1e1e' } },
+        y: { ticks: { color: '#aaa', font: { size: 11 } }, grid: { color: '#1e1e1e' } }
+      }
+    }
+  });
+})();
+</script>
+
+</body>
+</html>"""
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route("/brand/<path:filename>")
@@ -1220,6 +1770,172 @@ def run_pipeline_page():
     if request.method == "POST":
         output = run_pipeline()
     return render_template_string(RUN_PAGE, title="Run Pipeline", output=output)
+
+def _build_business_context():
+    """Gather all data needed to render the /business page."""
+    import re
+
+    state    = load_state()
+    strategy = _load_json_safe(MARKETING_STRATEGY_FILE, {})
+    social   = _load_json_safe(SOCIAL_METRICS_FILE, {})
+    seo      = _load_json_safe(SEO_STATE_FILE, {})
+    backlog  = _load_json_safe(TECH_BACKLOG_FILE, {"gaps": []})
+    history  = _load_json_safe(BIZ_HISTORY_FILE, {"history": []})
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # ── P&L ──────────────────────────────────────────────────────────────────
+    mrr            = _calc_mrr(state)
+    spend          = _parse_finances_spend()
+    net            = round(mrr - spend, 2)
+    gap            = max(0.0, round(3000.0 - mrr, 2))
+    active_clients = sum(1 for cs in state.get("clients", {}).values()
+                         if cs.get("status") == "active")
+
+    pnl = {"mrr": mrr, "spend": spend, "net": net, "active_clients": active_clients}
+
+    # ── Snapshot (write today's) ──────────────────────────────────────────────
+    record_daily_snapshot(state, strategy, social, pnl)
+    # Reload after write
+    history = _load_json_safe(BIZ_HISTORY_FILE, {"history": []})
+
+    # ── History arrays for chart ──────────────────────────────────────────────
+    hist_items    = history.get("history", [])
+    history_dates = [h["date"] for h in hist_items]
+    history_mrr   = [h.get("mrr", 0) for h in hist_items]
+    history_spend = [h.get("spend", 0) for h in hist_items]
+
+    # ── Social ────────────────────────────────────────────────────────────────
+    page_data = social.get("page", {})
+    ig_data   = social.get("ig", {})
+    ads_data  = social.get("ads", {})
+
+    fb_followers = 0
+    fb_delta     = 0
+    if page_data:
+        sorted_days = sorted(page_data.keys())
+        if sorted_days:
+            latest = sorted_days[-1]
+            fb_followers = page_data[latest].get("followers", 0) or page_data[latest].get("fans", 0)
+            if len(sorted_days) >= 2:
+                prev = sorted_days[-2]
+                prev_val = page_data[prev].get("followers", 0) or page_data[prev].get("fans", 0)
+                fb_delta = fb_followers - prev_val
+
+    ig_followers = 0
+    if ig_data:
+        latest_ig = max(ig_data.keys()) if ig_data else None
+        if latest_ig:
+            ig_followers = ig_data[latest_ig].get("followers_count", 0)
+
+    # Organic reach + link clicks for the week: sum post reach from social.posts
+    posts_data = social.get("posts", {})
+    organic_reach_week = 0
+    link_clicks_week   = 0
+    for post_id, post in posts_data.items():
+        insights = post.get("insights", {})
+        organic_reach_week += int(insights.get("reach", 0) or 0)
+        link_clicks_week   += int(insights.get("link_clicks", 0) or 0)
+
+    # Ads
+    last_ad    = strategy.get("last_ad_metrics", {})
+    has_ad_data = bool(last_ad)
+    ad_impressions = last_ad.get("impressions", 0) if has_ad_data else 0
+    ad_spend       = float(last_ad.get("spend", 0) or 0) if has_ad_data else 0.0
+    ad_results     = last_ad.get("results", "—") if has_ad_data else "—"
+
+    # ── Marketing arc ─────────────────────────────────────────────────────────
+    arc_phases = [
+        "Problem Agitation",
+        "Why You've Failed",
+        "Science & System",
+        "System + Proof",
+        "Objection Crushing",
+        "Direct CTA",
+    ]
+    arc_phase_index = int(strategy.get("arc_phase_index", 0))
+    campaign_week   = int(strategy.get("campaign_week", 1))
+
+    # ── Funnel ────────────────────────────────────────────────────────────────
+    funnel = strategy.get("funnel", {
+        "impressions": 0, "clicks": 0, "quiz_starts": 0, "diagnosed": 0, "paid": 0
+    })
+
+    # ── SEO ───────────────────────────────────────────────────────────────────
+    SEO_TASK_NAMES = [
+        "GBP Setup",
+        "Category Audit",
+        "Attributes Audit",
+        "Competitor Teardown",
+        "Review Strategy",
+        "Posts Strategy",
+        "Services",
+        "Description",
+        "Photo Plan",
+    ]
+    tasks_complete      = set(seo.get("tasks_complete", []))
+    tasks_pending_will  = set(seo.get("tasks_pending_will", []))
+    current_task        = seo.get("current_task", 0)
+    seo_complete        = len(tasks_complete)
+    seo_pct             = round(seo_complete / len(SEO_TASK_NAMES) * 100)
+
+    seo_tasks = []
+    for i, name in enumerate(SEO_TASK_NAMES):
+        if i in tasks_complete:
+            seo_tasks.append({"icon": "\u2705", "name": name, "cls": "complete"})
+        elif i in tasks_pending_will:
+            seo_tasks.append({"icon": "\u23f3", "name": name, "cls": "pending"})
+        elif i == current_task:
+            seo_tasks.append({"icon": "\U0001f535", "name": name, "cls": "current"})
+        else:
+            seo_tasks.append({"icon": "\u2b1c", "name": name, "cls": ""})
+
+    # ── Tech backlog ──────────────────────────────────────────────────────────
+    tech_gaps = backlog.get("gaps", [])
+
+    # ── Weekly targets (actuals TODO when tracking is implemented) ────────────
+    weekly_targets = [
+        {"label": "Content pieces",  "current": 0, "target": 5},   # TODO: wire to content.md
+        {"label": "Leads generated", "current": 0, "target": 5},   # TODO: wire to marketing metrics
+        {"label": "New clients",     "current": 0, "target": 1},   # TODO: wire to state delta
+    ]
+
+    return dict(
+        today=today,
+        mrr=mrr, gap=gap, spend=spend, net=net, active_clients=active_clients,
+        campaign_week=campaign_week,
+        arc_phases=arc_phases, arc_phase_index=arc_phase_index,
+        funnel=funnel,
+        fb_followers=fb_followers, fb_delta=fb_delta,
+        ig_followers=ig_followers,
+        organic_reach_week=organic_reach_week, link_clicks_week=link_clicks_week,
+        has_ad_data=has_ad_data, ad_impressions=ad_impressions,
+        ad_spend=ad_spend, ad_results=ad_results,
+        seo_complete=seo_complete, seo_pct=seo_pct, seo_tasks=seo_tasks,
+        tech_gaps=tech_gaps,
+        weekly_targets=weekly_targets,
+        history_dates=history_dates, history_mrr=history_mrr, history_spend=history_spend,
+    )
+
+
+@app.route("/business")
+def business():
+    ctx = _build_business_context()
+    ctx["is_snapshot"]   = False
+    ctx["snapshot_ts"]   = ""
+    return render_template_string(BUSINESS_PAGE, **ctx)
+
+
+@app.route("/snapshot")
+def snapshot():
+    token = request.args.get("token", "")
+    if token != "bsr2026":
+        return Response("403 Forbidden", status=403, mimetype="text/plain")
+    ctx = _build_business_context()
+    ctx["is_snapshot"]  = True
+    ctx["snapshot_ts"]  = datetime.now().strftime("%Y-%m-%d %H:%M")
+    return render_template_string(BUSINESS_PAGE, **ctx)
+
 
 # ── Entry ─────────────────────────────────────────────────────────────────────
 
