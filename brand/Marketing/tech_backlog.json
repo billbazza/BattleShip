@@ -68,14 +68,14 @@
     {
       "id": "gap_006",
       "reported_by": "marketing_bot",
-      "title": "Email Marketing Platform",
-      "description": "All emails sent via Mailgun transactional. No broadcast list, no sequences beyond the pipeline.",
+      "title": "Broadcast Email / Mailing List",
+      "description": "No broadcast list for leads. Not needed until lead magnet exists and list > 50 people. Mailchimp is NOT free (14-day trial only).",
       "estimated_monthly_cost_gbp": 0,
-      "paid_solution": "Mailchimp free (500 contacts, 1000 sends/month). ConvertKit free (1000 subs).",
-      "free_alternative": "Pipeline handles all client emails. Add Mailchimp free tier when building a lead magnet list.",
+      "paid_solution": "Brevo (brevo.com) \u2014 genuinely free forever, 300 emails/day, unlimited contacts, UK-compatible, has API.",
+      "free_alternative": "Not needed yet. Set up Brevo when lead magnet is built and list > 50 contacts.",
       "revenue_unlock_gbp": 0,
-      "status": "recommended_free",
-      "impact": "high",
+      "status": "not_yet_needed",
+      "impact": "medium",
       "category": "Email"
     },
     {
@@ -85,10 +85,10 @@
       "description": "Expenses tracked in finances.md. No VAT tracking, no HMRC-ready reports.",
       "estimated_monthly_cost_gbp": 10,
       "paid_solution": "Zoho Books UK (books.zoho.eu) \u2014 \u00a310/mo, HMRC Making Tax Digital compliant, has an API. FreeAgent \u00a320/mo, Xero \u00a315/mo also UK-native.",
-      "free_alternative": "Zoho Books free tier (books.zoho.eu) \u2014 UK entity, HMRC MTD compatible, 1 user free.",
-      "revenue_unlock_gbp": 0,
-      "status": "recommended_free",
-      "impact": "high",
+      "free_alternative": "finances.md + accounts_bot is source of truth. API-migrate to Zoho Books when ready. Do NOT copy data manually.",
+      "revenue_unlock_gbp": 300,
+      "status": "workaround_active",
+      "impact": "medium",
       "category": "Finance"
     },
     {
@@ -103,6 +103,19 @@
       "status": "workaround_active",
       "impact": "low",
       "category": "SEO"
+    },
+    {
+      "id": "gap_009",
+      "reported_by": "orchestrator",
+      "title": "Active Ad Campaign",
+      "description": "\u00a335 ad budget loaded in Meta but no active campaign spending it. ads_management API blocked pending Meta Standard Access approval.",
+      "estimated_monthly_cost_gbp": 0,
+      "paid_solution": "facebook_ads_bot.py is built and ready \u2014 unblocked when Meta approves Standard Access.",
+      "free_alternative": "MANUAL ACTION: Boost the before/after post from Facebook app \u2192 Boost Post \u2192 Men 40-60 UK \u2192 \u00a35/day. Takes 3 minutes.",
+      "revenue_unlock_gbp": 0,
+      "status": "blocked_manual_workaround",
+      "impact": "critical",
+      "category": "Advertising"
     }
   ],
   "created": "2026-03-15T09:39:13.108511+00:00"

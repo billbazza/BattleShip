@@ -101,27 +101,27 @@ INITIAL_GAPS = [
     {
         "id": "gap_006",
         "reported_by": "marketing_bot",
-        "title": "Email Marketing Platform",
-        "description": "All emails sent via Mailgun transactional. No broadcast list, no sequences beyond the pipeline.",
+        "title": "Broadcast Email / Mailing List",
+        "description": "No broadcast list for leads. Not needed until a lead magnet exists and list > 50 people. Mailchimp is NOT free (14-day trial only).",
         "estimated_monthly_cost_gbp": 0,
-        "paid_solution": "Mailchimp free (500 contacts, 1000 sends/month). ConvertKit free (1000 subs).",
-        "free_alternative": "Pipeline handles all client emails. Add Mailchimp free tier when building a lead magnet list.",
+        "paid_solution": "Brevo (brevo.com) — genuinely free forever, 300 emails/day, unlimited contacts, UK-compatible, has API.",
+        "free_alternative": "Not needed yet. Tally + pipeline handles all current flows. Set up Brevo when lead magnet is built and list > 50 contacts.",
         "revenue_unlock_gbp": 0,
-        "status": "recommended_free",
-        "impact": "high",
+        "status": "not_yet_needed",
+        "impact": "medium",
         "category": "Email",
     },
     {
         "id": "gap_007",
         "reported_by": "accounts_bot",
         "title": "Accounting Software",
-        "description": "Expenses tracked in finances.md. No VAT tracking, no HMRC-ready reports.",
+        "description": "Expenses tracked in finances.md via accounts_bot. No manual data entry — will API-migrate to Zoho Books when revenue justifies it.",
         "estimated_monthly_cost_gbp": 10,
-        "paid_solution": "Zoho Books UK (books.zoho.eu) — £10/mo, HMRC Making Tax Digital compliant, has an API for future automation. FreeAgent £20/mo, Xero £15/mo also UK-native.",
-        "free_alternative": "Zoho Books has a free tier (up to 1,000 invoices/year). Set up at books.zoho.eu — UK entity, HMRC MTD compatible.",
-        "revenue_unlock_gbp": 0,
-        "status": "recommended_free",
-        "impact": "high",
+        "paid_solution": "Zoho Books UK (books.zoho.eu) — £10/mo, HMRC Making Tax Digital compliant, API available for automated import from accounts_bot. No manual copying needed.",
+        "free_alternative": "finances.md + accounts_bot is the source of truth. API-migrate everything in one automated batch when ready. Do NOT copy data manually.",
+        "revenue_unlock_gbp": 300,
+        "status": "workaround_active",
+        "impact": "medium",
         "category": "Finance",
     },
     {
@@ -294,36 +294,6 @@ def generate_report(pnl: dict | None = None) -> str:
 
 
 FREE_WIN_GUIDES = {
-    "Email Marketing Platform": {
-        "title": "Set Up Your Email List (Free — Mailchimp)",
-        "time":  "15 minutes",
-        "why":   "When you build a lead magnet (free PDF/quiz), people give you their email. Without a list, they're gone forever. With a list, you can email 1,000 people for free.",
-        "steps": [
-            "Go to mailchimp.com → Create Free Account",
-            "Create an audience called 'Battleship Reset Leads'",
-            "Go to Audience → Signup Forms → create an embedded form",
-            "Copy the form URL — this is your lead capture link",
-            "Add it to battleshipreset.com contact section when ready",
-            "Free tier: 500 contacts, 1,000 emails/month — enough until £500+ MRR",
-        ],
-        "reply_prompt": "Reply to this email with 'MAILCHIMP DONE' when set up, or ask any question and I'll help.",
-    },
-    "Accounting Software": {
-        "title": "Set Up Zoho Books (Free Tier — HMRC MTD Compatible, UK)",
-        "time":  "20 minutes",
-        "why":   "You need proper accounting before HMRC asks. Zoho Books is UK-native, Making Tax Digital compliant, has a free tier, and has an API we can hook into later for automatic expense imports.",
-        "steps": [
-            "Go to books.zoho.eu (the EU/UK version — NOT zoho.com which is US)",
-            "Sign up free → Business type: Sole Trader, Country: United Kingdom",
-            "Create your organisation: 'Battleship Reset', currency: GBP",
-            "Go to Chart of Accounts — add categories: Advertising, Software/Tools, Infrastructure",
-            "Add your 5 existing expenses from finances.md manually (takes 5 mins)",
-            "Set fiscal year to April–March (UK tax year)",
-            "Download the Zoho Books app on your phone — snap receipts on the go",
-            "Free tier: unlimited invoices/expenses for 1 user. Upgrade to £10/mo when VAT-registered",
-        ],
-        "reply_prompt": "Reply 'ZOHO DONE' when set up, or ask any question.",
-    },
 }
 
 
@@ -396,7 +366,7 @@ def send_tech_guide_email(secrets: dict):
         send_email(
             secrets,
             to="will@battleship.me",
-            subject="[TECH] 2 free tools to set up — Wave + Mailchimp (reply if stuck)",
+            subject=f"[TECH] Tech backlog — {len(free_wins)} action(s) available now (reply if stuck)",
             plain_body=plain,
             html_body=html,
         )
