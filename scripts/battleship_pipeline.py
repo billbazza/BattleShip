@@ -2189,6 +2189,64 @@ Their message:
 Reply only with the email body — no subject line, no preamble."""
 
 
+def _handle_will_bot_reply(subject: str, body: str, secrets: dict):
+    """
+    Will replied to a [COMMAND], [TECH], or [ACCOUNTS] bot email with a question
+    or instruction. Claude reads it, answers/acts, and replies to will@.
+    """
+    print(f"  💬 Will replied to bot email: {subject[:60]}")
+    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")
+    if not api_key:
+        print("  ⚠️  No API key — cannot handle bot reply")
+        return
+
+    # Determine context from subject tag
+    context_map = {
+        "[COMMAND]": "You are the Battleship Reset growth orchestrator. Will has replied to the daily Command Report.",
+        "[TECH]":    "You are the Battleship Reset tech bot. Will has replied to the tech free-wins guide email.",
+        "[ACCOUNTS]": "You are the Battleship Reset accounts bot. Will has replied to the P&L report.",
+    }
+    context = next((v for k, v in context_map.items() if k in subject), "You are the Battleship Reset assistant.")
+
+    prompt = f"""{context}
+
+Business: Battleship Reset — midlife fitness coaching for men 40-60, UK.
+Goal: £3,000/month MRR within 90 days.
+Website: battleshipreset.com. Owner: Will Barratt, 47.
+
+Will has replied to an automated report email with a question or instruction.
+His message:
+---
+{body[:2000]}
+---
+
+Respond helpfully. If it's a question, answer it clearly and concisely.
+If it's an instruction (e.g. "skip the SEO for this week"), acknowledge it and explain what will happen.
+If it's a setup question (e.g. "how do I find my GBP URL"), give step-by-step instructions.
+Keep it short. Will is on his phone. No fluff. Sign off as "— Battleship Bot"."""
+
+    client   = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=600,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    reply_body = response.content[0].text.strip()
+
+    # Reply tag for the subject
+    reply_subject = f"Re: {subject}" if not subject.startswith("Re:") else subject
+
+    send_email(
+        secrets,
+        to="will@battleship.me",
+        subject=reply_subject,
+        plain_body=reply_body,
+        html_body=f'<p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#333;">'
+                  + reply_body.replace("\n", "<br>") + "</p>",
+    )
+    print(f"  ✅ Replied to Will's bot question → will@battleship.me")
+
+
 def process_inbound_emails(state: dict, secrets: dict):
     """Poll coach@ and support@ inboxes, auto-reply to client emails via Claude."""
     if not secrets.get("imap_host") or not secrets.get("imap_user") or not secrets.get("imap_pass"):
@@ -2235,7 +2293,7 @@ def process_inbound_emails(state: dict, secrets: dict):
         if "<" in from_addr and ">" in from_addr:
             sender_email = from_addr.split("<")[1].rstrip(">").strip().lower()
 
-        # Route: will@ — check for comment approvals, otherwise flag
+        # Route: will@ — check for comment approvals, command replies, otherwise flag
         if WILL_EMAIL in to_addr:
             if "[COMMENTS]" in subject and sender_email == WILL_EMAIL:
                 # Will replied to a comment approval email
@@ -2245,6 +2303,10 @@ def process_inbound_emails(state: dict, secrets: dict):
                     print(f"  ✅ Comment approval processed")
                 except Exception as e:
                     print(f"  ⚠️  Comment approval failed: {e}")
+                mail.store(uid, "+FLAGS", "\\Seen")
+            elif any(tag in subject for tag in ("[COMMAND]", "[TECH]", "[ACCOUNTS]")) and sender_email == WILL_EMAIL:
+                # Will is replying to one of the bot reports with a question or instruction
+                _handle_will_bot_reply(subject, body, secrets)
                 mail.store(uid, "+FLAGS", "\\Seen")
             else:
                 print(f"  👤 Email to will@ from {sender_email} — needs your personal reply")

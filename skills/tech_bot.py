@@ -293,6 +293,117 @@ def generate_report(pnl: dict | None = None) -> str:
     return "\n".join(lines)
 
 
+FREE_WIN_GUIDES = {
+    "Email Marketing Platform": {
+        "title": "Set Up Your Email List (Free — Mailchimp)",
+        "time":  "15 minutes",
+        "why":   "When you build a lead magnet (free PDF/quiz), people give you their email. Without a list, they're gone forever. With a list, you can email 1,000 people for free.",
+        "steps": [
+            "Go to mailchimp.com → Create Free Account",
+            "Create an audience called 'Battleship Reset Leads'",
+            "Go to Audience → Signup Forms → create an embedded form",
+            "Copy the form URL — this is your lead capture link",
+            "Add it to battleshipreset.com contact section when ready",
+            "Free tier: 500 contacts, 1,000 emails/month — enough until £500+ MRR",
+        ],
+        "reply_prompt": "Reply to this email with 'MAILCHIMP DONE' when set up, or ask any question and I'll help.",
+    },
+    "Accounting Software": {
+        "title": "Set Up Wave (Free Accounting — HMRC Compatible)",
+        "time":  "20 minutes",
+        "why":   "You need to track income and expenses properly before HMRC ask for it. Wave is free forever for small UK sole traders and exports everything you need for Self Assessment.",
+        "steps": [
+            "Go to waveapps.com → Sign up free",
+            "Business type: Sole Proprietor, Country: United Kingdom",
+            "Create your business: 'Battleship Reset'",
+            "Go to Accounting → Chart of Accounts — Wave pre-fills sensible categories",
+            "Add your existing expenses from finances.md manually (5 entries, takes 5 mins)",
+            "Connect your bank account (optional but saves time once revenue flows)",
+            "Download the Wave app on your phone — snap receipts on the go",
+        ],
+        "reply_prompt": "Reply 'WAVE DONE' when set up, or ask any question.",
+    },
+}
+
+
+def send_tech_guide_email(secrets: dict):
+    """
+    Send a step-by-step guide email to Will for the free tech wins.
+    Sent once — tracked in orchestrator state so it doesn't repeat.
+    """
+    free_wins = get_free_recommendations()
+    if not free_wins:
+        return
+
+    guide_sections_html = []
+    guide_sections_plain = []
+
+    for gap in free_wins:
+        guide = FREE_WIN_GUIDES.get(gap["title"])
+        if not guide:
+            continue
+
+        steps_html = "".join(
+            f'<li style="margin-bottom:8px;font-size:13px;color:#333;">{s}</li>'
+            for s in guide["steps"]
+        )
+        section_html = (
+            f'<h3 style="margin:0 0 4px;font-size:15px;color:#0a0a0a;">{guide["title"]}</h3>'
+            f'<p style="font-size:11px;color:#aaa;margin:0 0 8px;">⏱ {guide["time"]}</p>'
+            f'<p style="font-size:13px;color:#555;margin:0 0 10px;"><strong>Why:</strong> {guide["why"]}</p>'
+            f'<ol style="margin:0 0 10px;padding-left:20px;">{steps_html}</ol>'
+            f'<p style="font-size:12px;color:#888;font-style:italic;margin:0;">{guide["reply_prompt"]}</p>'
+        )
+        guide_sections_html.append({"body": section_html})
+
+        steps_plain = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(guide["steps"]))
+        guide_sections_plain.append(
+            f"{guide['title']} ({guide['time']})\n"
+            f"Why: {guide['why']}\n\n{steps_plain}\n\n{guide['reply_prompt']}"
+        )
+
+    if not guide_sections_html:
+        return
+
+    plain = (
+        "FREE TECH WINS — Set These Up Now\n\n"
+        + "\n\n---\n\n".join(guide_sections_plain)
+        + "\n\nReply to this email with any question and I'll walk you through it."
+    )
+
+    try:
+        import sys
+        sys.path.insert(0, str(VAULT_ROOT))
+        from scripts.battleship_pipeline import render_internal_email, send_email
+
+        intro = {
+            "body": (
+                '<p style="font-size:14px;color:#333;margin:0 0 8px;">'
+                f'You have <strong>{len(free_wins)} free tech wins</strong> available right now — '
+                'no cost, just 15-20 minutes each. These will save you time and keep you HMRC-compliant.</p>'
+                '<p style="font-size:13px;color:#777;margin:0;">'
+                'Reply to this email with any question and I\'ll walk you through it step by step.</p>'
+            )
+        }
+        sections = [intro] + guide_sections_html
+
+        html = render_internal_email(
+            title="Free Tech Wins — Do These Now",
+            subtitle="Tech Bot · Action Required",
+            sections=sections,
+        )
+        send_email(
+            secrets,
+            to="will@battleship.me",
+            subject="[TECH] 2 free tools to set up — Wave + Mailchimp (reply if stuck)",
+            plain_body=plain,
+            html_body=html,
+        )
+        print("  ✅ Tech guide email sent → will@battleship.me")
+    except Exception as e:
+        print(f"  ⚠️  Tech guide email failed: {e}")
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 def run(secrets: dict, pnl: dict | None = None):

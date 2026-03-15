@@ -35,7 +35,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-VAULT_ROOT = Path(__file__).parent.parent
+VAULT_ROOT      = Path(__file__).parent.parent
+ORCH_STATE_FILE = VAULT_ROOT / "brand" / "Marketing" / "orchestrator_state.json"
 
 # ── Business constants ────────────────────────────────────────────────────────
 
@@ -46,6 +47,33 @@ LAUNCH_DATE_ISO  = "2026-03-11"  # when the business officially started
 def _weeks_since_launch() -> int:
     launch = datetime.fromisoformat(LAUNCH_DATE_ISO).replace(tzinfo=timezone.utc)
     return max(1, (datetime.now(timezone.utc) - launch).days // 7)
+
+
+def _load_orch_state() -> dict:
+    if ORCH_STATE_FILE.exists():
+        return json.loads(ORCH_STATE_FILE.read_text())
+    return {"last_daily_report": None, "last_tech_guide": None}
+
+
+def _save_orch_state(s: dict):
+    ORCH_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    ORCH_STATE_FILE.write_text(json.dumps(s, indent=2))
+
+
+def _already_ran_today() -> bool:
+    """True if the daily Command Report was already sent today."""
+    s = _load_orch_state()
+    last = s.get("last_daily_report")
+    if not last:
+        return False
+    last_dt = datetime.fromisoformat(last)
+    return last_dt.date() == datetime.now(timezone.utc).date()
+
+
+def _mark_ran_today():
+    s = _load_orch_state()
+    s["last_daily_report"] = datetime.now(timezone.utc).isoformat()
+    _save_orch_state(s)
 
 
 # ── Brand PM function ─────────────────────────────────────────────────────────
@@ -259,9 +287,13 @@ def _render_command_report_html(brief: dict, seo_result: dict | None,
 
 def run(secrets: dict, client_state: dict):
     """
-    Full daily orchestration run. Call this once per day.
-    Order matters: accounts → PM brief → SEO → marketing → tech → report
+    Full daily orchestration run. Gated to once per day — safe to call on
+    every pipeline cycle (every 2 hours); only executes once per calendar day.
     """
+    if _already_ran_today():
+        print("  ℹ️  Orchestrator already ran today — skipping.")
+        return None
+
     print("\n🎯 ORCHESTRATOR — Daily Growth Run")
     print(f"   {datetime.now().strftime('%A %d %B %Y, %H:%M')}\n")
 
@@ -307,9 +339,15 @@ def run(secrets: dict, client_state: dict):
     tech_summary = {}
     tech_report  = ""
     try:
-        from skills.tech_bot import run as run_tech, generate_report
+        from skills.tech_bot import run as run_tech, generate_report, send_tech_guide_email
         tech_summary = run_tech(secrets, pnl)
         tech_report  = generate_report(pnl)
+        # Send the free-wins guide email once (first run only)
+        orch_state = _load_orch_state()
+        if not orch_state.get("last_tech_guide"):
+            send_tech_guide_email(secrets)
+            orch_state["last_tech_guide"] = datetime.now(timezone.utc).isoformat()
+            _save_orch_state(orch_state)
     except Exception as e:
         print(f"        ⚠️  Tech bot error: {e}")
 
@@ -347,9 +385,11 @@ def run(secrets: dict, client_state: dict):
                 plain_body=plain,
                 html_body=html,
             )
+            _mark_ran_today()
             print("\n  ✅ Command report sent → will@battleship.me")
     except Exception as e:
         print(f"\n  ⚠️  Command report email failed: {e}")
+        _mark_ran_today()  # mark ran even if email failed — avoid spam
 
     print("\n🎯 Orchestrator run complete.\n")
     return brief
