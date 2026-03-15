@@ -1,0 +1,35 @@
+{
+  "reminders": [
+    {
+      "id": "rem_001",
+      "added_by": "seo_bot",
+      "type": "photo",
+      "title": "Upload 5 photos to Google Business Profile",
+      "description": "Needed: before/after transformation photo, outdoor walk photo, workout photo (gym or at-home), website screenshot or logo card, and a testimonial quote card. Go to business.google.com \u2192 Photos.",
+      "priority": "high",
+      "created_at": "2026-03-15",
+      "status": "pending"
+    },
+    {
+      "id": "rem_002",
+      "added_by": "seo_bot",
+      "type": "tech",
+      "title": "Paste this week's GBP post into Google Business Profile",
+      "description": "Bot has drafted the post in brand/Marketing/SEO/outputs/. Copy it into business.google.com \u2192 Posts \u2192 Add update. Takes 2 minutes.",
+      "priority": "medium",
+      "created_at": "2026-03-15",
+      "status": "pending"
+    },
+    {
+      "id": "rem_003",
+      "added_by": "orchestrator",
+      "type": "tech",
+      "title": "Apply for Meta Standard Access",
+      "description": "Full API campaign creation is blocked until Meta approves Standard Access for the Battleship-Reset app. Go to developers.facebook.com \u2192 Your App \u2192 App Review \u2192 Request Standard Access for ads_management. Requires business verification.",
+      "priority": "high",
+      "created_at": "2026-03-15",
+      "status": "pending"
+    }
+  ],
+  "pivot_notes": []
+}

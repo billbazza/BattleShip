@@ -30,6 +30,8 @@ MARKETING_STRATEGY_FILE  = CLIENTS_DIR / "marketing_strategy.json"
 SOCIAL_METRICS_FILE      = CLIENTS_DIR / "social_metrics.json"
 SEO_STATE_FILE           = VAULT_ROOT / "brand" / "Marketing" / "SEO" / "seo_state.json"
 TECH_BACKLOG_FILE        = VAULT_ROOT / "brand" / "Marketing" / "tech_backlog.json"
+REMINDERS_FILE           = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
+ROADMAP_FILE             = VAULT_ROOT / "roadmap.md"
 FINANCES_FILE            = VAULT_ROOT / "finances.md"
 BIZ_HISTORY_FILE         = CLIENTS_DIR / "business_metrics_history.json"
 
@@ -164,18 +166,41 @@ def _load_json_safe(path: Path, default=None):
 
 
 def _parse_finances_spend() -> float:
-    """Parse finances.md expense table and return total spend as float (£)."""
-    total = 0.0
+    """Parse finances.md expense table and return total spend as float (£).
+
+    Reads only the '**Total Spend to date' line to avoid double-counting
+    pricing tables and target figures elsewhere in the file.
+    """
     if not FINANCES_FILE.exists():
-        return total
+        return 0.0
     import re
     text = FINANCES_FILE.read_text()
-    # Match £ amounts in table cells, e.g. £35.00 or £119.47
-    for match in re.finditer(r'£\s*([\d,]+\.?\d*)', text):
+    # Prefer the explicit total line: **Total Spend to date: £119.47**
+    m = re.search(r'\*\*Total Spend to date[^£]*£\s*([\d,]+\.?\d*)', text)
+    if m:
         try:
-            total += float(match.group(1).replace(",", ""))
+            return round(float(m.group(1).replace(",", "")), 2)
         except ValueError:
             pass
+    # Fallback: sum only the expense log table rows (| date | item | cost |)
+    # Look for the section between ## Expense Log and the next ## heading
+    section = re.search(r'## Expense Log(.+?)^##', text, re.S | re.M)
+    if not section:
+        return 0.0
+    total = 0.0
+    for row in section.group(1).splitlines():
+        if not row.startswith('|') or row.startswith('| Date') or set(row.strip('|').strip()) <= {'-', ' '}:
+            continue
+        # Cost column is 3rd pipe-delimited cell
+        cells = [c.strip() for c in row.split('|')]
+        if len(cells) >= 4:
+            cost_cell = cells[3]
+            m2 = re.search(r'£\s*([\d,]+\.?\d*)', cost_cell)
+            if m2:
+                try:
+                    total += float(m2.group(1).replace(",", ""))
+                except ValueError:
+                    pass
     return round(total, 2)
 
 
@@ -402,8 +427,13 @@ DASHBOARD = BASE.replace("{% block content %}{% endblock %}", """
     <span class="status-meta-item">Diagnosed: <strong>{{ diagnosed_count }}</strong></span>
     <span class="status-meta-item">Pipeline: <strong>{{ status.pipeline.label }}</strong></span>
     <span class="status-meta-item">Queued: <strong>{{ status.queue.label }}</strong></span>
-    <span class="status-meta-item" style="margin-left:auto;color:#333">
-      <a href="https://battleshipreset.com" target="_blank" style="color:#444;font-size:11px">battleshipreset.com ↗</a>
+    <span class="status-meta-item" style="margin-left:auto;display:flex;gap:14px;align-items:center">
+      <a href="https://battleshipreset.com" target="_blank" style="color:#888;font-size:11px">🌐 Website ↗</a>
+      <a href="https://tally.so/r/rjK752" target="_blank" style="color:#888;font-size:11px">📋 Quiz ↗</a>
+      <a href="https://www.facebook.com/people/Battleship-Reset/61574337936271/" target="_blank" style="color:#888;font-size:11px">📘 Facebook ↗</a>
+      <a href="https://www.instagram.com/battleshipreset/" target="_blank" style="color:#888;font-size:11px">📸 Instagram ↗</a>
+      <a href="https://buy.stripe.com/3cI6oG79qefgb1CdhwejK00" target="_blank" style="color:#888;font-size:11px">💳 Stripe ↗</a>
+      <a href="https://business.google.com" target="_blank" style="color:#888;font-size:11px">📍 GBP ↗</a>
     </span>
   </div>
 </div>
@@ -1174,6 +1204,47 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     .topbar-nav { display: flex; align-items: center; gap: 20px; }
     .topbar-nav a { color: #555; font-size: 13px; }
     .topbar-nav a:hover { color: #fff; text-decoration: none; }
+    .topbar-nav a.alert-link { color: #e8a020; }
+
+    /* ── Reminders ── */
+    .rem-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
+                padding: 22px; margin-bottom: 32px; }
+    .rem-item { padding: 14px 0; border-bottom: 1px solid #1e1e1e;
+                display: flex; align-items: flex-start; gap: 16px; }
+    .rem-item:last-child { border-bottom: none; }
+    .rem-badge { font-size: 10px; padding: 2px 9px; border-radius: 20px; font-weight: 700;
+                 white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+    .rb-photo  { background: #3a2000; color: #e8a020; }
+    .rb-tech   { background: #002233; color: #4a9fd4; }
+    .rb-review { background: #1a0a2a; color: #aa66cc; }
+    .rb-other  { background: #1e1e1e; color: #888; }
+    .rem-body  { flex: 1; }
+    .rem-title { font-size: 14px; color: #ddd; font-weight: 600; margin-bottom: 4px; }
+    .rem-desc  { font-size: 12px; color: #555; line-height: 1.5; }
+    .rem-meta  { font-size: 11px; color: #444; margin-top: 4px; }
+    .rem-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .rem-btn { padding: 4px 14px; border-radius: 3px; font-size: 12px; cursor: pointer;
+               border: 1px solid #333; background: transparent; color: #666; }
+    .rem-btn:hover { border-color: #666; color: #ccc; }
+    .rem-btn.done { border-color: #2a6a3a; color: #2a9d4e; }
+    .rem-pivot-area { display: none; margin-top: 10px; }
+    .rem-pivot-area textarea { width: 100%; background: #111; border: 1px solid #333;
+      color: #ccc; padding: 8px 10px; border-radius: 3px; font-size: 13px;
+      font-family: inherit; resize: vertical; min-height: 80px; }
+    .rem-pivot-submit { margin-top: 6px; padding: 5px 16px; border-radius: 3px;
+      background: #c41e3a; color: #fff; border: none; font-size: 12px; cursor: pointer; }
+
+    /* ── Roadmap ── */
+    .roadmap-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
+                    padding: 22px; margin-bottom: 32px; }
+    .roadmap-item { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0;
+                    border-bottom: 1px solid #1e1e1e; }
+    .roadmap-item:last-child { border-bottom: none; }
+    .roadmap-num { font-size: 18px; font-weight: 700; color: #333; width: 28px;
+                   flex-shrink: 0; text-align: right; }
+    .roadmap-body { flex: 1; }
+    .roadmap-title { font-size: 13px; color: #ccc; font-weight: 600; margin-bottom: 3px; }
+    .roadmap-meta  { font-size: 11px; color: #444; }
 
     .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
 
@@ -1472,7 +1543,65 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     </table>
   </div>
 
-  <!-- H. Weekly targets -->
+  <!-- H. Reminders -->
+  <div class="section-label" id="reminders-section">
+    Action Items
+    {% if pending_reminders %}<span style="background:#c41e3a;color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700">{{ pending_reminders | length }}</span>{% endif %}
+  </div>
+  <div class="rem-card">
+    {% if pending_reminders %}
+    {% for r in pending_reminders %}
+    <div class="rem-item" id="rem-{{ r.id }}">
+      <span class="rem-badge rb-{{ r.type }}">{{ r.type }}</span>
+      <div class="rem-body">
+        <div class="rem-title">{{ r.title }}</div>
+        <div class="rem-desc">{{ r.description }}</div>
+        <div class="rem-meta">Added by {{ r.added_by }} · {{ r.created_at }}{% if r.priority == 'high' %} · <span style="color:#e8a020">⚠ high priority</span>{% endif %}</div>
+        <div class="rem-actions">
+          <button class="rem-btn done" onclick="dismissReminder('{{ r.id }}')">✓ Done</button>
+          <button class="rem-btn" onclick="togglePivot('{{ r.id }}')">↩ Pivot / push back</button>
+        </div>
+        <div class="rem-pivot-area" id="pivot-{{ r.id }}">
+          <textarea id="pivot-text-{{ r.id }}" placeholder="Describe the pivot or why you're pushing back (saved and emailed to bot)…"></textarea>
+          <button class="rem-pivot-submit" onclick="submitPivot('{{ r.id }}')">Save feedback</button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="color:#444;font-size:13px;font-style:italic;padding:12px 0">No pending action items.</div>
+    {% endif %}
+    {% if pivot_notes %}
+    <div style="margin-top:18px;border-top:1px solid #222;padding-top:14px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#333;margin-bottom:10px">Recent Pivots / Feedback</div>
+      {% for p in pivot_notes[-5:] %}
+      <div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:12px;color:#555">
+        <span style="color:#444">{{ p.created_at }} · rem {{ p.reminder_id }}:</span> {{ p.note }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- I. Roadmap -->
+  <div class="section-label">Feature Roadmap</div>
+  <div class="roadmap-card">
+    {% if roadmap_items %}
+    {% for item in roadmap_items %}
+    <div class="roadmap-item">
+      <div class="roadmap-num">{{ loop.index }}</div>
+      <div class="roadmap-body">
+        <div class="roadmap-title">{{ item.title }}</div>
+        <div class="roadmap-meta">Impact: {{ item.impact }} &middot; Effort: {{ item.effort }}</div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="color:#444;font-size:13px;font-style:italic">roadmap.md not found.</div>
+    {% endif %}
+  </div>
+
+  <!-- J. Weekly targets -->
   <!-- TODO: wire up actual content/lead counts when tracking is implemented -->
   <div class="section-label">Weekly Targets</div>
   <div class="targets-card">
@@ -1586,6 +1715,33 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     }
   });
 })();
+</script>
+
+<script>
+function dismissReminder(id) {
+  fetch('/api/reminders/' + id + '/dismiss', {method:'POST'})
+    .then(r => r.json())
+    .then(() => {
+      const el = document.getElementById('rem-' + id);
+      if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+    });
+}
+function togglePivot(id) {
+  const el = document.getElementById('pivot-' + id);
+  if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+function submitPivot(id) {
+  const note = document.getElementById('pivot-text-' + id)?.value?.trim();
+  if (!note) return;
+  fetch('/api/reminders/' + id + '/pivot', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({note: note})
+  }).then(r => r.json()).then(() => {
+    const el = document.getElementById('rem-' + id);
+    if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+  });
+}
 </script>
 
 </body>
@@ -1893,6 +2049,31 @@ def _build_business_context():
     # ── Tech backlog ──────────────────────────────────────────────────────────
     tech_gaps = backlog.get("gaps", [])
 
+    # ── Reminders ─────────────────────────────────────────────────────────────
+    rem_data         = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
+    pending_reminders = [r for r in rem_data.get("reminders", []) if r.get("status") == "pending"]
+    pivot_notes       = rem_data.get("pivot_notes", [])
+
+    # ── Roadmap ───────────────────────────────────────────────────────────────
+    roadmap_items = []
+    if ROADMAP_FILE.exists():
+        import re as _re
+        rm_text = ROADMAP_FILE.read_text()
+        # Parse the build order table at the bottom
+        for row in _re.finditer(
+            r'\|\s*\d+\s*\|\s*#\d+\s+([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|', rm_text
+        ):
+            roadmap_items.append({
+                "title": row.group(1).strip(),
+                "effort": row.group(2).strip(),
+                "impact": row.group(3).strip(),
+            })
+
+    # ── Ad results label ──────────────────────────────────────────────────────
+    # Show link_clicks rather than generic "results"
+    if has_ad_data:
+        ad_results = f"{last_ad.get('link_clicks', last_ad.get('clicks', '—'))} link clicks"
+
     # ── Weekly targets (actuals TODO when tracking is implemented) ────────────
     weekly_targets = [
         {"label": "Content pieces",  "current": 0, "target": 5},   # TODO: wire to content.md
@@ -1913,9 +2094,69 @@ def _build_business_context():
         ad_spend=ad_spend, ad_results=ad_results,
         seo_complete=seo_complete, seo_pct=seo_pct, seo_tasks=seo_tasks,
         tech_gaps=tech_gaps,
+        pending_reminders=pending_reminders,
+        pivot_notes=pivot_notes,
+        roadmap_items=roadmap_items,
         weekly_targets=weekly_targets,
         history_dates=history_dates, history_mrr=history_mrr, history_spend=history_spend,
     )
+
+
+@app.route("/api/reminders", methods=["GET", "POST"])
+def api_reminders():
+    """GET: list pending. POST: add a new reminder (for bots)."""
+    data = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
+    if request.method == "GET":
+        return jsonify({"reminders": [r for r in data.get("reminders", []) if r.get("status") == "pending"]})
+    body = request.get_json(silent=True) or {}
+    # Deduplicate by title
+    existing_titles = {r.get("title", "") for r in data.get("reminders", [])}
+    if body.get("title") in existing_titles:
+        return jsonify({"status": "duplicate", "message": "Reminder already exists"}), 200
+    import uuid as _uuid
+    new_rem = {
+        "id": "rem_" + _uuid.uuid4().hex[:8],
+        "added_by": body.get("added_by", "bot"),
+        "type": body.get("type", "other"),
+        "title": body.get("title", "Untitled"),
+        "description": body.get("description", ""),
+        "priority": body.get("priority", "medium"),
+        "created_at": datetime.now().strftime("%Y-%m-%d"),
+        "status": "pending",
+    }
+    data.setdefault("reminders", []).append(new_rem)
+    REMINDERS_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"status": "added", "id": new_rem["id"]}), 201
+
+
+@app.route("/api/reminders/<rem_id>/dismiss", methods=["POST"])
+def api_reminder_dismiss(rem_id):
+    data = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
+    for r in data.get("reminders", []):
+        if r["id"] == rem_id:
+            r["status"] = "done"
+            r["done_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    REMINDERS_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/reminders/<rem_id>/pivot", methods=["POST"])
+def api_reminder_pivot(rem_id):
+    body = request.get_json(silent=True) or {}
+    note = body.get("note", "").strip()
+    data = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
+    for r in data.get("reminders", []):
+        if r["id"] == rem_id:
+            r["status"] = "pivoted"
+            r["pivoted_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    pivot = {
+        "reminder_id": rem_id,
+        "note": note,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    data.setdefault("pivot_notes", []).append(pivot)
+    REMINDERS_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"status": "ok"})
 
 
 @app.route("/business")

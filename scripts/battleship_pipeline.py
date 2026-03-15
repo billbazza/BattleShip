@@ -2193,6 +2193,23 @@ Their message:
 Reply only with the email body — no subject line, no preamble."""
 
 
+def _handle_pivot_reply(subject: str, body: str):
+    """Store a pivot note from Will's email reply into reminders.json."""
+    reminders_file = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
+    try:
+        data = json.loads(reminders_file.read_text()) if reminders_file.exists() else {"reminders": [], "pivot_notes": []}
+        data.setdefault("pivot_notes", []).append({
+            "reminder_id": "email",
+            "note": body[:1000].strip(),
+            "subject": subject,
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
+        })
+        reminders_file.write_text(json.dumps(data, indent=2))
+        print(f"  💾 Pivot note saved from Will's email reply")
+    except Exception as e:
+        print(f"  ⚠️  Could not save pivot note: {e}")
+
+
 def _handle_will_bot_reply(subject: str, body: str, secrets: dict):
     """
     Will replied to a [COMMAND], [TECH], or [ACCOUNTS] bot email with a question
@@ -2205,10 +2222,22 @@ def _handle_will_bot_reply(subject: str, body: str, secrets: dict):
         return
 
     # Determine context from subject tag
+    # Handle [PIVOT] replies — store to reminders.json and acknowledge
+    if "[PIVOT]" in subject or subject.lower().startswith("pivot"):
+        _handle_pivot_reply(subject, body)
+        send_email(
+            secrets, to="will@battleship.me",
+            subject=f"Re: {subject}",
+            plain_body=f"Pivot noted and saved. The bot will adjust accordingly.\n\n— Battleship Bot",
+            html_body="<p>Pivot noted and saved. The bot will adjust accordingly.</p><p>— Battleship Bot</p>",
+        )
+        return
+
     context_map = {
         "[COMMAND]": "You are the Battleship Reset growth orchestrator. Will has replied to the daily Command Report.",
         "[TECH]":    "You are the Battleship Reset tech bot. Will has replied to the tech free-wins guide email.",
         "[ACCOUNTS]": "You are the Battleship Reset accounts bot. Will has replied to the P&L report.",
+        "[REMINDER]": "You are the Battleship Reset assistant. Will has replied about a reminder or action item.",
     }
     context = next((v for k, v in context_map.items() if k in subject), "You are the Battleship Reset assistant.")
 
@@ -2308,7 +2337,7 @@ def process_inbound_emails(state: dict, secrets: dict):
                 except Exception as e:
                     print(f"  ⚠️  Comment approval failed: {e}")
                 mail.store(uid, "+FLAGS", "\\Seen")
-            elif any(tag in subject for tag in ("[COMMAND]", "[TECH]", "[ACCOUNTS]")) and sender_email == WILL_EMAIL:
+            elif any(tag in subject for tag in ("[COMMAND]", "[TECH]", "[ACCOUNTS]", "[PIVOT]", "[REMINDER]")) and sender_email == WILL_EMAIL:
                 # Will is replying to one of the bot reports with a question or instruction
                 _handle_will_bot_reply(subject, body, secrets)
                 mail.store(uid, "+FLAGS", "\\Seen")
@@ -3023,7 +3052,22 @@ def main():
     except Exception as e:
         print(f"  ⚠️  Ads bot skipped: {e}")
 
-    # 12. Accounts bot — scan receipts, update finances.md, P&L report
+    # 12. Meta metrics sync (page fans, IG followers, ad spend/impressions)
+    print("\n📊 Meta metrics sync...")
+    try:
+        from scripts.fetch_meta_metrics import run as run_meta_sync
+        run_meta_sync()
+    except Exception as e:
+        try:
+            import importlib.util as _ilu
+            spec = _ilu.spec_from_file_location("fetch_meta", VAULT_ROOT / "scripts" / "fetch_meta_metrics.py")
+            mod  = _ilu.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            mod.run()
+        except Exception as e2:
+            print(f"  ⚠️  Meta sync skipped: {e2}")
+
+    # 13. Accounts bot — scan receipts, update finances.md, P&L report
     print("\n🧾 Accounts bot...")
     try:
         from skills.accounts_bot import run as run_accounts
