@@ -824,11 +824,129 @@ METRICS_FILE = VAULT_ROOT / "clients" / "social_metrics.json"
 def _load_metrics() -> dict:
     if METRICS_FILE.exists():
         return json.loads(METRICS_FILE.read_text())
-    return {"posts": {}, "page": {}, "ig": {}}
+    return {"posts": {}, "page": {}, "ig": {}, "ads": {}}
 
 
 def _save_metrics(m: dict):
     METRICS_FILE.write_text(json.dumps(m, indent=2))
+
+
+def _get_post_reach_clicks(post_id: str, token: str) -> dict:
+    """
+    Pull reach + link clicks for a single post via Page Insights API.
+    Works with standard Page token — no ads_management needed.
+    """
+    r = requests.get(
+        f"{GRAPH}/{post_id}/insights",
+        params={
+            "metric": "post_impressions,post_impressions_unique,post_clicks_by_type",
+            "access_token": token,
+        },
+        timeout=15,
+    )
+    result = {"impressions": 0, "reach": 0, "link_clicks": 0}
+    if not r.ok:
+        return result
+    for item in r.json().get("data", []):
+        name = item.get("name")
+        val  = item.get("values", [{}])[-1].get("value", 0)
+        if name == "post_impressions":
+            result["impressions"] = val if isinstance(val, int) else 0
+        elif name == "post_impressions_unique":
+            result["reach"] = val if isinstance(val, int) else 0
+        elif name == "post_clicks_by_type" and isinstance(val, dict):
+            result["link_clicks"] = val.get("link clicks", 0)
+    return result
+
+
+def _get_ad_campaign_metrics(secrets: dict) -> dict | None:
+    """
+    Pull live campaign performance via ads_read user token.
+    Returns None if FB_USER_TOKEN not set (falls back to post insights).
+    """
+    user_token    = secrets.get("FB_USER_TOKEN") or secrets.get("fb_user_token")
+    ad_account_id = secrets.get("FB_AD_ACCOUNT_ID") or secrets.get("fb_ad_account_id")
+    if not user_token or not ad_account_id:
+        return None
+    try:
+        r = requests.get(
+            f"{GRAPH}/act_{ad_account_id}/ads",
+            params={
+                "fields": (
+                    "id,name,status,"
+                    "insights.date_preset(last_7d)"
+                    "{impressions,clicks,ctr,spend,actions}"
+                ),
+                "limit": 10,
+                "access_token": user_token,
+            },
+            timeout=20,
+        )
+        if not r.ok:
+            return None
+        ads = r.json().get("data", [])
+        totals = {"impressions": 0, "clicks": 0, "spend": 0.0, "results": 0, "ads": []}
+        for ad in ads:
+            ins_data = (ad.get("insights") or {}).get("data", [{}])
+            ins      = ins_data[0] if ins_data else {}
+            imps     = int(ins.get("impressions", 0))
+            clicks   = int(ins.get("clicks", 0))
+            spend    = float(ins.get("spend", 0))
+            results  = sum(
+                int(a.get("value", 0)) for a in ins.get("actions", [])
+                if a.get("action_type") in ("link_click", "offsite_conversion.fb_pixel_lead")
+            )
+            totals["impressions"] += imps
+            totals["clicks"]      += clicks
+            totals["spend"]       += spend
+            totals["results"]     += results
+            totals["ads"].append({
+                "name": ad["name"], "status": ad.get("status"),
+                "impressions": imps, "clicks": clicks,
+                "ctr": f"{float(ins.get('ctr', 0)):.2f}%",
+                "spend": spend,
+            })
+        return totals
+    except Exception as e:
+        print(f"  ⚠️  Ad metrics error: {e}")
+        return None
+
+
+def sync_funnel_metrics(secrets: dict, post_metrics: dict, ad_metrics: dict | None):
+    """
+    Push real FB performance data into marketing_strategy.json funnel.
+    Replaces the zeroed-out placeholder data with actuals.
+    """
+    strategy_file = VAULT_ROOT / "clients" / "marketing_strategy.json"
+    if not strategy_file.exists():
+        return
+    strategy = json.loads(strategy_file.read_text())
+
+    # Sum impressions across recent posts
+    total_impressions = sum(p.get("impressions", 0) for p in post_metrics.values())
+    total_clicks      = sum(p.get("link_clicks", 0) for p in post_metrics.values())
+
+    # Ad data overrides if available
+    if ad_metrics:
+        total_impressions = max(total_impressions, ad_metrics.get("impressions", 0))
+        total_clicks      = max(total_clicks, ad_metrics.get("clicks", 0))
+
+    funnel = strategy.setdefault("funnel", {})
+    funnel["impressions"] = total_impressions
+    funnel["clicks"]      = total_clicks
+    # quiz_starts and paid stay as actual pipeline counts — don't overwrite
+
+    if ad_metrics:
+        strategy["last_ad_metrics"] = {
+            "date":        datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "impressions": ad_metrics["impressions"],
+            "clicks":      ad_metrics["clicks"],
+            "spend":       round(ad_metrics["spend"], 2),
+            "results":     ad_metrics["results"],
+            "ads":         ad_metrics["ads"],
+        }
+
+    strategy_file.write_text(json.dumps(strategy, indent=2))
 
 
 def track_performance(secrets: dict):
@@ -855,24 +973,30 @@ def track_performance(secrets: dict):
             "followers": data.get("followers_count", 0),
         }
 
-    # FB recent post engagement
+    # FB recent post engagement + reach/clicks via insights API
     r2 = requests.get(
         f"{GRAPH}/{page_id}/posts",
         params={"fields": "id,message,created_time,likes.summary(true),comments.summary(true),shares",
                 "limit": 10, "access_token": token},
         timeout=15,
     )
+    post_reach_data = {}
     if r2.ok:
         for post in r2.json().get("data", []):
-            pid = post["id"]
+            pid     = post["id"]
+            reach   = _get_post_reach_clicks(pid, token)
             metrics["posts"][pid] = {
-                "date":     post.get("created_time", "")[:10],
-                "preview":  (post.get("message") or "")[:80],
-                "likes":    post.get("likes", {}).get("summary", {}).get("total_count", 0),
-                "comments": post.get("comments", {}).get("summary", {}).get("total_count", 0),
-                "shares":   post.get("shares", {}).get("count", 0),
-                "tracked":  today,
+                "date":        post.get("created_time", "")[:10],
+                "preview":     (post.get("message") or "")[:80],
+                "likes":       post.get("likes", {}).get("summary", {}).get("total_count", 0),
+                "comments":    post.get("comments", {}).get("summary", {}).get("total_count", 0),
+                "shares":      post.get("shares", {}).get("count", 0),
+                "impressions": reach["impressions"],
+                "reach":       reach["reach"],
+                "link_clicks": reach["link_clicks"],
+                "tracked":     today,
             }
+            post_reach_data[pid] = reach
 
     # IG account metrics
     if ig_id:
@@ -883,6 +1007,21 @@ def track_performance(secrets: dict):
         )
         if r3.ok:
             metrics["ig"][today] = r3.json()
+
+    # Ad campaign metrics (needs FB_USER_TOKEN — falls back gracefully)
+    ad_metrics = _get_ad_campaign_metrics(secrets)
+    if ad_metrics:
+        metrics["ads"][today] = {
+            "impressions": ad_metrics["impressions"],
+            "clicks":      ad_metrics["clicks"],
+            "spend":       round(ad_metrics["spend"], 2),
+            "results":     ad_metrics["results"],
+        }
+        print(f"  📊 Ad metrics: {ad_metrics['impressions']:,} impressions · "
+              f"£{ad_metrics['spend']:.2f} spent · {ad_metrics['results']} results")
+
+    # Feed real data back to marketing funnel
+    sync_funnel_metrics(secrets, post_reach_data, ad_metrics)
 
     _save_metrics(metrics)
     print(f"  ✅ Performance metrics tracked ({today})")
@@ -917,6 +1056,23 @@ def send_brand_report(secrets: dict):
     eng_state = _load_engagement_state()
     comments_posted = len(eng_state.get("commented_media_ids", []))
 
+    # Ad performance — latest day's data
+    ads_history = sorted(metrics.get("ads", {}).items())
+    latest_ads  = ads_history[-1][1] if ads_history else {}
+    ad_impressions = latest_ads.get("impressions", 0)
+    ad_spend       = latest_ads.get("spend", 0.0)
+    ad_results     = latest_ads.get("results", 0)
+
+    # Post reach totals this week
+    total_reach = sum(
+        p.get("reach", 0) for p in metrics.get("posts", {}).values()
+        if p.get("tracked", "") >= (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    )
+    total_link_clicks = sum(
+        p.get("link_clicks", 0) for p in metrics.get("posts", {}).values()
+        if p.get("tracked", "") >= (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    )
+
     delta_str  = f"+{follower_delta}" if follower_delta >= 0 else str(follower_delta)
     delta_color = "#2a7a2a" if follower_delta >= 0 else "#c41e3a"
 
@@ -924,13 +1080,15 @@ def send_brand_report(secrets: dict):
         f"Brand Report — {today}",
         f"Facebook: {followers_now} followers ({delta_str} this week)",
         f"Instagram: {ig_followers} followers",
+        f"Organic reach this week: {total_reach:,} · Link clicks: {total_link_clicks}",
+        f"Ad impressions: {ad_impressions:,} · Spend: £{ad_spend:.2f} · Results: {ad_results}",
         f"Comments posted (cumulative): {comments_posted}",
     ]
     if top_post:
         pid, pm = top_post
         plain_lines += [
             f"\nTop post: \"{pm.get('preview', '')}...\"",
-            f"  {pm.get('likes', 0)} likes · {pm.get('comments', 0)} comments · {pm.get('shares', 0)} shares",
+            f"  {pm.get('likes', 0)} likes · {pm.get('comments', 0)} comments · {pm.get('shares', 0)} shares · {pm.get('reach', 0):,} reach",
         ]
     if follower_delta < 0:
         plain_lines.append("\n⚠️  Follower count dropped — review recent content.")
@@ -951,7 +1109,9 @@ def send_brand_report(secrets: dict):
         '<tr>'
         + _stat("FB followers", followers_now, f"{delta_str} this week", follower_delta < 0)
         + _stat("IG followers", ig_followers)
-        + _stat("Comments posted", comments_posted)
+        + _stat("Organic reach", f"{total_reach:,}")
+        + _stat("Ad impressions", f"{ad_impressions:,}", f"£{ad_spend:.2f} spend")
+        + _stat("Results", str(ad_results))
         + '</tr></table>'
     )
 
@@ -964,7 +1124,9 @@ def send_brand_report(secrets: dict):
             f'<p style="margin:0;font-size:13px;color:#0a0a0a;">'
             f'<strong>{pm.get("likes", 0)}</strong> likes &nbsp;·&nbsp; '
             f'<strong>{pm.get("comments", 0)}</strong> comments &nbsp;·&nbsp; '
-            f'<strong>{pm.get("shares", 0)}</strong> shares</p>'
+            f'<strong>{pm.get("shares", 0)}</strong> shares &nbsp;·&nbsp; '
+            f'<strong>{pm.get("reach", 0):,}</strong> reach &nbsp;·&nbsp; '
+            f'<strong>{pm.get("link_clicks", 0)}</strong> link clicks</p>'
         )
         sections.append({"heading": "Top post this week", "body": top_html})
 
