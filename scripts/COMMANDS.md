@@ -1,11 +1,30 @@
 # Battleship — Command Reference
-**Last updated:** 2026-03-13
+**Last updated:** 2026-03-15
 
 All pipeline commands run from the vault root:
 ```bash
 cd /Users/will/Obsidian-Vaults/BattleShip-Vault
 python3 scripts/battleship_pipeline.py [command]
 ```
+
+---
+
+## Quick Links
+
+| What | URL |
+|------|-----|
+| **Dashboard (local)** | http://localhost:5100 |
+| **Dashboard (phone / local WiFi)** | http://Mac-mini.local:5100 |
+| **Business Manager** | http://localhost:5100/business |
+| **Business Manager (external)** | https://webhook.battleshipreset.com/business |
+| **Read-only snapshot** | https://webhook.battleshipreset.com/snapshot?token=bsr2026 |
+| **Webhook endpoint** | https://webhook.battleshipreset.com/tally-webhook |
+| **Website** | https://battleshipreset.com |
+| **Intake form** | https://tally.so/r/rjK752 |
+| **Stripe payment link** | https://buy.stripe.com/3cI6oG79qefgb1CdhwejK00 |
+| **Google check-in form** | https://forms.gle/TkBjLWd5aotBGTDAA |
+| **Google Sheet (check-ins)** | https://docs.google.com/spreadsheets/d/1sgPM9incm9xezRKXQTNITBmdILcy4olTcYXKzJPdcmk |
+| **GitHub repo** | https://github.com/billbazza/BattleShip |
 
 ---
 
