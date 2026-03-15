@@ -2407,6 +2407,114 @@ def snapshot():
 
 # ── Entry ─────────────────────────────────────────────────────────────────────
 
+_LEGAL_PAGE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title }} — Battleship Reset</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+           background: #fff; color: #333; font-size: 15px; line-height: 1.8;
+           max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+    h1 { font-family: Georgia, serif; font-weight: normal; font-size: 28px;
+         color: #0a0a0a; margin-bottom: 8px; }
+    h2 { font-size: 16px; font-weight: 700; color: #0a0a0a; margin: 32px 0 8px; }
+    p, li { color: #444; margin-bottom: 12px; }
+    ul { margin-left: 20px; }
+    .meta { font-size: 13px; color: #999; margin-bottom: 40px; }
+    a { color: #c41e3a; }
+    .brand { font-family: Georgia, serif; letter-spacing: 2px; font-size: 13px;
+             text-transform: uppercase; color: #0a0a0a; border-bottom: 2px solid #c41e3a;
+             padding-bottom: 16px; margin-bottom: 32px; display: block; }
+  </style>
+</head>
+<body>
+<span class="brand">Battleship Reset</span>
+<h1>{{ title }}</h1>
+<p class="meta">Last updated: 15 March 2026 &middot; Battleship Reset &middot; battleshipreset.com</p>
+{{ body | safe }}
+</body></html>"""
+
+_PRIVACY_BODY = """
+<h2>1. Who we are</h2>
+<p>Battleship Reset is an online fitness coaching service for men aged 40–60, operated by Will Barratt, United Kingdom. Website: <a href="https://battleshipreset.com">battleshipreset.com</a>. Contact: <a href="mailto:coach@battleship.me">coach@battleship.me</a></p>
+
+<h2>2. What data we collect</h2>
+<ul>
+  <li><strong>Intake form data</strong> — name, email, age, weight, height, fitness goals, health notes — collected when you complete our quiz at battleshipreset.com.</li>
+  <li><strong>Payment data</strong> — processed by Stripe. We do not store card details.</li>
+  <li><strong>Check-in data</strong> — weekly progress submissions you send via our Google Form.</li>
+  <li><strong>Email correspondence</strong> — messages you send to coach@battleship.me or support@battleship.me.</li>
+  <li><strong>Social media interactions</strong> — comments and messages you send to our Facebook Page or Instagram account (@battleshipreset).</li>
+</ul>
+
+<h2>3. How we use your data</h2>
+<ul>
+  <li>To deliver your personalised 12-week coaching programme.</li>
+  <li>To send weekly check-in requests, education content, and coaching feedback by email.</li>
+  <li>To respond to comments and messages on our social media pages.</li>
+  <li>To process payments via Stripe.</li>
+  <li>To improve our service based on aggregated, anonymised feedback.</li>
+</ul>
+
+<h2>4. Legal basis (GDPR)</h2>
+<p>We process your data under <strong>contract</strong> (to deliver the coaching service you purchased), <strong>legitimate interests</strong> (to respond to enquiries and manage our social media), and <strong>consent</strong> (for marketing communications, which you can withdraw at any time).</p>
+
+<h2>5. Data retention</h2>
+<p>Client coaching data is retained for 2 years after your programme ends, then deleted. Enquiry data is retained for 12 months. You can request deletion at any time (see section 7).</p>
+
+<h2>6. Third parties</h2>
+<ul>
+  <li><strong>Stripe</strong> — payment processing (stripe.com/privacy)</li>
+  <li><strong>Google</strong> — check-in forms and workspace (policies.google.com/privacy)</li>
+  <li><strong>Anthropic / Claude API</strong> — used to generate personalised coaching content from your intake data (anthropic.com/privacy)</li>
+  <li><strong>Meta (Facebook/Instagram)</strong> — social media management (facebook.com/policy)</li>
+</ul>
+<p>We do not sell your data to any third party.</p>
+
+<h2>7. Your rights</h2>
+<p>Under GDPR you have the right to access, correct, or delete your personal data. To exercise any of these rights, email <a href="mailto:coach@battleship.me">coach@battleship.me</a> with the subject line "Data Request". We will respond within 30 days.</p>
+<p>You can also request data deletion directly at: <a href="https://webhook.battleshipreset.com/data-deletion">webhook.battleshipreset.com/data-deletion</a></p>
+
+<h2>8. Cookies</h2>
+<p>Our website (battleshipreset.com) does not use tracking cookies. Our coaching dashboard (webhook.battleshipreset.com) uses session cookies only for operational purposes.</p>
+
+<h2>9. Contact</h2>
+<p>Data controller: Will Barratt, Battleship Reset, United Kingdom.<br>
+Email: <a href="mailto:coach@battleship.me">coach@battleship.me</a></p>
+"""
+
+_DATA_DELETION_BODY = """
+<h2>How to request deletion of your data</h2>
+<p>To request deletion of your personal data held by Battleship Reset, please send an email to <a href="mailto:coach@battleship.me">coach@battleship.me</a> with the subject line <strong>"Data Deletion Request"</strong>.</p>
+<p>Include your name and the email address associated with your account. We will confirm deletion within 30 days.</p>
+
+<h2>What gets deleted</h2>
+<ul>
+  <li>Your intake form responses</li>
+  <li>Your weekly check-in data</li>
+  <li>Your email correspondence</li>
+  <li>Your coaching plan and progress tracker</li>
+</ul>
+<p>Payment records are retained for legal/tax purposes as required by UK law (7 years), but are not used for any other purpose after deletion.</p>
+
+<h2>Facebook / Instagram data</h2>
+<p>If you connected with us via Facebook or Instagram, you can also manage your data directly through Meta's tools at <a href="https://www.facebook.com/help/contact/540977946302970" target="_blank">facebook.com/help/contact/540977946302970</a>.</p>
+
+<h2>Contact</h2>
+<p>Email: <a href="mailto:coach@battleship.me">coach@battleship.me</a><br>
+Subject: Data Deletion Request</p>
+"""
+
+@app.route("/privacy")
+def privacy_policy():
+    return render_template_string(_LEGAL_PAGE, title="Privacy Policy", body=_PRIVACY_BODY)
+
+@app.route("/data-deletion")
+def data_deletion():
+    return render_template_string(_LEGAL_PAGE, title="Data Deletion", body=_DATA_DELETION_BODY)
+
+
 if __name__ == "__main__":
     print("\n  Battleship Dashboard → http://localhost:5100\n")
     app.run(host="127.0.0.1", port=5100, debug=False)
