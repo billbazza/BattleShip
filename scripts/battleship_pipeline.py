@@ -1145,19 +1145,23 @@ def parse_diagnosis_sections(md: str) -> dict:
     return {k: "\n".join(v).strip() for k, v in sections.items()}
 
 def send_email(secrets: dict, to: str, subject: str, plain_body: str, html_body: str = None):
+    # Accept both lowercase (pipeline) and uppercase (standalone bots) key names
+    smtp_host = secrets.get("smtp_host") or secrets.get("SMTP_HOST", "")
+    smtp_user = secrets.get("smtp_user") or secrets.get("SMTP_USER", "")
+    smtp_pass = secrets.get("smtp_pass") or secrets.get("SMTP_PASS", "")
     msg = MIMEMultipart("alternative")
     msg["Subject"]  = subject
-    msg["From"]     = f"Will @ Battleship <{secrets['smtp_user']}>"
+    msg["From"]     = f"Will @ Battleship <{smtp_user}>"
     msg["To"]       = to
     msg["Reply-To"] = COACH_EMAIL
     msg.attach(MIMEText(plain_body, "plain"))
     if html_body:
         msg.attach(MIMEText(html_body, "html"))
-    with smtplib.SMTP(secrets["smtp_host"], SMTP_PORT) as s:
+    with smtplib.SMTP(smtp_host, SMTP_PORT) as s:
         s.ehlo()
         s.starttls()
-        s.login(secrets["smtp_user"], secrets["smtp_pass"])
-        s.sendmail(secrets["smtp_user"], to, msg.as_string())
+        s.login(smtp_user, smtp_pass)
+        s.sendmail(smtp_user, to, msg.as_string())
     print(f"    📧 '{subject[:55]}' → {to}")
 
 
