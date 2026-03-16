@@ -2293,61 +2293,61 @@ function saveEditContent(id) {
     toggleEditContent(id);
   });
 }
+var _glIdeaId = null;
 function greenLightIdea(id) {
-  // Step 1: fetch photo candidates, then show picker
+  _glIdeaId = id;
+  const modal = document.getElementById('gl-modal');
+  const grid  = document.getElementById('gl-photo-grid');
+  const title = document.getElementById('gl-modal-title');
+  // Find idea title
+  const ideaEl = document.getElementById('idea-' + id) || document.getElementById('idea-mkt-' + id);
+  const titleText = ideaEl ? (ideaEl.querySelector('[style*="font-weight:600"]') || ideaEl).textContent.trim().split('\n')[0].trim() : '';
+  if (title) title.textContent = titleText ? 'Green light: ' + titleText.substring(0,50) : 'Pick a photo';
+  grid.innerHTML = '<div style="color:#888;font-size:13px;padding:20px 0">Loading photos...</div>';
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
   fetch('/api/photo-candidates')
     .then(r => r.json())
-    .then(data => _showPhotoPicker(id, data.candidates));
+    .then(data => {
+      const candidates = data.candidates || [];
+      if (!candidates.length) {
+        grid.innerHTML = '<div style="color:#888;font-size:13px">No photos in catalogue yet.</div>';
+        return;
+      }
+      grid.innerHTML = candidates.map(c => `
+        <div onclick="_confirmGreenLight('${c.id}')"
+             style="cursor:pointer;border:2px solid #252525;border-radius:6px;overflow:hidden;background:#111;-webkit-tap-highlight-color:transparent"
+             onmouseover="this.style.borderColor='#c41e3a'" onmouseout="this.style.borderColor='#252525'">
+          <img src="${c.url}" style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block" loading="lazy">
+          <div style="padding:8px 10px">
+            <div style="font-size:11px;font-weight:600;color:#ddd;text-transform:capitalize">${c.quality} · ${c.period}</div>
+            <div style="font-size:10px;color:#888;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(c.notes||'').substring(0,45)}</div>
+          </div>
+        </div>`).join('');
+    });
 }
-function _showPhotoPicker(ideaId, candidates) {
-  // Build inline picker inside the idea row
-  const el = document.getElementById('idea-' + ideaId) || document.getElementById('idea-mkt-' + ideaId);
-  if (!el) return;
-  let html = '<div style="background:#111;border-radius:4px;padding:14px;margin-top:8px">';
-  html += '<div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#888;margin-bottom:12px">Pick a photo for this post</div>';
-  html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">';
-  candidates.forEach(c => {
-    html += `<div onclick="_confirmGreenLight('${ideaId}','${c.id}')" style="cursor:pointer;border:2px solid #252525;border-radius:4px;overflow:hidden;width:120px;flex-shrink:0;transition:border-color 0.15s" onmouseover="this.style.borderColor='#c41e3a'" onmouseout="this.style.borderColor='#252525'">`;
-    html += `<img src="${c.url}" style="width:120px;height:90px;object-fit:cover;display:block" loading="lazy">`;
-    html += `<div style="padding:5px 6px;font-size:10px;color:#888">${c.quality} · ${c.period}</div>`;
-    if (c.notes) html += `<div style="padding:0 6px 5px;font-size:10px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.notes.substring(0,40)}</div>`;
-    html += '</div>';
-  });
-  html += '</div>';
-  html += `<button onclick="_confirmGreenLight('${ideaId}', null)" style="background:none;border:1px solid #444;color:#888;padding:5px 14px;border-radius:3px;font-size:11px;cursor:pointer;margin-right:8px">Skip photo</button>`;
-  html += `<button onclick="_cancelGreenLight('${ideaId}')" style="background:none;border:1px solid #333;color:#555;padding:5px 14px;border-radius:3px;font-size:11px;cursor:pointer">Cancel</button>`;
-  html += '</div>';
-  // Store original HTML so cancel works
-  el.dataset.originalHtml = el.innerHTML;
-  // Append picker below existing content
-  const picker = document.createElement('div');
-  picker.id = 'photo-picker-' + ideaId;
-  picker.innerHTML = html;
-  el.appendChild(picker);
-  // Hide the green light button
-  const btn = el.querySelector('button');
-  if (btn) btn.style.display = 'none';
+function _closeGlModal() {
+  document.getElementById('gl-modal').style.display = 'none';
+  document.body.style.overflow = '';
+  _glIdeaId = null;
 }
-function _cancelGreenLight(ideaId) {
-  const el = document.getElementById('idea-' + ideaId) || document.getElementById('idea-mkt-' + ideaId);
-  if (el && el.dataset.originalHtml) {
-    el.innerHTML = el.dataset.originalHtml;
-  }
-}
-function _confirmGreenLight(ideaId, photoId) {
-  const el = document.getElementById('idea-' + ideaId) || document.getElementById('idea-mkt-' + ideaId);
-  fetch('/api/ideas-bank/' + ideaId + '/green-light', {
+function _confirmGreenLight(photoId) {
+  const id = _glIdeaId;
+  if (!id) return;
+  _closeGlModal();
+  const ideaEl = document.getElementById('idea-' + id) || document.getElementById('idea-mkt-' + id);
+  fetch('/api/ideas-bank/' + id + '/green-light', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({photo_id: photoId})
   }).then(r => r.json()).then(() => {
-    if (el) {
-      const msg = photoId
-        ? '✅ Green lit with photo — post draft being generated...'
-        : '✅ Green lit — post draft being generated...';
-      el.innerHTML = '<span style="color:#2a9d4e;padding:8px 0;display:block">' + msg + '</span>';
-    }
+    [document.getElementById('idea-' + id), document.getElementById('idea-mkt-' + id)].forEach(el => {
+      if (el) el.innerHTML = '<div style="color:#2a9d4e;padding:10px 0;font-size:13px">✅ Green lit' + (photoId ? ' with photo' : '') + ' — post draft being generated...</div>';
+    });
   });
+}
+function _skipGlPhoto() {
+  _confirmGreenLight(null);
 }
 function archiveIdea(id) {
   fetch('/api/ideas-bank/' + id + '/archive', {method:'POST'})
@@ -2416,6 +2416,21 @@ function togglePost(id) {
   body.classList.toggle('open');
 }
 </script>
+
+<!-- Photo picker modal -->
+<div id="gl-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:16px;box-sizing:border-box" onclick="if(event.target===this)_closeGlModal()">
+  <div style="background:#1a1a1a;border-radius:8px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:22px;box-sizing:border-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div id="gl-modal-title" style="font-size:13px;font-weight:600;color:#ddd;flex:1;margin-right:12px">Pick a photo</div>
+      <button onclick="_closeGlModal()" style="background:none;border:none;color:#666;font-size:20px;cursor:pointer;padding:0;line-height:1">&times;</button>
+    </div>
+    <div id="gl-photo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="_skipGlPhoto()" style="flex:1;background:none;border:1px solid #555;color:#aaa;padding:10px;border-radius:4px;font-size:13px;cursor:pointer;min-width:120px">No photo — text only</button>
+      <button onclick="_closeGlModal()" style="background:none;border:1px solid #333;color:#666;padding:10px 18px;border-radius:4px;font-size:13px;cursor:pointer">Cancel</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>"""
