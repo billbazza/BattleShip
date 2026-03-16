@@ -10,6 +10,7 @@ import os
 import socket
 import subprocess
 import sys
+import requests as _requests
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,6 +35,11 @@ REMINDERS_FILE           = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
 ROADMAP_FILE             = VAULT_ROOT / "roadmap.md"
 FINANCES_FILE            = VAULT_ROOT / "finances.md"
 BIZ_HISTORY_FILE         = CLIENTS_DIR / "business_metrics_history.json"
+MORNING_BRIEFING_FILE    = CLIENTS_DIR / "morning_briefing.json"
+PHOTO_REVIEW_FILE        = CLIENTS_DIR / "photo_review_state.json"
+PHOTO_DROP_DIR           = Path("/Users/will/Desktop/Battleship-review-pics")
+CONTENT_REVIEW_FILE      = CLIENTS_DIR / "content_review.json"
+IDEAS_BANK_FILE          = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
 
 app = Flask(__name__)
 
@@ -1350,6 +1356,70 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     .impact-medium   { color: #888; }
     .impact-low      { color: #555; }
 
+    /* ── Bot sections ── */
+    .bot-section { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
+                   margin-bottom: 10px; overflow: hidden; }
+    .bot-header  { display: flex; align-items: center; justify-content: space-between;
+                   padding: 14px 18px; cursor: pointer; user-select: none; gap: 12px; }
+    .bot-header:hover { background: #1f1f1f; }
+    .bot-title   { display: flex; align-items: center; gap: 10px; }
+    .bot-icon    { font-size: 16px; width: 24px; text-align: center; }
+    .bot-name    { font-size: 13px; font-weight: 600; color: #ddd; letter-spacing: 0.5px; }
+    .bot-last-run{ font-size: 11px; color: #444; }
+    .bot-badges  { display: flex; gap: 6px; align-items: center; }
+    .bot-badge   { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
+    .bb-alert    { background: #2a0810; color: #c41e3a; }
+    .bb-warn     { background: #2a1800; color: #e8a020; }
+    .bb-ok       { background: #001a0a; color: #2a9d4e; }
+    .bb-info     { background: #1a1a2a; color: #7777cc; }
+    .bot-chevron { font-size: 10px; color: #444; transition: transform 0.2s; }
+    .bot-body    { border-top: 1px solid #222; padding: 18px; display: none; }
+    .bot-body.open { display: block; }
+
+    /* ── Post cards (expandable) ── */
+    .post-card   { background: #111; border-radius: 4px; margin-bottom: 10px;
+                   border: 1px solid #1e1e1e; overflow: hidden; }
+    .post-card-header { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px;
+                        cursor: pointer; }
+    .post-card-header:hover { background: #161616; }
+    .post-thumb  { width: 56px; height: 56px; object-fit: cover; border-radius: 3px;
+                   flex-shrink: 0; background: #222; }
+    .post-thumb-placeholder { width: 56px; height: 56px; border-radius: 3px; flex-shrink: 0;
+                               background: #1e1e1e; display: flex; align-items: center;
+                               justify-content: center; font-size: 20px; color: #333; }
+    .post-meta   { flex: 1; min-width: 0; }
+    .post-theme  { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+                   color: #555; margin-bottom: 4px; }
+    .post-preview{ font-size: 13px; color: #ccc; white-space: nowrap; overflow: hidden;
+                   text-overflow: ellipsis; }
+    .post-status { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 700;
+                   white-space: nowrap; flex-shrink: 0; align-self: center; }
+    .ps-pending_review { background: #2a1800; color: #e8a020; }
+    .ps-approved       { background: #001a0a; color: #2a9d4e; }
+    .ps-posted         { background: #001a2a; color: #4a9fd4; }
+    .ps-rejected       { background: #1e1e1e; color: #444; }
+    .post-scheduled    { background: #1a0a20; color: #9b59b6; }
+    .post-body { padding: 0 14px 14px; border-top: 1px solid #1e1e1e; display: none; }
+    .post-body.open { display: block; }
+    .post-full-text { font-size: 13px; color: #aaa; line-height: 1.7; white-space: pre-wrap;
+                      margin: 12px 0; }
+    .post-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .post-edit-area { display: none; width: 100%; margin-top: 10px; }
+    .post-edit-area textarea { width: 100%; background: #0a0a0a; border: 1px solid #c41e3a;
+      color: #ccc; padding: 10px; border-radius: 3px; font-size: 13px;
+      font-family: inherit; resize: vertical; min-height: 140px; box-sizing: border-box; }
+
+    /* ── Post schedule calendar ── */
+    .schedule-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .schedule-slot { flex: 1; min-width: 160px; background: #111; border-radius: 4px;
+                     padding: 10px 12px; border-left: 3px solid #333; }
+    .schedule-slot.has-post { border-left-color: #c41e3a; }
+    .schedule-slot.posted   { border-left-color: #4a9fd4; }
+    .schedule-day  { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+                     color: #555; margin-bottom: 4px; }
+    .schedule-date { font-size: 13px; color: #888; margin-bottom: 6px; }
+    .schedule-theme{ font-size: 12px; color: #ccc; }
+
     /* ── Weekly targets ── */
     .targets-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
                     padding: 22px; margin-bottom: 32px; }
@@ -1417,6 +1487,401 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     <div class="kpi-card">
       <div class="kpi-label">Week</div>
       <div class="kpi-value">{{ campaign_week }} <span style="font-size:14px;color:#444;font-weight:400">/ 12</span></div>
+    </div>
+  </div>
+
+  <!-- B2. Morning Briefing -->
+  {% if briefing %}
+  <div class="section-label" id="briefing-section">
+    Morning Briefing
+    <span style="font-size:10px;color:#444;font-weight:400;margin-left:8px;text-transform:none;letter-spacing:0">{{ briefing.get('today','') }}</span>
+    <button onclick="toggleBriefing()" id="briefing-toggle" style="float:right;background:none;border:1px solid #333;color:#666;font-size:10px;padding:2px 10px;border-radius:3px;cursor:pointer;text-transform:uppercase;letter-spacing:1px">Collapse</button>
+  </div>
+  <div id="briefing-body" style="display:block">
+    <!-- Pulse row -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+      {% set pulse = briefing.get('pulse',{}) %}
+      <div style="background:#111;border-radius:4px;padding:14px;text-align:center">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">MRR</div>
+        <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">£{{ pulse.get('mrr',0)|int }}</div>
+        <div style="font-size:11px;color:#555">/ £3,000</div>
+      </div>
+      <div style="background:#111;border-radius:4px;padding:14px;text-align:center">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Leads 7d</div>
+        <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">{{ pulse.get('leads_week',0) }}</div>
+        <div style="font-size:11px;color:#555">this week</div>
+      </div>
+      <div style="background:#111;border-radius:4px;padding:14px;text-align:center">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Ad Spend</div>
+        <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">£{{ "%.2f"|format(pulse.get('ad_spend_7d',0)) }}</div>
+        <div style="font-size:11px;color:#555">7 days</div>
+      </div>
+    </div>
+    <!-- Agent briefs -->
+    {% set agents = briefing.get('agents',{}) %}
+    {% for key, icon, label in [('clients','👥','Clients'),('ads','📣','Ads'),('brand','📊','Brand'),('seo','🔍','SEO'),('tech','⚙️','Tech')] %}
+    {% if key in agents %}
+    <div style="background:#111;border-radius:4px;padding:10px 14px;margin-bottom:6px;display:flex;gap:12px;align-items:flex-start">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;min-width:70px;padding-top:2px">{{ icon }} {{ label }}</span>
+      <div>
+        <span style="color:#ccc;font-size:13px">{{ agents[key].get('summary','') }}</span>
+        <span style="color:#666;font-size:12px;font-style:italic"> → {{ agents[key].get('next_action','') }}</span>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    <!-- Horizon -->
+    {% set horizon = briefing.get('horizon',{}) %}
+    <div style="border-left:3px solid #c41e3a;padding:10px 14px;background:#1a0a04;border-radius:0 4px 4px 0;margin-top:10px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#c41e3a">Today</div>
+      <div style="color:#e8d5b0;font-size:14px;font-weight:600;margin-top:4px">{{ horizon.get('today','') }}</div>
+    </div>
+    <div style="background:#111;border-radius:4px;padding:10px 14px;margin-top:6px">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">5 Days: </span>
+      <span style="color:#ccc;font-size:13px">{{ horizon.get('five_days','') }}</span>
+    </div>
+    <div style="background:#111;border-radius:4px;padding:10px 14px;margin-top:6px;margin-bottom:4px">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">30 Days: </span>
+      <span style="color:#ccc;font-size:13px">{{ horizon.get('thirty_days','') }}</span>
+    </div>
+    <div style="font-size:11px;color:#333;padding:6px 0">Generated {{ briefing.get('generated_at','')[:16] }}</div>
+  </div>
+  {% endif %}
+
+  <!-- B3. Content Review -->
+  <div class="section-label" id="content-review-section">
+    Content Review
+    {% if pending_content %}<span style="background:#c41e3a;color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700">{{ pending_content | length }}</span>{% endif %}
+    {% if ideas_drafts %}<span style="background:#3a2000;color:#e8a020;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:6px;font-weight:700">{{ ideas_drafts | length }} idea{{ 's' if ideas_drafts | length != 1 }} to green light</span>{% endif %}
+  </div>
+
+  <!-- Ideas bank -->
+  {% if ideas_drafts %}
+  <div style="background:#111;border-radius:4px;padding:12px 16px;margin-bottom:8px;border-left:3px solid #e8a020">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#e8a020;margin-bottom:10px">💡 Ideas Bank — Awaiting Green Light</div>
+    {% for idea in ideas_drafts %}
+    <div style="padding:8px 0;border-bottom:1px solid #1e1e1e;display:flex;justify-content:space-between;align-items:flex-start;gap:12px" id="idea-{{ idea.id }}">
+      <div style="flex:1">
+        <div style="color:#fff;font-size:13px;font-weight:600">{{ idea.title }}</div>
+        <div style="color:#777;font-size:12px;margin-top:3px">{{ idea.angle[:120] }}{% if idea.angle | length > 120 %}…{% endif %}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button onclick="greenLightIdea('{{ idea.id }}')" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer">✅ Green light</button>
+        <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer">Archive</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Pending post drafts -->
+  <div class="rem-card">
+    {% if pending_content %}
+    {% for post in pending_content %}
+    <div class="rem-item" id="cr-{{ post.id }}" style="align-items:flex-start;flex-direction:column">
+      <div style="display:flex;gap:10px;align-items:center;width:100%;margin-bottom:8px">
+        <span class="rem-badge" style="background:#1a0a20;color:#9b59b6">{{ post.source }}</span>
+        <span style="color:#555;font-size:11px">{{ post.theme }} · {{ post.created[:10] }}</span>
+      </div>
+      <div id="cr-text-{{ post.id }}" style="color:#ccc;font-size:13px;line-height:1.6;white-space:pre-wrap;background:#111;padding:12px;border-radius:4px;width:100%;box-sizing:border-box">{{ post.content }}</div>
+      <textarea id="cr-edit-{{ post.id }}" style="display:none;color:#ccc;font-size:13px;line-height:1.6;background:#111;padding:12px;border-radius:4px;width:100%;box-sizing:border-box;border:1px solid #c41e3a;min-height:160px;font-family:inherit">{{ post.content }}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button onclick="approveContent('{{ post.id }}')" class="rem-btn done">✅ Approve &amp; queue</button>
+        <button onclick="toggleEditContent('{{ post.id }}')" id="edit-btn-{{ post.id }}" class="rem-btn" style="border-color:#9b59b6;color:#9b59b6">✏️ Edit</button>
+        <button onclick="saveEditContent('{{ post.id }}')" id="save-btn-{{ post.id }}" class="rem-btn" style="display:none;border-color:#2a9d4e;color:#2a9d4e">Save edit</button>
+        <button onclick="rejectContent('{{ post.id }}')" class="rem-btn" style="border-color:#c41e3a;color:#c41e3a">❌ Reject</button>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="color:#444;font-size:13px;font-style:italic;padding:12px 0">No content pending review. Posts are drafted Mon/Wed/Fri by Facebook Bot.</div>
+    {% endif %}
+  </div>
+
+  <!-- B4. Bot Activity -->
+  <div class="section-label" style="margin-top:32px">Bot Activity</div>
+
+  <!-- Facebook Bot -->
+  <div class="bot-section">
+    <div class="bot-header" onclick="toggleBot('fb')">
+      <div class="bot-title">
+        <span class="bot-icon">📘</span>
+        <div>
+          <div class="bot-name">Facebook Bot</div>
+          <div class="bot-last-run">Posts: Mon · Wed · Fri</div>
+        </div>
+      </div>
+      <div class="bot-badges">
+        {% set fb_pending = all_content | selectattr('status','equalto','pending_review') | list %}
+        {% set fb_posted  = all_content | selectattr('status','equalto','posted') | list %}
+        {% if fb_pending %}<span class="bot-badge bb-warn">{{ fb_pending|length }} pending</span>{% endif %}
+        {% if fb_posted  %}<span class="bot-badge bb-ok">{{ fb_posted|length }} posted</span>{% endif %}
+        {% if not fb_pending and not fb_posted %}<span class="bot-badge bb-info">No drafts yet</span>{% endif %}
+      </div>
+      <span class="bot-chevron" id="chev-fb">&#9660;</span>
+    </div>
+    <div class="bot-body" id="body-fb">
+      <!-- Post schedule calendar -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:10px">Upcoming Schedule</div>
+      <div class="schedule-row">
+        {% for slot in fb_schedule %}
+        {% set day_posts = posted_by_date.get(slot.date, []) %}
+        <div class="schedule-slot {% if day_posts %}has-post{% endif %}">
+          <div class="schedule-day">{{ slot.day }}</div>
+          <div class="schedule-date">{{ slot.date }}</div>
+          {% if day_posts %}
+          <div class="schedule-theme">{{ day_posts[0].get('theme','—') }}</div>
+          {% else %}
+          <div class="schedule-theme" style="color:#333;font-style:italic">No post assigned</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <!-- Content queue -->
+      {% if all_content %}
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:10px;margin-top:6px">Content Queue</div>
+      {% for post in all_content | sort(attribute='created', reverse=True) | list %}
+      <div class="post-card" id="pc-{{ post.id }}">
+        <div class="post-card-header" onclick="togglePost('{{ post.id }}')">
+          <div class="post-thumb-placeholder">&#128444;</div>
+          <div class="post-meta">
+            <div class="post-theme">{{ post.get('theme','—') }} · {{ post.get('created','')[:10] }}</div>
+            <div class="post-preview">{{ post.get('content','')[:100] }}</div>
+          </div>
+          <span class="post-status ps-{{ post.get('status','pending_review') }}">{{ post.get('status','—').replace('_',' ') }}</span>
+        </div>
+        <div class="post-body" id="pb-{{ post.id }}">
+          <div class="post-full-text">{{ post.get('content','') }}</div>
+          {% if post.get('status') == 'pending_review' %}
+          <div class="post-actions">
+            <button onclick="approveContent('{{ post.id }}')" class="rem-btn done">&#10003; Approve &amp; queue</button>
+            <button onclick="toggleEditContent('{{ post.id }}')" id="edit-btn-{{ post.id }}" class="rem-btn" style="border-color:#9b59b6;color:#9b59b6">&#9998; Edit</button>
+            <button onclick="saveEditContent('{{ post.id }}')" id="save-btn-{{ post.id }}" class="rem-btn" style="display:none;border-color:#2a9d4e;color:#2a9d4e">Save</button>
+            <button onclick="rejectContent('{{ post.id }}')" class="rem-btn" style="border-color:#c41e3a;color:#c41e3a">&#10005; Reject</button>
+          </div>
+          <div class="post-edit-area" id="cr-edit-wrap-{{ post.id }}">
+            <textarea id="cr-edit-{{ post.id }}">{{ post.get('content','') }}</textarea>
+          </div>
+          {% endif %}
+          <div style="font-size:11px;color:#333;margin-top:8px">Source: {{ post.get('source','—') }} · ID: {{ post.id }}</div>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="color:#444;font-size:13px;font-style:italic">No content in queue. Facebook Bot drafts posts Mon/Wed/Fri.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Marketing Bot -->
+  <div class="bot-section">
+    <div class="bot-header" onclick="toggleBot('mkt')">
+      <div class="bot-title">
+        <span class="bot-icon">📣</span>
+        <div>
+          <div class="bot-name">Marketing Bot</div>
+          <div class="bot-last-run">Ideas bank · content arc · direction check</div>
+        </div>
+      </div>
+      <div class="bot-badges">
+        {% set green_lit = all_ideas | selectattr('status','equalto','green_lit') | list %}
+        {% set developed = all_ideas | selectattr('status','equalto','developed') | list %}
+        {% set drafts    = all_ideas | selectattr('status','equalto','draft') | list %}
+        {% if green_lit %}<span class="bot-badge bb-ok">{{ green_lit|length }} green lit</span>{% endif %}
+        {% if drafts    %}<span class="bot-badge bb-warn">{{ drafts|length }} draft{% if drafts|length != 1 %}s{% endif %}</span>{% endif %}
+        {% if developed %}<span class="bot-badge bb-info">{{ developed|length }} developed</span>{% endif %}
+      </div>
+      <span class="bot-chevron" id="chev-mkt">&#9660;</span>
+    </div>
+    <div class="bot-body" id="body-mkt">
+      <!-- Arc position -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">Content Arc</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">
+        {% for phase in arc_phases %}
+        <div style="padding:6px 12px;border-radius:20px;font-size:11px;{% if loop.index0 == arc_phase_index %}background:#c41e3a;color:#fff;font-weight:700{% else %}background:#1e1e1e;color:#555{% endif %}">{{ phase }}</div>
+        {% endfor %}
+      </div>
+      <!-- Ideas bank -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">Ideas Bank</div>
+      {% if all_ideas %}
+      {% for idea in all_ideas %}
+      <div style="background:#111;border-radius:4px;padding:12px 14px;margin-bottom:8px;border-left:3px solid {% if idea.status == 'green_lit' %}#2a9d4e{% elif idea.status == 'developed' %}#4a9fd4{% elif idea.status == 'archived' %}#333{% else %}#e8a020{% endif %}" id="idea-mkt-{{ idea.id }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div style="flex:1">
+            <div style="color:#fff;font-size:13px;font-weight:600">{{ idea.title }}
+              <span style="font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;{% if idea.status == 'green_lit' %}background:#001a0a;color:#2a9d4e{% elif idea.status == 'developed' %}background:#001a2a;color:#4a9fd4{% elif idea.status == 'archived' %}background:#1e1e1e;color:#444{% else %}background:#2a1800;color:#e8a020{% endif %}">{{ idea.status.replace('_',' ') }}</span>
+            </div>
+            <div style="color:#777;font-size:12px;margin-top:4px;line-height:1.5">{{ idea.angle }}</div>
+            {% if idea.green_lit %}<div style="color:#333;font-size:11px;margin-top:4px">Green lit: {{ idea.green_lit[:10] }}</div>{% endif %}
+          </div>
+          {% if idea.status == 'draft' %}
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button onclick="greenLightIdea('{{ idea.id }}')" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer">Green light</button>
+            <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer">Archive</button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="color:#444;font-size:13px;font-style:italic">No ideas yet. Add ideas via Telegram evening check-in.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Brand Manager -->
+  <div class="bot-section">
+    <div class="bot-header" onclick="toggleBot('brand')">
+      <div class="bot-title">
+        <span class="bot-icon">🖼</span>
+        <div>
+          <div class="bot-name">Brand Manager</div>
+          <div class="bot-last-run">Photo catalogue · review queue</div>
+        </div>
+      </div>
+      <div class="bot-badges">
+        {% if catalogue_stats.pending_review_photos > 0 %}<span class="bot-badge bb-warn">{{ catalogue_stats.pending_review_photos }} to review</span>{% endif %}
+        <span class="bot-badge bb-info">{{ catalogue_stats.total }} in catalogue</span>
+      </div>
+      <span class="bot-chevron" id="chev-brand">&#9660;</span>
+    </div>
+    <div class="bot-body" id="body-brand">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+        <div style="background:#111;border-radius:4px;padding:12px;text-align:center">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Total Photos</div>
+          <div style="font-size:24px;font-weight:700;color:#fff;margin-top:4px">{{ catalogue_stats.total }}</div>
+        </div>
+        <div style="background:#111;border-radius:4px;padding:12px;text-align:center">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Best Quality</div>
+          <div style="font-size:24px;font-weight:700;color:#2a9d4e;margin-top:4px">{{ catalogue_stats.best }}</div>
+        </div>
+        <div style="background:#111;border-radius:4px;padding:12px;text-align:center">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Good</div>
+          <div style="font-size:24px;font-weight:700;color:#e8a020;margin-top:4px">{{ catalogue_stats.good }}</div>
+        </div>
+      </div>
+      {% if pending_photos %}
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">Pending Photo Review</div>
+      {% for photo in pending_photos %}
+      <div style="display:flex;gap:12px;align-items:center;background:#111;border-radius:4px;padding:10px 14px;margin-bottom:8px" id="photo-{{ photo.id }}">
+        <div style="font-size:20px">🖼</div>
+        <div style="flex:1">
+          <div style="color:#ccc;font-size:13px">{{ photo.path | replace('/Users/will/','~/') }}</div>
+          <div style="color:#555;font-size:11px;margin-top:2px">{{ photo.get('notes','') }}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="approvePhoto('{{ photo.id }}')" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer">&#10003; Use</button>
+          <button onclick="rejectPhoto('{{ photo.id }}')" style="background:none;border:1px solid #444;color:#666;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer">Skip</button>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="color:#444;font-size:13px;font-style:italic">No photos pending review. Drop images into ~/Desktop/Battleship-review-pics to queue them.</div>
+      {% endif %}
+      <div style="color:#333;font-size:11px;margin-top:12px">Drop folder: ~/Desktop/Battleship-review-pics</div>
+    </div>
+  </div>
+
+  <!-- SEO Bot -->
+  <div class="bot-section">
+    <div class="bot-header" onclick="toggleBot('seo')">
+      <div class="bot-title">
+        <span class="bot-icon">🔍</span>
+        <div>
+          <div class="bot-name">SEO Bot</div>
+          <div class="bot-last-run">Google Business Profile · local search</div>
+        </div>
+      </div>
+      <div class="bot-badges">
+        <span class="bot-badge bb-info">{{ seo_complete }}/{{ seo_tasks|length }} tasks</span>
+        {% set seo_pending_will = seo_tasks | selectattr('cls','equalto','pending') | list %}
+        {% if seo_pending_will %}<span class="bot-badge bb-warn">{{ seo_pending_will|length }} waiting on you</span>{% endif %}
+      </div>
+      <span class="bot-chevron" id="chev-seo">&#9660;</span>
+    </div>
+    <div class="bot-body" id="body-seo">
+      {% for task in seo_tasks %}
+      <div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #1a1a1a">
+        <span style="font-size:14px;width:20px;text-align:center">{{ task.icon }}</span>
+        <span style="font-size:13px;color:{% if task.cls == 'complete' %}#2a9d4e{% elif task.cls == 'pending' %}#e8a020{% elif task.cls == 'current' %}#4a9fd4{% else %}#444{% endif %}">{{ task.name }}</span>
+        {% if task.cls == 'pending' %}<span style="font-size:10px;color:#e8a020;margin-left:auto">Action needed</span>{% endif %}
+        {% if task.cls == 'current' %}<span style="font-size:10px;color:#4a9fd4;margin-left:auto">In progress</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Tech Bot -->
+  <div class="bot-section">
+    <div class="bot-header" onclick="toggleBot('tech')">
+      <div class="bot-title">
+        <span class="bot-icon">⚙️</span>
+        <div>
+          <div class="bot-name">Tech Bot</div>
+          <div class="bot-last-run">Infrastructure · integrations · automation</div>
+        </div>
+      </div>
+      <div class="bot-badges">
+        {% set tech_high = tech_gaps | selectattr('priority','equalto','high') | list if tech_gaps and tech_gaps[0] is mapping else [] %}
+        {% if tech_high %}<span class="bot-badge bb-alert">{{ tech_high|length }} high priority</span>{% endif %}
+        <span class="bot-badge bb-info">{{ tech_gaps|length }} items</span>
+      </div>
+      <span class="bot-chevron" id="chev-tech">&#9660;</span>
+    </div>
+    <div class="bot-body" id="body-tech">
+      {% if tech_gaps %}
+      {% for gap in tech_gaps %}
+      {% if gap is mapping %}
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #1a1a1a">
+        <span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;flex-shrink:0;margin-top:2px;{% if gap.get('priority') == 'high' %}background:#2a0810;color:#c41e3a{% elif gap.get('priority') == 'medium' %}background:#2a1800;color:#e8a020{% else %}background:#1a1a2a;color:#555{% endif %}">{{ gap.get('priority','—') }}</span>
+        <div>
+          <div style="color:#ccc;font-size:13px">{{ gap.get('description', gap.get('gap', gap)) }}</div>
+          {% if gap.get('impact') %}<div style="color:#555;font-size:11px;margin-top:2px">Impact: {{ gap.impact }}</div>{% endif %}
+        </div>
+      </div>
+      {% else %}
+      <div style="color:#ccc;font-size:13px;padding:6px 0;border-bottom:1px solid #1a1a1a">{{ gap }}</div>
+      {% endif %}
+      {% endfor %}
+      {% else %}
+      <div style="color:#444;font-size:13px;font-style:italic">No tech backlog items.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Accounts Bot -->
+  <div class="bot-section">
+    <div class="bot-header" onclick="toggleBot('accounts')">
+      <div class="bot-title">
+        <span class="bot-icon">💳</span>
+        <div>
+          <div class="bot-name">Accounts Bot</div>
+          <div class="bot-last-run">P&amp;L · client billing · cash flow</div>
+        </div>
+      </div>
+      <div class="bot-badges">
+        <span class="bot-badge {% if net >= 0 %}bb-ok{% else %}bb-alert{% endif %}">Net £{{ "%.0f"|format(net) }}</span>
+        <span class="bot-badge bb-info">{{ active_clients }} client{{ 's' if active_clients != 1 }}</span>
+      </div>
+      <span class="bot-chevron" id="chev-accounts">&#9660;</span>
+    </div>
+    <div class="bot-body" id="body-accounts">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+        <div style="background:#111;border-radius:4px;padding:14px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">MRR</div>
+          <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">£{{ "%.0f"|format(mrr) }}</div>
+          <div style="font-size:11px;color:#555">Target: £3,000</div>
+          <div style="background:#1a1a1a;border-radius:3px;height:4px;margin-top:8px;overflow:hidden">
+            <div style="height:100%;background:#c41e3a;width:{{ [mrr/3000*100,100]|min|int }}%"></div>
+          </div>
+        </div>
+        <div style="background:#111;border-radius:4px;padding:14px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Monthly Spend</div>
+          <div style="font-size:22px;font-weight:700;color:#e8a020;margin-top:4px">£{{ "%.2f"|format(spend) }}</div>
+          <div style="font-size:11px;color:#555;margin-top:4px">Net: <span style="color:{% if net >= 0 %}#2a9d4e{% else %}#c41e3a{% endif %}">£{{ "%.2f"|format(net) }}</span></div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#333;margin-top:12px">Active clients: {{ active_clients }} · Gap to £3k: £{{ "%.0f"|format(gap) }}</div>
     </div>
   </div>
 
@@ -1586,6 +2051,34 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     {% endif %}
   </div>
 
+  <!-- H2. Photo Review -->
+  <div class="section-label" id="photo-review-section">
+    Photo Review
+    {% if pending_photos %}<span style="background:#e8a020;color:#000;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700">{{ pending_photos | length }}</span>{% endif %}
+  </div>
+  <div class="rem-card">
+    {% if pending_photos %}
+    {% for photo in pending_photos %}
+    <div class="rem-item" id="photo-{{ photo.id }}" style="align-items:flex-start">
+      <span class="rem-badge" style="background:#3a2000;color:#e8a020">📸</span>
+      <div class="rem-body" style="flex:1">
+        <div class="rem-title">{{ photo.filename }}</div>
+        <div class="rem-desc">{{ photo.caption_hint }}</div>
+        <div class="rem-meta">Source: {{ photo.source }} · Added {{ photo.created_at[:10] }}</div>
+        <div class="rem-actions" style="margin-top:8px">
+          <button class="rem-btn done" onclick="approvePhoto('{{ photo.id }}')">✅ Post it</button>
+          <button class="rem-btn" style="border-color:#c41e3a;color:#c41e3a" onclick="rejectPhoto('{{ photo.id }}')">❌ Skip</button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="color:#444;font-size:13px;font-style:italic;padding:12px 0">
+      No photos pending review. Drop images into <code style="color:#666">/Users/will/Desktop/Battleship-review-pics/</code> to queue them.
+    </div>
+    {% endif %}
+  </div>
+
   <!-- I. Roadmap -->
   <div class="section-label">Feature Roadmap</div>
   <div class="roadmap-card">
@@ -1744,6 +2237,93 @@ function submitPivot(id) {
     const el = document.getElementById('rem-' + id);
     if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
   });
+}
+function approveContent(id) {
+  fetch('/api/content-review/' + id + '/approve', {method:'POST'})
+    .then(r => r.json()).then(() => {
+      const el = document.getElementById('cr-' + id);
+      if (el) el.innerHTML = '<span style="color:#2a9d4e;padding:8px 0;display:block">✅ Approved and queued for posting.</span>';
+    });
+}
+function rejectContent(id) {
+  fetch('/api/content-review/' + id + '/reject', {method:'POST'})
+    .then(r => r.json()).then(() => {
+      const el = document.getElementById('cr-' + id);
+      if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+    });
+}
+function toggleEditContent(id) {
+  const view = document.getElementById('cr-text-' + id);
+  const edit = document.getElementById('cr-edit-' + id);
+  const editBtn = document.getElementById('edit-btn-' + id);
+  const saveBtn = document.getElementById('save-btn-' + id);
+  const editing = edit.style.display !== 'none';
+  view.style.display = editing ? 'block' : 'none';
+  edit.style.display = editing ? 'none' : 'block';
+  editBtn.style.display = editing ? 'inline-block' : 'none';
+  saveBtn.style.display = editing ? 'none' : 'inline-block';
+}
+function saveEditContent(id) {
+  const text = document.getElementById('cr-edit-' + id)?.value?.trim();
+  if (!text) return;
+  fetch('/api/content-review/' + id + '/edit', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({content: text})
+  }).then(r => r.json()).then(() => {
+    document.getElementById('cr-text-' + id).textContent = text;
+    toggleEditContent(id);
+  });
+}
+function greenLightIdea(id) {
+  fetch('/api/ideas-bank/' + id + '/green-light', {method:'POST'})
+    .then(r => r.json()).then(() => {
+      const el = document.getElementById('idea-' + id);
+      if (el) el.innerHTML = '<span style="color:#2a9d4e;padding:8px 0;display:block">✅ Green lit — post draft being generated...</span>';
+    });
+}
+function archiveIdea(id) {
+  fetch('/api/ideas-bank/' + id + '/archive', {method:'POST'})
+    .then(r => r.json()).then(() => {
+      const el = document.getElementById('idea-' + id);
+      if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+    });
+}
+function approvePhoto(id) {
+  fetch('/api/photo-review/' + id + '/approve', {method:'POST'})
+    .then(r => r.json())
+    .then(() => {
+      const el = document.getElementById('photo-' + id);
+      if (el) { el.innerHTML = '<span style="color:#2a9d4e;padding:8px 0;display:block">✅ Approved — queued for posting</span>'; }
+    });
+}
+function rejectPhoto(id) {
+  fetch('/api/photo-review/' + id + '/reject', {method:'POST'})
+    .then(r => r.json())
+    .then(() => {
+      const el = document.getElementById('photo-' + id);
+      if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+    });
+}
+function toggleBriefing() {
+  const body = document.getElementById('briefing-body');
+  const btn  = document.getElementById('briefing-toggle');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (btn) btn.textContent = open ? 'Expand' : 'Collapse';
+}
+function toggleBot(id) {
+  const body  = document.getElementById('body-' + id);
+  const chev  = document.getElementById('chev-' + id);
+  if (!body) return;
+  const open = body.classList.contains('open');
+  body.classList.toggle('open', !open);
+  if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
+}
+function togglePost(id) {
+  const body = document.getElementById('pb-' + id);
+  if (!body) return;
+  body.classList.toggle('open');
 }
 </script>
 
@@ -2281,6 +2861,17 @@ def _build_business_context():
     pending_reminders = [r for r in rem_data.get("reminders", []) if r.get("status") == "pending"]
     pivot_notes       = rem_data.get("pivot_notes", [])
 
+    # ── Morning briefing ──────────────────────────────────────────────────────
+    briefing      = _load_json_safe(MORNING_BRIEFING_FILE, {})
+    photo_review  = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
+    pending_photos = [c for c in photo_review.get("candidates", []) if c.get("status") == "pending"]
+
+    # ── Content review ────────────────────────────────────────────────────────
+    content_review  = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
+    pending_content = [p for p in content_review.get("posts", []) if p.get("status") == "pending_review"]
+    ideas_data      = _load_json_safe(IDEAS_BANK_FILE, {"ideas": []})
+    ideas_drafts    = [i for i in ideas_data.get("ideas", []) if i.get("status") == "draft"]
+
     # ── Roadmap ───────────────────────────────────────────────────────────────
     roadmap_items = []
     if ROADMAP_FILE.exists():
@@ -2303,10 +2894,47 @@ def _build_business_context():
 
     # ── Weekly targets (actuals TODO when tracking is implemented) ────────────
     weekly_targets = [
-        {"label": "Content pieces",  "current": 0, "target": 5},   # TODO: wire to content.md
-        {"label": "Leads generated", "current": 0, "target": 5},   # TODO: wire to marketing metrics
-        {"label": "New clients",     "current": 0, "target": 1},   # TODO: wire to state delta
+        {"label": "Content pieces",  "current": 0, "target": 5},
+        {"label": "Leads generated", "current": 0, "target": 5},
+        {"label": "New clients",     "current": 0, "target": 1},
     ]
+
+    # ── Bot Activity: all content + all ideas ─────────────────────────────────
+    all_content  = content_review.get("posts", [])
+    all_ideas    = ideas_data.get("ideas", [])
+
+    # Next 3 Mon/Wed/Fri posting dates from today
+    from datetime import timedelta
+    POST_DAYS = {0, 2, 4}  # Mon=0, Wed=2, Fri=4
+    DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    fb_schedule = []
+    d = datetime.now().date()
+    while len(fb_schedule) < 3:
+        if d.weekday() in POST_DAYS:
+            fb_schedule.append({"date": d.strftime("%Y-%m-%d"), "day": DAY_NAMES[d.weekday()]})
+        d += timedelta(days=1)
+
+    # Match scheduled content to those dates
+    posted_by_date = {}
+    for p in all_content:
+        sched = p.get("scheduled_for") or p.get("created", "")[:10]
+        for slot in fb_schedule:
+            if sched == slot["date"]:
+                posted_by_date.setdefault(slot["date"], []).append(p)
+
+    # Catalogue stats
+    catalogue_file = VAULT_ROOT / "brand" / "catalogue.json"
+    catalogue_stats = {"total": 0, "best": 0, "good": 0, "usable": 0, "pending_review_photos": len(pending_photos)}
+    if catalogue_file.exists():
+        cat = json.loads(catalogue_file.read_text())
+        catalogue_stats["total"] = len(cat)
+        for v in cat.values():
+            q = v.get("quality", "usable")
+            if q in catalogue_stats:
+                catalogue_stats[q] += 1
+
+    # Orchestrator last-run times
+    orch = _load_json_safe(VAULT_ROOT / "brand" / "Marketing" / "orchestrator_state.json", {})
 
     return dict(
         today=today,
@@ -2326,6 +2954,16 @@ def _build_business_context():
         roadmap_items=roadmap_items,
         weekly_targets=weekly_targets,
         history_dates=history_dates, history_mrr=history_mrr, history_spend=history_spend,
+        briefing=briefing,
+        pending_photos=pending_photos,
+        pending_content=pending_content,
+        ideas_drafts=ideas_drafts,
+        all_content=all_content,
+        all_ideas=all_ideas,
+        fb_schedule=fb_schedule,
+        posted_by_date=posted_by_date,
+        catalogue_stats=catalogue_stats,
+        orch=orch,
     )
 
 
@@ -2384,6 +3022,299 @@ def api_reminder_pivot(rem_id):
     data.setdefault("pivot_notes", []).append(pivot)
     REMINDERS_FILE.write_text(json.dumps(data, indent=2))
     return jsonify({"status": "ok"})
+
+
+@app.route("/telegram-webhook", methods=["POST"])
+def telegram_webhook():
+    """Real-time Telegram webhook — handles button presses and messages instantly."""
+    import importlib.util as _ilu
+    update = request.get_json(silent=True) or {}
+
+    def _tg_reply(text: str):
+        try:
+            env   = _read_env()
+            token = env.get("TELEGRAM_BOT_TOKEN", "")
+            cid   = env.get("TELEGRAM_CHAT_ID", "")
+            if token and cid:
+                _requests.post(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    json={"chat_id": cid, "text": text, "parse_mode": "HTML"},
+                    timeout=10
+                )
+        except Exception as e:
+            print(f"  ⚠️  TG reply failed: {e}")
+
+    # ── Inline button press ───────────────────────────────────────────────────
+    cq = update.get("callback_query")
+    if cq:
+        cb_id   = cq["id"]
+        data_str = cq.get("data", "")
+        # Acknowledge immediately
+        try:
+            env = _read_env()
+            _requests.post(
+                f"https://api.telegram.org/bot{env.get('TELEGRAM_BOT_TOKEN','')}/answerCallbackQuery",
+                json={"callback_query_id": cb_id, "text": "Got it"},
+                timeout=5
+            )
+        except Exception:
+            pass
+
+        pr_data = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
+
+        if data_str.startswith("photo_approve_"):
+            photo_id = data_str[len("photo_approve_"):]
+            filename = photo_id
+            for c in pr_data.get("candidates", []):
+                if c["id"] == photo_id and c.get("status") == "pending":
+                    c["status"]        = "approved"
+                    c["reviewed_at"]   = datetime.now().isoformat()
+                    c["review_source"] = "telegram"
+                    filename           = c.get("filename", photo_id)
+                    # Queue for Facebook posting
+                    if c.get("path") and Path(c["path"]).exists():
+                        import uuid as _uuid
+                        queue_dir = VAULT_ROOT / "clients" / "facebook_queue"
+                        queue_dir.mkdir(parents=True, exist_ok=True)
+                        q = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": c["path"],
+                             "caption": c.get("caption_hint", ""), "source": "telegram_review",
+                             "queued_at": datetime.now().isoformat(), "status": "pending"}
+                        (queue_dir / f"photo_{photo_id}.json").write_text(json.dumps(q, indent=2))
+            PHOTO_REVIEW_FILE.write_text(json.dumps(pr_data, indent=2))
+            _tg_reply(f"✅ <b>{filename}</b> approved and queued for posting.")
+
+        elif data_str.startswith("photo_reject_"):
+            photo_id = data_str[len("photo_reject_"):]
+            filename = photo_id
+            for c in pr_data.get("candidates", []):
+                if c["id"] == photo_id and c.get("status") == "pending":
+                    c["status"]        = "rejected"
+                    c["reviewed_at"]   = datetime.now().isoformat()
+                    c["review_source"] = "telegram"
+                    filename           = c.get("filename", photo_id)
+            PHOTO_REVIEW_FILE.write_text(json.dumps(pr_data, indent=2))
+            _tg_reply(f"❌ <b>{filename}</b> skipped.")
+
+        return jsonify({"ok": True})
+
+    # ── Text message → Claude (async so Telegram gets 200 instantly) ──────────
+    msg  = update.get("message", {})
+    text = msg.get("text", "").strip()
+    if text:
+        import threading as _threading
+        def _handle_in_background(text=text):
+          try:
+            import anthropic as _anthropic
+            env    = _read_env()
+            state  = load_state()
+            pr     = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
+            rems   = _load_json_safe(REMINDERS_FILE, {"reminders": []})
+            brief  = _load_json_safe(MORNING_BRIEFING_FILE, {})
+            social = _load_json_safe(SOCIAL_METRICS_FILE, {})
+
+            clients   = state.get("clients", {})
+            active    = [cs for cs in clients.values() if cs.get("status") == "active"]
+            diagnosed = [cs for cs in clients.values() if cs.get("status") == "diagnosed"]
+            pend_photos = [c for c in pr.get("candidates", []) if c.get("status") == "pending"]
+            pend_rems   = [r for r in rems.get("reminders", []) if r.get("status") == "pending"]
+
+            page_data    = social.get("page", {})
+            fb_followers = 0
+            if page_data:
+                latest = max(page_data.keys()) if page_data else None
+                if latest:
+                    fb_followers = page_data[latest].get("fans", 0) or page_data[latest].get("followers", 0)
+
+            pulse = brief.get("pulse", {})
+
+            ideas_bank = ""
+            ideas_file = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.md"
+            if ideas_file.exists():
+                ideas_bank = ideas_file.read_text()
+
+            context = f"""You are the Battleship Reset AI assistant — Will Barratt's autonomous business partner.
+Will runs an online fitness coaching business targeting men 40+ who've tried and failed to get fit.
+You have full visibility of the business. Be direct, conversational, and useful. No filler.
+
+TODAY: {datetime.now().strftime('%A %d %B %Y, %H:%M')}
+
+BUSINESS STATE:
+- MRR: £{pulse.get('mrr', 0):.0f} / £3,000 target (gap: £{pulse.get('gap', 0):.0f})
+- Active clients: {len(active)}
+- Leads (diagnosed, not paid): {len(diagnosed)}
+- Leads this week: {pulse.get('leads_week', 0)}
+- Ad spend (7d): £{pulse.get('ad_spend_7d', 0):.2f}
+- FB followers: {fb_followers}
+
+PENDING ACTIONS:
+- Photos awaiting review: {len(pend_photos)} ({', '.join(c.get('filename','?') for c in pend_photos)})
+- Reminders: {len(pend_rems)} pending ({'; '.join(r.get('title','') for r in pend_rems[:3])})
+
+ACTIVE CLIENTS:
+{chr(10).join(f"- {cs['name']}: week {cs.get('current_week',0)}, enrolled {cs.get('enrolled_date','?')}" for cs in active) or '- None yet'}
+
+MARKETING IDEAS BANK:
+{ideas_bank[:1500] if ideas_bank else 'No ideas bank yet.'}
+
+Respond conversationally and directly. Keep replies concise (Telegram format).
+If Will asks you to do something (approve a photo, add a reminder, etc.) say you've done it and confirm.
+Don't use markdown headers. Use plain text with occasional bold using HTML <b>tags</b>.
+Never say you can't do something — figure out the best response with the data you have."""
+
+            ai = _anthropic.Anthropic(api_key=env.get("ANTHROPIC_KEY", ""))
+            resp = ai.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1024,
+                system=context,
+                messages=[{"role": "user", "content": text}]
+            )
+            reply = resp.content[0].text.strip()
+
+            # Execute simple actions Claude might decide on
+            tl = text.lower()
+            if any(w in tl for w in ("approve", "post it", "yes", "queue")) and pend_photos:
+                c = pend_photos[0]
+                c["status"] = "approved"; c["reviewed_at"] = datetime.now().isoformat(); c["review_source"] = "claude_tg"
+                if c.get("path") and Path(c["path"]).exists():
+                    import uuid as _uuid
+                    qd = VAULT_ROOT / "clients" / "facebook_queue"; qd.mkdir(parents=True, exist_ok=True)
+                    q  = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": c["path"], "caption": c.get("caption_hint",""), "source":"claude_tg", "queued_at": datetime.now().isoformat(), "status":"pending"}
+                    (qd / f"photo_{c['id']}.json").write_text(json.dumps(q, indent=2))
+                PHOTO_REVIEW_FILE.write_text(json.dumps(pr, indent=2))
+
+            _tg_reply(reply)
+
+          except Exception as e:
+            print(f"  ⚠️  Claude Telegram handler failed: {e}")
+            _tg_reply(f"⚠️ Error: {str(e)[:120]}")
+
+        _threading.Thread(target=_handle_in_background, daemon=True).start()
+
+    return jsonify({"ok": True})
+
+
+@app.route("/api/photo-review/<photo_id>/approve", methods=["POST"])
+def api_photo_approve(photo_id):
+    data = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
+    approved_path = None
+    for c in data.get("candidates", []):
+        if c["id"] == photo_id:
+            c["status"] = "approved"
+            c["reviewed_at"] = datetime.now().isoformat()
+            c["review_source"] = "dashboard"
+            approved_path = c.get("path")
+    PHOTO_REVIEW_FILE.write_text(json.dumps(data, indent=2))
+    # Queue approved photo for Facebook posting
+    if approved_path and Path(approved_path).exists():
+        queue_dir = VAULT_ROOT / "clients" / "facebook_queue"
+        queue_dir.mkdir(parents=True, exist_ok=True)
+        import uuid as _uuid
+        queue_item = {
+            "id": "fq_" + _uuid.uuid4().hex[:8],
+            "image_path": approved_path,
+            "caption": "",
+            "source": "photo_review",
+            "queued_at": datetime.now().isoformat(),
+            "status": "pending",
+        }
+        (queue_dir / f"photo_{photo_id}.json").write_text(json.dumps(queue_item, indent=2))
+    return jsonify({"status": "approved"})
+
+
+@app.route("/api/photo-review/<photo_id>/reject", methods=["POST"])
+def api_photo_reject(photo_id):
+    data = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
+    for c in data.get("candidates", []):
+        if c["id"] == photo_id:
+            c["status"] = "rejected"
+            c["reviewed_at"] = datetime.now().isoformat()
+            c["review_source"] = "dashboard"
+    PHOTO_REVIEW_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"status": "rejected"})
+
+
+@app.route("/api/content-review/<cr_id>/approve", methods=["POST"])
+def api_content_approve(cr_id):
+    data = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
+    for p in data.get("posts", []):
+        if p["id"] == cr_id:
+            p["status"] = "approved"
+            p["reviewed_at"] = datetime.now().isoformat()
+            # Move to facebook_queue for posting
+            queue_dir = VAULT_ROOT / "clients" / "facebook_queue"
+            queue_dir.mkdir(parents=True, exist_ok=True)
+            import uuid as _uuid
+            (queue_dir / f"cr_{cr_id}.json").write_text(json.dumps({
+                "id": "fq_" + _uuid.uuid4().hex[:8],
+                "content": p.get("content", ""),
+                "theme": p.get("theme", ""),
+                "source": "content_review",
+                "queued_at": datetime.now().isoformat(),
+                "status": "pending",
+            }, indent=2))
+    CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"status": "approved"})
+
+
+@app.route("/api/content-review/<cr_id>/reject", methods=["POST"])
+def api_content_reject(cr_id):
+    data = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
+    for p in data.get("posts", []):
+        if p["id"] == cr_id:
+            p["status"] = "rejected"
+            p["reviewed_at"] = datetime.now().isoformat()
+    CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"status": "rejected"})
+
+
+@app.route("/api/content-review/<cr_id>/edit", methods=["POST"])
+def api_content_edit(cr_id):
+    body = request.get_json(silent=True) or {}
+    data = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
+    for p in data.get("posts", []):
+        if p["id"] == cr_id:
+            p["content"] = body.get("content", p["content"])
+            p["edited"]  = True
+    CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"status": "saved"})
+
+
+@app.route("/api/ideas-bank/<idea_id>/green-light", methods=["POST"])
+def api_idea_green_light(idea_id):
+    data = _load_json_safe(IDEAS_BANK_FILE, {"ideas": []})
+    for idea in data.get("ideas", []):
+        if idea["id"] == idea_id:
+            idea["status"] = "green_lit"
+            idea["green_lit"] = datetime.now().strftime("%Y-%m-%d")
+    IDEAS_BANK_FILE.write_text(json.dumps(data, indent=2))
+    # Also update the markdown version
+    _sync_ideas_bank_md(data)
+    return jsonify({"status": "green_lit"})
+
+
+@app.route("/api/ideas-bank/<idea_id>/archive", methods=["POST"])
+def api_idea_archive(idea_id):
+    data = _load_json_safe(IDEAS_BANK_FILE, {"ideas": []})
+    for idea in data.get("ideas", []):
+        if idea["id"] == idea_id:
+            idea["status"] = "archived"
+    IDEAS_BANK_FILE.write_text(json.dumps(data, indent=2))
+    _sync_ideas_bank_md(data)
+    return jsonify({"status": "archived"})
+
+
+def _sync_ideas_bank_md(data: dict):
+    """Keep ideas-bank.md in sync with the JSON."""
+    STATUS_EMOJI = {"draft": "🟡 Draft", "green_lit": "🟢 Green lit", "archived": "⬛ Archived", "developed": "✅ Developed"}
+    lines = ["# Marketing Ideas Bank\n"]
+    for idea in data.get("ideas", []):
+        status = STATUS_EMOJI.get(idea.get("status", "draft"), idea.get("status", ""))
+        lines.append(f"## {idea['title']}")
+        lines.append(f"**Angle:** {idea['angle']}")
+        lines.append(f"**Status:** {status}")
+        lines.append(f"**Added:** {idea.get('added', '')}\n")
+    md_file = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.md"
+    md_file.write_text("\n".join(lines))
 
 
 @app.route("/business")
