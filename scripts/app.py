@@ -1793,19 +1793,51 @@ BUSINESS_PAGE = """<!DOCTYPE html>
         </div>
       </div>
       <div class="bot-badges">
-        <span class="bot-badge bb-info">{{ seo_complete }}/{{ seo_tasks|length }} tasks</span>
+        <span class="bot-badge bb-info">{{ seo_complete }}/{{ seo_tasks|length }} done</span>
         {% set seo_pending_will = seo_tasks | selectattr('cls','equalto','pending') | list %}
-        {% if seo_pending_will %}<span class="bot-badge bb-warn">{{ seo_pending_will|length }} waiting on you</span>{% endif %}
+        {% if seo_pending_will %}<span class="bot-badge bb-warn">{{ seo_pending_will|length }} action needed</span>{% endif %}
       </div>
       <span class="bot-chevron" id="chev-seo">&#9660;</span>
     </div>
     <div class="bot-body" id="body-seo">
       {% for task in seo_tasks %}
-      <div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #1a1a1a">
-        <span style="font-size:14px;width:20px;text-align:center">{{ task.icon }}</span>
-        <span style="font-size:13px;color:{% if task.cls == 'complete' %}#2a9d4e{% elif task.cls == 'pending' %}#e8a020{% elif task.cls == 'current' %}#4a9fd4{% else %}#444{% endif %}">{{ task.name }}</span>
-        {% if task.cls == 'pending' %}<span style="font-size:10px;color:#e8a020;margin-left:auto">Action needed</span>{% endif %}
-        {% if task.cls == 'current' %}<span style="font-size:10px;color:#4a9fd4;margin-left:auto">In progress</span>{% endif %}
+      {% set actionable = task.cls in ['pending', 'current'] %}
+      <div id="seo-task-{{ task.id }}" style="border-bottom:1px solid #1a1a1a;{% if task.cls == 'future' %}opacity:0.35{% endif %}">
+        <!-- Row -->
+        <div style="display:flex;gap:10px;align-items:center;padding:10px 0;cursor:{% if actionable or task.cls == 'complete' %}pointer{% else %}default{% endif %}"
+             onclick="{% if actionable or task.cls == 'complete' %}toggleSeoTask({{ task.id }}){% endif %}">
+          <span style="font-size:13px;width:20px;text-align:center">
+            {% if task.cls == 'complete' %}✅
+            {% elif task.cls == 'pending' %}⏳
+            {% elif task.cls == 'current' %}🔵
+            {% else %}⬜{% endif %}
+          </span>
+          <div style="flex:1">
+            <span style="font-size:13px;color:{% if task.cls == 'complete' %}#2a9d4e{% elif task.cls == 'pending' %}#e8a020{% elif task.cls == 'current' %}#4a9fd4{% else %}#444{% endif %}">{{ task.name }}</span>
+            <span style="font-size:10px;color:#333;margin-left:8px">Week {{ task.week }} · {{ task.due_date }}</span>
+          </div>
+          {% if task.cls == 'pending' %}<span style="font-size:10px;color:#e8a020;flex-shrink:0">Action needed ›</span>{% endif %}
+          {% if task.cls == 'current' %}<span style="font-size:10px;color:#4a9fd4;flex-shrink:0">In progress ›</span>{% endif %}
+          {% if task.cls == 'complete' %}<span style="font-size:10px;color:#333;flex-shrink:0">Done ›</span>{% endif %}
+        </div>
+        <!-- Expandable detail -->
+        {% if actionable or task.cls == 'complete' %}
+        <div id="seo-detail-{{ task.id }}" style="display:none;padding:0 0 14px 30px">
+          <div style="color:#888;font-size:12px;line-height:1.6;margin-bottom:10px">{{ task.description }}</div>
+          {% if task.cls != 'complete' %}
+          <div style="background:#1a1a1a;border-left:3px solid #e8a020;padding:10px 14px;border-radius:0 4px 4px 0;margin-bottom:10px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#e8a020;margin-bottom:4px">Your action</div>
+            <div style="color:#ccc;font-size:13px">{{ task.will_action }}</div>
+          </div>
+          {% if task.output_exists %}
+          <div style="font-size:11px;color:#555;margin-bottom:10px">📄 Bot output ready: <code style="color:#666">{{ task.output_file }}</code></div>
+          {% endif %}
+          <button onclick="markSeoTaskDone({{ task.id }})" style="background:#2a9d4e;color:#fff;border:none;padding:6px 16px;border-radius:3px;font-size:12px;cursor:pointer;font-weight:600">✓ Mark done</button>
+          {% else %}
+          <div style="color:#2a9d4e;font-size:12px">Completed ✓</div>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -1822,27 +1854,63 @@ BUSINESS_PAGE = """<!DOCTYPE html>
         </div>
       </div>
       <div class="bot-badges">
-        {% set tech_high = tech_gaps | selectattr('priority','equalto','high') | list if tech_gaps and tech_gaps[0] is mapping else [] %}
-        {% if tech_high %}<span class="bot-badge bb-alert">{{ tech_high|length }} high priority</span>{% endif %}
-        <span class="bot-badge bb-info">{{ tech_gaps|length }} items</span>
+        {% set tech_active = tech_gaps | selectattr('status','ne','done') | list if tech_gaps and tech_gaps[0] is mapping else tech_gaps %}
+        {% set tech_done   = tech_gaps | selectattr('status','equalto','done') | list if tech_gaps and tech_gaps[0] is mapping else [] %}
+        {% set tech_high   = tech_active | selectattr('impact','equalto','high') | list if tech_active and tech_active[0] is mapping else [] %}
+        {% if tech_high %}<span class="bot-badge bb-alert">{{ tech_high|length }} high impact</span>{% endif %}
+        <span class="bot-badge bb-info">{{ tech_active|length }} tracked</span>
+        {% if tech_done %}<span class="bot-badge bb-ok">{{ tech_done|length }} done</span>{% endif %}
       </div>
       <span class="bot-chevron" id="chev-tech">&#9660;</span>
     </div>
     <div class="bot-body" id="body-tech">
       {% if tech_gaps %}
-      {% for gap in tech_gaps %}
+      {% set tech_active = tech_gaps | selectattr('status','ne','done') | list if tech_gaps and tech_gaps[0] is mapping else tech_gaps %}
+      {% set tech_done   = tech_gaps | selectattr('status','equalto','done') | list if tech_gaps and tech_gaps[0] is mapping else [] %}
+      <!-- Active gaps -->
+      {% for gap in tech_active %}
       {% if gap is mapping %}
-      <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #1a1a1a">
-        <span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;flex-shrink:0;margin-top:2px;{% if gap.get('priority') == 'high' %}background:#2a0810;color:#c41e3a{% elif gap.get('priority') == 'medium' %}background:#2a1800;color:#e8a020{% else %}background:#1a1a2a;color:#555{% endif %}">{{ gap.get('priority','—') }}</span>
-        <div>
-          <div style="color:#ccc;font-size:13px">{{ gap.get('description', gap.get('gap', gap)) }}</div>
-          {% if gap.get('impact') %}<div style="color:#555;font-size:11px;margin-top:2px">Impact: {{ gap.impact }}</div>{% endif %}
+      {% set gid = gap.get('id', loop.index|string) %}
+      <div id="tech-gap-{{ gid }}" style="border-bottom:1px solid #1a1a1a">
+        <div style="display:flex;gap:10px;align-items:center;padding:10px 0;cursor:pointer" onclick="toggleTechGap('{{ gid }}')">
+          <span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;flex-shrink:0;{% if gap.get('impact') == 'high' %}background:#2a0810;color:#c41e3a{% elif gap.get('impact') == 'medium' %}background:#2a1800;color:#e8a020{% else %}background:#1a1a2a;color:#555{% endif %}">{{ gap.get('impact','—') }}</span>
+          <div style="flex:1">
+            <div style="color:#ccc;font-size:13px">{{ gap.get('title', gap.get('description','')) }}</div>
+            <div style="color:#444;font-size:11px;margin-top:2px">{{ gap.get('category','') }} · unlock at £{{ gap.get('revenue_unlock_gbp',0) }} MRR</div>
+          </div>
+          <span style="font-size:10px;color:#444;flex-shrink:0">›</span>
+        </div>
+        <div id="tech-detail-{{ gid }}" style="display:none;padding:0 0 14px 0">
+          <div style="color:#777;font-size:12px;line-height:1.6;margin-bottom:8px">{{ gap.get('description','') }}</div>
+          {% if gap.get('free_alternative') %}
+          <div style="background:#1a1a1a;border-left:3px solid #555;padding:8px 12px;border-radius:0 4px 4px 0;margin-bottom:10px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:3px">Workaround now</div>
+            <div style="color:#aaa;font-size:12px">{{ gap.free_alternative }}</div>
+          </div>
+          {% endif %}
+          {% if gap.get('paid_solution') %}
+          <div style="font-size:11px;color:#444;margin-bottom:10px">Paid option: {{ gap.paid_solution[:100] }} · Cost: £{{ gap.get('estimated_monthly_cost_gbp',0) }}/mo</div>
+          {% endif %}
+          <button class="tech-done-btn" onclick="markTechDone('{{ gid }}')" style="background:#2a9d4e;color:#fff;border:none;padding:6px 16px;border-radius:3px;font-size:12px;cursor:pointer;font-weight:600">✓ Mark done</button>
         </div>
       </div>
-      {% else %}
-      <div style="color:#ccc;font-size:13px;padding:6px 0;border-bottom:1px solid #1a1a1a">{{ gap }}</div>
       {% endif %}
       {% endfor %}
+      <!-- Completed -->
+      {% if tech_done %}
+      <div style="margin-top:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#333;margin-bottom:6px">Completed</div>
+        {% for gap in tech_done %}
+        {% if gap is mapping %}
+        <div style="display:flex;gap:10px;align-items:center;padding:6px 0;opacity:0.4">
+          <span style="font-size:11px;color:#2a9d4e">✓</span>
+          <span style="color:#555;font-size:12px">{{ gap.get('title', gap.get('description','')) }}</span>
+          {% if gap.get('completed_at') %}<span style="font-size:10px;color:#333;margin-left:auto">{{ gap.completed_at }}</span>{% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
       {% else %}
       <div style="color:#444;font-size:13px;font-style:italic">No tech backlog items.</div>
       {% endif %}
@@ -2311,6 +2379,28 @@ function toggleBriefing() {
   const open = body.style.display !== 'none';
   body.style.display = open ? 'none' : 'block';
   if (btn) btn.textContent = open ? 'Expand' : 'Collapse';
+}
+function toggleSeoTask(id) {
+  const el = document.getElementById('seo-detail-' + id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function markSeoTaskDone(id) {
+  fetch('/api/seo-task/' + id + '/complete', {method:'POST'})
+    .then(r => r.json()).then(() => {
+      const row = document.getElementById('seo-task-' + id);
+      if (row) row.innerHTML = '<div style="padding:10px 0;color:#2a9d4e;font-size:13px">✅ ' + row.querySelector('span[style*="font-size:13px"]')?.textContent + ' — marked done</div>';
+    });
+}
+function toggleTechGap(id) {
+  const el = document.getElementById('tech-detail-' + id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function markTechDone(id) {
+  fetch('/api/tech-gap/' + id + '/complete', {method:'POST'})
+    .then(r => r.json()).then(() => {
+      const row = document.getElementById('tech-gap-' + id);
+      if (row) { row.style.opacity = '0.4'; row.style.pointerEvents = 'none'; row.querySelector('.tech-done-btn').textContent = '✓ Done'; }
+    });
 }
 function toggleBot(id) {
   const body  = document.getElementById('body-' + id);
@@ -2825,33 +2915,77 @@ def _build_business_context():
     })
 
     # ── SEO ───────────────────────────────────────────────────────────────────
-    SEO_TASK_NAMES = [
-        "GBP Setup",
-        "Category Audit",
-        "Attributes Audit",
-        "Competitor Teardown",
-        "Review Strategy",
-        "Posts Strategy",
-        "Services",
-        "Description",
-        "Photo Plan",
+    SEO_TASK_DETAIL = [
+        {"name": "GBP Setup & Verification",
+         "description": "Verify GBP is claimed, business category set, NAP (name/address/phone) consistent.",
+         "will_action": "Confirm GBP is claimed at business.google.com and basic info is complete.",
+         "output_file": "brand/Marketing/SEO/outputs/00_setup_checklist.md", "week": 1},
+        {"name": "Category Audit",
+         "description": "Set primary category to 'Personal Trainer' or 'Health Coach'. Add secondary: Life Coach, Weight Loss Service, Wellness Program.",
+         "will_action": "Update GBP categories: Edit Profile → Business Category.",
+         "output_file": "brand/Marketing/SEO/outputs/01_category_recommendations.md", "week": 1},
+        {"name": "Attributes Audit",
+         "description": "Enable all relevant GBP attributes — online appointments, online classes, serves men, LGBTQ+ friendly etc.",
+         "will_action": "Go to GBP → Edit Profile → More → check all recommended attributes.",
+         "output_file": "brand/Marketing/SEO/outputs/02_attributes_checklist.md", "week": 2},
+        {"name": "Competitor Teardown",
+         "description": "Analyse top 3-5 local fitness coaches/personal trainers on GBP. Review velocity, keywords in reviews, service areas mentioned.",
+         "will_action": "Search Google Maps for 'personal trainer [your area]' and paste the top 5 GBP URLs into the state file.",
+         "output_file": "brand/Marketing/SEO/outputs/03_competitor_analysis.md", "week": 2},
+        {"name": "Review Response Strategy",
+         "description": "Create templated responses for 1-5 star reviews. Set up a review request flow for new clients.",
+         "will_action": "Save review response templates. Share review request link with new clients at week 4 check-in.",
+         "output_file": "brand/Marketing/SEO/outputs/04_review_strategy.md", "week": 3},
+        {"name": "GBP Posts Strategy",
+         "description": "Set up weekly GBP post cadence. 4 post types: Offer, Update, Event, Product. Synced with marketing arc.",
+         "will_action": "Post first GBP post. Set a weekly reminder to post (or let bot draft and you paste).",
+         "output_file": "brand/Marketing/SEO/outputs/05_posts_strategy.md", "week": 3},
+        {"name": "Services Section",
+         "description": "Write keyword-rich service descriptions for the GBP Services tab. 12-Week Programme, Ongoing Membership, Free Intake Quiz.",
+         "will_action": "Add services in GBP → Edit Profile → Services. Copy descriptions from output file.",
+         "output_file": "brand/Marketing/SEO/outputs/06_service_descriptions.md", "week": 4},
+        {"name": "GBP Description",
+         "description": "Write a 750-char keyword-rich business description. Primary keywords: midlife fitness coach, walking programme, weight loss over 40.",
+         "will_action": "Update GBP → Edit Profile → Business Description. Copy from output file.",
+         "output_file": "brand/Marketing/SEO/outputs/07_gbp_description.md", "week": 4},
+        {"name": "Photo Upload Plan",
+         "description": "Identify best photos from catalogue for GBP. Cover, profile, before/after, lifestyle, home gym.",
+         "will_action": "Upload photos to GBP → Add Photos. Use the plan from the output file.",
+         "output_file": "brand/Marketing/SEO/outputs/08_photo_upload_plan.md", "week": 5},
     ]
     tasks_complete      = set(seo.get("tasks_complete", []))
     tasks_pending_will  = set(seo.get("tasks_pending_will", []))
     current_task        = seo.get("current_task", 0)
     seo_complete        = len(tasks_complete)
-    seo_pct             = round(seo_complete / len(SEO_TASK_NAMES) * 100)
+    seo_pct             = round(seo_complete / len(SEO_TASK_DETAIL) * 100)
+
+    # Campaign start date for week calculations
+    from datetime import date as _date, timedelta as _td
+    SEO_START = _date(2026, 3, 15)  # week 1 started 15 Mar
 
     seo_tasks = []
-    for i, name in enumerate(SEO_TASK_NAMES):
+    for i, detail in enumerate(SEO_TASK_DETAIL):
+        due_date = SEO_START + _td(weeks=detail["week"] - 1)
+        output_exists = (VAULT_ROOT / detail["output_file"]).exists()
         if i in tasks_complete:
-            seo_tasks.append({"icon": "\u2705", "name": name, "cls": "complete"})
+            cls = "complete"
         elif i in tasks_pending_will:
-            seo_tasks.append({"icon": "\u23f3", "name": name, "cls": "pending"})
+            cls = "pending"
         elif i == current_task:
-            seo_tasks.append({"icon": "\U0001f535", "name": name, "cls": "current"})
+            cls = "current"
         else:
-            seo_tasks.append({"icon": "\u2b1c", "name": name, "cls": ""})
+            cls = "future"
+        seo_tasks.append({
+            "id": i,
+            "name": detail["name"],
+            "description": detail["description"],
+            "will_action": detail["will_action"],
+            "output_file": detail["output_file"],
+            "output_exists": output_exists,
+            "week": detail["week"],
+            "due_date": due_date.strftime("%d %b"),
+            "cls": cls,
+        })
 
     # ── Tech backlog ──────────────────────────────────────────────────────────
     tech_gaps = backlog.get("gaps", [])
@@ -3301,6 +3435,37 @@ def api_idea_archive(idea_id):
     IDEAS_BANK_FILE.write_text(json.dumps(data, indent=2))
     _sync_ideas_bank_md(data)
     return jsonify({"status": "archived"})
+
+
+@app.route("/api/seo-task/<int:task_id>/complete", methods=["POST"])
+def api_seo_task_complete(task_id):
+    seo = _load_json_safe(SEO_STATE_FILE, {})
+    complete = set(seo.get("tasks_complete", []))
+    pending  = set(seo.get("tasks_pending_will", []))
+    complete.add(task_id)
+    pending.discard(task_id)
+    # Advance current_task to next incomplete
+    next_task = seo.get("current_task", 0)
+    total = 9  # GBP_TASKS count
+    while next_task in complete and next_task < total:
+        next_task += 1
+    seo["tasks_complete"]      = sorted(complete)
+    seo["tasks_pending_will"]  = sorted(pending)
+    seo["current_task"]        = next_task if next_task < total else None
+    SEO_STATE_FILE.write_text(json.dumps(seo, indent=2))
+    return jsonify({"status": "complete", "next_task": next_task})
+
+
+@app.route("/api/tech-gap/<gap_id>/complete", methods=["POST"])
+def api_tech_gap_complete(gap_id):
+    from datetime import date as _date
+    data = _load_json_safe(TECH_BACKLOG_FILE, {"gaps": []})
+    for gap in data.get("gaps", []):
+        if isinstance(gap, dict) and gap.get("id") == gap_id:
+            gap["status"]       = "done"
+            gap["completed_at"] = _date.today().isoformat()
+    TECH_BACKLOG_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"status": "done"})
 
 
 def _sync_ideas_bank_md(data: dict):
