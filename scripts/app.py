@@ -2027,55 +2027,6 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- F. SEO Progress -->
-  <div class="section-label">SEO — Google Business Profile</div>
-  <div class="seo-card">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
-      <span style="font-size:12px;color:#555">{{ seo_complete }} / 9 tasks complete</span>
-      <span style="font-size:12px;color:#555">{{ seo_pct }}%</span>
-    </div>
-    <div class="progress-bar-wrap">
-      <div class="progress-bar-fill" style="width:{{ seo_pct }}%"></div>
-    </div>
-    <ul class="seo-task-list">
-      {% for task in seo_tasks %}
-      <li class="seo-task">
-        <span class="seo-task-icon">{{ task.icon }}</span>
-        <span class="seo-task-name {{ task.cls }}">{{ task.name }}</span>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-
-  <!-- G. Tech backlog -->
-  <div class="section-label">Tech Backlog</div>
-  <div class="table-card">
-    <table class="biz-table">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Category</th>
-          <th>Impact</th>
-          <th>Status</th>
-          <th>Monthly Cost</th>
-          <th>Revenue Unlock</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for gap in tech_gaps %}
-        <tr>
-          <td>{{ gap.title }}</td>
-          <td style="color:#666">{{ gap.category }}</td>
-          <td><span class="impact-{{ gap.impact }}">{{ gap.impact }}</span></td>
-          <td><span class="status-badge sb-{{ gap.status }}">{{ gap.status | replace('_', ' ') }}</span></td>
-          <td style="color:#666">{% if gap.estimated_monthly_cost_gbp %}&#163;{{ gap.estimated_monthly_cost_gbp }}{% else %}free{% endif %}</td>
-          <td style="color:#666">{% if gap.revenue_unlock_gbp %}&#163;{{ gap.revenue_unlock_gbp }}{% else %}—{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
   <!-- H. Reminders -->
   <div class="section-label" id="reminders-section">
     Action Items
