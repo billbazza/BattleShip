@@ -1365,7 +1365,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     .bot-title   { display: flex; align-items: center; gap: 10px; }
     .bot-icon    { font-size: 16px; width: 24px; text-align: center; }
     .bot-name    { font-size: 13px; font-weight: 600; color: #ddd; letter-spacing: 0.5px; }
-    .bot-last-run{ font-size: 11px; color: #444; }
+    .bot-last-run{ font-size: 11px; color: #777; }
     .bot-badges  { display: flex; gap: 6px; align-items: center; }
     .bot-badge   { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
     .bb-alert    { background: #2a0810; color: #c41e3a; }
@@ -1486,7 +1486,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Week</div>
-      <div class="kpi-value">{{ campaign_week }} <span style="font-size:14px;color:#444;font-weight:400">/ 12</span></div>
+      <div class="kpi-value">{{ campaign_week }} <span style="font-size:14px;color:#888;font-weight:400">/ 12</span></div>
     </div>
   </div>
 
@@ -1494,7 +1494,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
   {% if briefing %}
   <div class="section-label" id="briefing-section">
     Morning Briefing
-    <span style="font-size:10px;color:#444;font-weight:400;margin-left:8px;text-transform:none;letter-spacing:0">{{ briefing.get('today','') }}</span>
+    <span style="font-size:10px;color:#888;font-weight:400;margin-left:8px;text-transform:none;letter-spacing:0">{{ briefing.get('today','') }}</span>
     <button onclick="toggleBriefing()" id="briefing-toggle" style="float:right;background:none;border:1px solid #333;color:#666;font-size:10px;padding:2px 10px;border-radius:3px;cursor:pointer;text-transform:uppercase;letter-spacing:1px">Collapse</button>
   </div>
   <div id="briefing-body" style="display:block">
@@ -1544,7 +1544,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">30 Days: </span>
       <span style="color:#ccc;font-size:13px">{{ horizon.get('thirty_days','') }}</span>
     </div>
-    <div style="font-size:11px;color:#333;padding:6px 0">Generated {{ briefing.get('generated_at','')[:16] }}</div>
+    <div style="font-size:11px;color:#777;padding:6px 0">Generated {{ briefing.get('generated_at','')[:16] }}</div>
   </div>
   {% endif %}
 
@@ -1594,7 +1594,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     </div>
     {% endfor %}
     {% else %}
-    <div style="color:#444;font-size:13px;font-style:italic;padding:12px 0">No content pending review. Posts are drafted Mon/Wed/Fri by Facebook Bot.</div>
+    <div style="color:#888;font-size:13px;font-style:italic;padding:12px 0">No content pending review. Posts are drafted Mon/Wed/Fri by Facebook Bot.</div>
     {% endif %}
   </div>
 
@@ -1632,7 +1632,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           {% if day_posts %}
           <div class="schedule-theme">{{ day_posts[0].get('theme','—') }}</div>
           {% else %}
-          <div class="schedule-theme" style="color:#333;font-style:italic">No post assigned</div>
+          <div class="schedule-theme" style="color:#777;font-style:italic">No post assigned</div>
           {% endif %}
         </div>
         {% endfor %}
@@ -1663,7 +1663,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
             <textarea id="cr-edit-{{ post.id }}">{{ post.get('content','') }}</textarea>
           </div>
           {% endif %}
-          <div style="font-size:11px;color:#333;margin-top:8px">Source: {{ post.get('source','—') }} · ID: {{ post.id }}</div>
+          <div style="font-size:11px;color:#777;margin-top:8px">Source: {{ post.get('source','—') }} · ID: {{ post.id }}</div>
         </div>
       </div>
       {% endfor %}
@@ -1776,9 +1776,9 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       </div>
       {% endfor %}
       {% else %}
-      <div style="color:#444;font-size:13px;font-style:italic">No photos pending review. Drop images into brand/random-snaps to queue them.</div>
+      <div style="color:#888;font-size:13px;font-style:italic">No photos pending review. Drop images into brand/random-snaps to queue them.</div>
       {% endif %}
-      <div style="color:#333;font-size:11px;margin-top:12px">Drop folder: brand/random-snaps</div>
+      <div style="color:#777;font-size:11px;margin-top:12px">Drop folder: brand/random-snaps</div>
     </div>
   </div>
 
@@ -1813,24 +1813,24 @@ BUSINESS_PAGE = """<!DOCTYPE html>
             {% else %}⬜{% endif %}
           </span>
           <div style="flex:1">
-            <span style="font-size:13px;color:{% if task.cls == 'complete' %}#2a9d4e{% elif task.cls == 'pending' %}#e8a020{% elif task.cls == 'current' %}#4a9fd4{% else %}#444{% endif %}">{{ task.name }}</span>
-            <span style="font-size:10px;color:#333;margin-left:8px">Week {{ task.week }} · {{ task.due_date }}</span>
+            <span style="font-size:13px;color:{% if task.cls == 'complete' %}#2a9d4e{% elif task.cls == 'pending' %}#e8a020{% elif task.cls == 'current' %}#4a9fd4{% else %}#888{% endif %}">{{ task.name }}</span>
+            <span style="font-size:11px;color:#777;margin-left:8px">Week {{ task.week }} · {{ task.due_date }}</span>
           </div>
           {% if task.cls == 'pending' %}<span style="font-size:10px;color:#e8a020;flex-shrink:0">Action needed ›</span>{% endif %}
           {% if task.cls == 'current' %}<span style="font-size:10px;color:#4a9fd4;flex-shrink:0">In progress ›</span>{% endif %}
-          {% if task.cls == 'complete' %}<span style="font-size:10px;color:#333;flex-shrink:0">Done ›</span>{% endif %}
+          {% if task.cls == 'complete' %}<span style="font-size:10px;color:#777;flex-shrink:0">Done ›</span>{% endif %}
         </div>
         <!-- Expandable detail -->
         {% if actionable or task.cls == 'complete' %}
         <div id="seo-detail-{{ task.id }}" style="display:none;padding:0 0 14px 30px">
-          <div style="color:#888;font-size:12px;line-height:1.6;margin-bottom:10px">{{ task.description }}</div>
+          <div style="color:#aaa;font-size:12px;line-height:1.6;margin-bottom:10px">{{ task.description }}</div>
           {% if task.cls != 'complete' %}
           <div style="background:#1a1a1a;border-left:3px solid #e8a020;padding:10px 14px;border-radius:0 4px 4px 0;margin-bottom:10px">
             <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#e8a020;margin-bottom:4px">Your action</div>
-            <div style="color:#ccc;font-size:13px">{{ task.will_action }}</div>
+            <div style="color:#ddd;font-size:13px">{{ task.will_action }}</div>
           </div>
           {% if task.output_exists %}
-          <div style="font-size:11px;color:#555;margin-bottom:10px">📄 Bot output ready: <code style="color:#666">{{ task.output_file }}</code></div>
+          <div style="font-size:11px;color:#888;margin-bottom:10px">📄 Bot output ready: <code style="color:#999">{{ task.output_file }}</code></div>
           {% endif %}
           <button onclick="markSeoTaskDone({{ task.id }})" style="background:#2a9d4e;color:#fff;border:none;padding:6px 16px;border-radius:3px;font-size:12px;cursor:pointer;font-weight:600">✓ Mark done</button>
           {% else %}
@@ -1875,21 +1875,21 @@ BUSINESS_PAGE = """<!DOCTYPE html>
         <div style="display:flex;gap:10px;align-items:center;padding:10px 0;cursor:pointer" onclick="toggleTechGap('{{ gid }}')">
           <span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;flex-shrink:0;{% if gap.get('impact') == 'high' %}background:#2a0810;color:#c41e3a{% elif gap.get('impact') == 'medium' %}background:#2a1800;color:#e8a020{% else %}background:#1a1a2a;color:#555{% endif %}">{{ gap.get('impact','—') }}</span>
           <div style="flex:1">
-            <div style="color:#ccc;font-size:13px">{{ gap.get('title', gap.get('description','')) }}</div>
-            <div style="color:#444;font-size:11px;margin-top:2px">{{ gap.get('category','') }} · unlock at £{{ gap.get('revenue_unlock_gbp',0) }} MRR</div>
+            <div style="color:#ddd;font-size:13px">{{ gap.get('title', gap.get('description','')) }}</div>
+            <div style="color:#888;font-size:11px;margin-top:2px">{{ gap.get('category','') }} · unlock at £{{ gap.get('revenue_unlock_gbp',0) }} MRR</div>
           </div>
-          <span style="font-size:10px;color:#444;flex-shrink:0">›</span>
+          <span style="font-size:10px;color:#888;flex-shrink:0">›</span>
         </div>
         <div id="tech-detail-{{ gid }}" style="display:none;padding:0 0 14px 0">
-          <div style="color:#777;font-size:12px;line-height:1.6;margin-bottom:8px">{{ gap.get('description','') }}</div>
+          <div style="color:#aaa;font-size:12px;line-height:1.6;margin-bottom:8px">{{ gap.get('description','') }}</div>
           {% if gap.get('free_alternative') %}
-          <div style="background:#1a1a1a;border-left:3px solid #555;padding:8px 12px;border-radius:0 4px 4px 0;margin-bottom:10px">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:3px">Workaround now</div>
-            <div style="color:#aaa;font-size:12px">{{ gap.free_alternative }}</div>
+          <div style="background:#1a1a1a;border-left:3px solid #777;padding:8px 12px;border-radius:0 4px 4px 0;margin-bottom:10px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#888;margin-bottom:3px">Workaround now</div>
+            <div style="color:#ccc;font-size:12px">{{ gap.free_alternative }}</div>
           </div>
           {% endif %}
           {% if gap.get('paid_solution') %}
-          <div style="font-size:11px;color:#444;margin-bottom:10px">Paid option: {{ gap.paid_solution[:100] }} · Cost: £{{ gap.get('estimated_monthly_cost_gbp',0) }}/mo</div>
+          <div style="font-size:11px;color:#888;margin-bottom:10px">Paid option: {{ gap.paid_solution[:100] }} · Cost: £{{ gap.get('estimated_monthly_cost_gbp',0) }}/mo</div>
           {% endif %}
           <button class="tech-done-btn" onclick="markTechDone('{{ gid }}')" style="background:#2a9d4e;color:#fff;border:none;padding:6px 16px;border-radius:3px;font-size:12px;cursor:pointer;font-weight:600">✓ Mark done</button>
         </div>
@@ -1899,13 +1899,13 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       <!-- Completed -->
       {% if tech_done %}
       <div style="margin-top:12px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#333;margin-bottom:6px">Completed</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#777;margin-bottom:6px">Completed</div>
         {% for gap in tech_done %}
         {% if gap is mapping %}
-        <div style="display:flex;gap:10px;align-items:center;padding:6px 0;opacity:0.4">
+        <div style="display:flex;gap:10px;align-items:center;padding:6px 0;opacity:0.5">
           <span style="font-size:11px;color:#2a9d4e">✓</span>
-          <span style="color:#555;font-size:12px">{{ gap.get('title', gap.get('description','')) }}</span>
-          {% if gap.get('completed_at') %}<span style="font-size:10px;color:#333;margin-left:auto">{{ gap.completed_at }}</span>{% endif %}
+          <span style="color:#aaa;font-size:12px">{{ gap.get('title', gap.get('description','')) }}</span>
+          {% if gap.get('completed_at') %}<span style="font-size:10px;color:#888;margin-left:auto">{{ gap.completed_at }}</span>{% endif %}
         </div>
         {% endif %}
         {% endfor %}
@@ -1949,7 +1949,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           <div style="font-size:11px;color:#555;margin-top:4px">Net: <span style="color:{% if net >= 0 %}#2a9d4e{% else %}#c41e3a{% endif %}">£{{ "%.2f"|format(net) }}</span></div>
         </div>
       </div>
-      <div style="font-size:11px;color:#333;margin-top:12px">Active clients: {{ active_clients }} · Gap to £3k: £{{ "%.0f"|format(gap) }}</div>
+      <div style="font-size:11px;color:#777;margin-top:12px">Active clients: {{ active_clients }} · Gap to £3k: £{{ "%.0f"|format(gap) }}</div>
     </div>
   </div>
 
@@ -2105,7 +2105,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     </div>
     {% endfor %}
     {% else %}
-    <div style="color:#444;font-size:13px;font-style:italic;padding:12px 0">No pending action items.</div>
+    <div style="color:#888;font-size:13px;font-style:italic;padding:12px 0">No pending action items.</div>
     {% endif %}
     {% if pivot_notes %}
     <div style="margin-top:18px;border-top:1px solid #222;padding-top:14px">
@@ -2141,7 +2141,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     </div>
     {% endfor %}
     {% else %}
-    <div style="color:#444;font-size:13px;font-style:italic;padding:12px 0">
+    <div style="color:#888;font-size:13px;font-style:italic;padding:12px 0">
       No photos pending review. Drop images into <code style="color:#666">brand/random-snaps/</code> to queue them.
     </div>
     {% endif %}
