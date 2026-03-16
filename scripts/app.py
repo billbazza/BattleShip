@@ -37,7 +37,7 @@ FINANCES_FILE            = VAULT_ROOT / "finances.md"
 BIZ_HISTORY_FILE         = CLIENTS_DIR / "business_metrics_history.json"
 MORNING_BRIEFING_FILE    = CLIENTS_DIR / "morning_briefing.json"
 PHOTO_REVIEW_FILE        = CLIENTS_DIR / "photo_review_state.json"
-PHOTO_DROP_DIR           = Path("/Users/will/Desktop/Battleship-review-pics")
+PHOTO_DROP_DIR           = VAULT_ROOT / "brand" / "random-snaps"
 CONTENT_REVIEW_FILE      = CLIENTS_DIR / "content_review.json"
 IDEAS_BANK_FILE          = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
 
@@ -1776,9 +1776,9 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       </div>
       {% endfor %}
       {% else %}
-      <div style="color:#444;font-size:13px;font-style:italic">No photos pending review. Drop images into ~/Desktop/Battleship-review-pics to queue them.</div>
+      <div style="color:#444;font-size:13px;font-style:italic">No photos pending review. Drop images into brand/random-snaps to queue them.</div>
       {% endif %}
-      <div style="color:#333;font-size:11px;margin-top:12px">Drop folder: ~/Desktop/Battleship-review-pics</div>
+      <div style="color:#333;font-size:11px;margin-top:12px">Drop folder: brand/random-snaps</div>
     </div>
   </div>
 
@@ -2074,7 +2074,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     {% endfor %}
     {% else %}
     <div style="color:#444;font-size:13px;font-style:italic;padding:12px 0">
-      No photos pending review. Drop images into <code style="color:#666">/Users/will/Desktop/Battleship-review-pics/</code> to queue them.
+      No photos pending review. Drop images into <code style="color:#666">brand/random-snaps/</code> to queue them.
     </div>
     {% endif %}
   </div>
