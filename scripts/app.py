@@ -1712,7 +1712,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
               <span style="font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;{% if idea.status == 'green_lit' %}background:#001a0a;color:#2a9d4e{% elif idea.status == 'developed' %}background:#001a2a;color:#4a9fd4{% elif idea.status == 'archived' %}background:#1e1e1e;color:#444{% else %}background:#2a1800;color:#e8a020{% endif %}">{{ idea.status.replace('_',' ') }}</span>
             </div>
             <div style="color:#777;font-size:12px;margin-top:4px;line-height:1.5">{{ idea.angle }}</div>
-            {% if idea.green_lit %}<div style="color:#333;font-size:11px;margin-top:4px">Green lit: {{ idea.green_lit[:10] }}</div>{% endif %}
+            {% if idea.green_lit %}<div style="color:#777;font-size:11px;margin-top:4px">Green lit: {{ idea.green_lit[:10] }}</div>{% endif %}
           </div>
           {% if idea.status == 'draft' %}
           <div style="display:flex;gap:6px;flex-shrink:0">
@@ -2294,11 +2294,60 @@ function saveEditContent(id) {
   });
 }
 function greenLightIdea(id) {
-  fetch('/api/ideas-bank/' + id + '/green-light', {method:'POST'})
-    .then(r => r.json()).then(() => {
-      const el = document.getElementById('idea-' + id);
-      if (el) el.innerHTML = '<span style="color:#2a9d4e;padding:8px 0;display:block">✅ Green lit — post draft being generated...</span>';
-    });
+  // Step 1: fetch photo candidates, then show picker
+  fetch('/api/photo-candidates')
+    .then(r => r.json())
+    .then(data => _showPhotoPicker(id, data.candidates));
+}
+function _showPhotoPicker(ideaId, candidates) {
+  // Build inline picker inside the idea row
+  const el = document.getElementById('idea-' + ideaId) || document.getElementById('idea-mkt-' + ideaId);
+  if (!el) return;
+  let html = '<div style="background:#111;border-radius:4px;padding:14px;margin-top:8px">';
+  html += '<div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#888;margin-bottom:12px">Pick a photo for this post</div>';
+  html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">';
+  candidates.forEach(c => {
+    html += `<div onclick="_confirmGreenLight('${ideaId}','${c.id}')" style="cursor:pointer;border:2px solid #252525;border-radius:4px;overflow:hidden;width:120px;flex-shrink:0;transition:border-color 0.15s" onmouseover="this.style.borderColor='#c41e3a'" onmouseout="this.style.borderColor='#252525'">`;
+    html += `<img src="${c.url}" style="width:120px;height:90px;object-fit:cover;display:block" loading="lazy">`;
+    html += `<div style="padding:5px 6px;font-size:10px;color:#888">${c.quality} · ${c.period}</div>`;
+    if (c.notes) html += `<div style="padding:0 6px 5px;font-size:10px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.notes.substring(0,40)}</div>`;
+    html += '</div>';
+  });
+  html += '</div>';
+  html += `<button onclick="_confirmGreenLight('${ideaId}', null)" style="background:none;border:1px solid #444;color:#888;padding:5px 14px;border-radius:3px;font-size:11px;cursor:pointer;margin-right:8px">Skip photo</button>`;
+  html += `<button onclick="_cancelGreenLight('${ideaId}')" style="background:none;border:1px solid #333;color:#555;padding:5px 14px;border-radius:3px;font-size:11px;cursor:pointer">Cancel</button>`;
+  html += '</div>';
+  // Store original HTML so cancel works
+  el.dataset.originalHtml = el.innerHTML;
+  // Append picker below existing content
+  const picker = document.createElement('div');
+  picker.id = 'photo-picker-' + ideaId;
+  picker.innerHTML = html;
+  el.appendChild(picker);
+  // Hide the green light button
+  const btn = el.querySelector('button');
+  if (btn) btn.style.display = 'none';
+}
+function _cancelGreenLight(ideaId) {
+  const el = document.getElementById('idea-' + ideaId) || document.getElementById('idea-mkt-' + ideaId);
+  if (el && el.dataset.originalHtml) {
+    el.innerHTML = el.dataset.originalHtml;
+  }
+}
+function _confirmGreenLight(ideaId, photoId) {
+  const el = document.getElementById('idea-' + ideaId) || document.getElementById('idea-mkt-' + ideaId);
+  fetch('/api/ideas-bank/' + ideaId + '/green-light', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({photo_id: photoId})
+  }).then(r => r.json()).then(() => {
+    if (el) {
+      const msg = photoId
+        ? '✅ Green lit with photo — post draft being generated...'
+        : '✅ Green lit — post draft being generated...';
+      el.innerHTML = '<span style="color:#2a9d4e;padding:8px 0;display:block">' + msg + '</span>';
+    }
+  });
 }
 function archiveIdea(id) {
   fetch('/api/ideas-bank/' + id + '/archive', {method:'POST'})
@@ -3364,17 +3413,47 @@ def api_content_edit(cr_id):
     return jsonify({"status": "saved"})
 
 
+@app.route("/api/photo-candidates")
+def api_photo_candidates():
+    """Return up to 3 best catalogue photos as picker candidates."""
+    cat_file = VAULT_ROOT / "brand" / "catalogue.json"
+    if not cat_file.exists():
+        return jsonify({"candidates": []})
+    cat = json.loads(cat_file.read_text())
+    QUALITY_RANK = {"best": 0, "good": 1, "usable": 2}
+    sorted_photos = sorted(
+        [(k, v) for k, v in cat.items()],
+        key=lambda x: (QUALITY_RANK.get(x[1].get("quality", "usable"), 2), x[0])
+    )
+    candidates = []
+    for key, meta in sorted_photos:
+        if len(candidates) >= 3:
+            break
+        candidates.append({
+            "id":      key,
+            "url":     f"/brand/{key}",
+            "quality": meta.get("quality", "usable"),
+            "period":  meta.get("period", ""),
+            "notes":   meta.get("notes", ""),
+            "tags":    meta.get("tags", []),
+        })
+    return jsonify({"candidates": candidates})
+
+
 @app.route("/api/ideas-bank/<idea_id>/green-light", methods=["POST"])
 def api_idea_green_light(idea_id):
+    body    = request.get_json(silent=True) or {}
+    photo_id = body.get("photo_id")  # catalogue key or None
     data = _load_json_safe(IDEAS_BANK_FILE, {"ideas": []})
     for idea in data.get("ideas", []):
         if idea["id"] == idea_id:
-            idea["status"] = "green_lit"
+            idea["status"]    = "green_lit"
             idea["green_lit"] = datetime.now().strftime("%Y-%m-%d")
+            if photo_id:
+                idea["photo_id"] = photo_id
     IDEAS_BANK_FILE.write_text(json.dumps(data, indent=2))
-    # Also update the markdown version
     _sync_ideas_bank_md(data)
-    return jsonify({"status": "green_lit"})
+    return jsonify({"status": "green_lit", "photo_id": photo_id})
 
 
 @app.route("/api/ideas-bank/<idea_id>/archive", methods=["POST"])
