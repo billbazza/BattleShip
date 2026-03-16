@@ -2301,7 +2301,8 @@ function greenLightIdea(id) {
   const title = document.getElementById('gl-modal-title');
   // Find idea title
   const ideaEl = document.getElementById('idea-' + id) || document.getElementById('idea-mkt-' + id);
-  const titleText = ideaEl ? (ideaEl.querySelector('[style*="font-weight:600"]') || ideaEl).textContent.trim().split('\n')[0].trim() : '';
+  const ideaTitleEl = ideaEl ? ideaEl.querySelector('[style*="font-weight:600"]') : null;
+  const titleText = ideaTitleEl ? ideaTitleEl.textContent.replace(/\s+/g,' ').trim() : '';
   if (title) title.textContent = titleText ? 'Green light: ' + titleText.substring(0,50) : 'Pick a photo';
   grid.innerHTML = '<div style="color:#888;font-size:13px;padding:20px 0">Loading photos...</div>';
   modal.style.display = 'flex';
