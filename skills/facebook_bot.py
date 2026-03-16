@@ -27,9 +27,10 @@ import anthropic
 GRAPH   = "https://graph.facebook.com/v22.0"
 VAULT_ROOT = Path(__file__).parent.parent
 
-QUEUE_DIR      = VAULT_ROOT / "facebook_queue"
-SCHEDULE_FILE  = VAULT_ROOT / "clients" / "facebook_schedule.json"
-STATE_FILE     = VAULT_ROOT / "clients" / "facebook_state.json"
+QUEUE_DIR           = VAULT_ROOT / "facebook_queue"
+SCHEDULE_FILE       = VAULT_ROOT / "clients" / "facebook_schedule.json"
+STATE_FILE          = VAULT_ROOT / "clients" / "facebook_state.json"
+CONTENT_REVIEW_FILE = VAULT_ROOT / "clients" / "content_review.json"
 
 # Post 3x/week: Mon, Wed, Fri
 POST_DAYS = {0, 2, 4}
@@ -118,8 +119,30 @@ def _claude(prompt: str, secrets: dict, max_tokens: int = 600) -> str:
 
 # ── Queue helpers ──────────────────────────────────────────────────────────────
 
+def _save_to_content_review(content: str, theme: str, status: str = "pending_review", source: str = "facebook_bot", post_id: str = "", idea_id: str = ""):
+    """Save a post draft to the content review queue for Business Manager visibility."""
+    import uuid as _uuid
+    if CONTENT_REVIEW_FILE.exists():
+        data = json.loads(CONTENT_REVIEW_FILE.read_text())
+    else:
+        data = {"posts": []}
+    data.setdefault("posts", []).append({
+        "id":         "cr_" + _uuid.uuid4().hex[:8],
+        "created":    datetime.now(timezone.utc).isoformat(),
+        "theme":      theme,
+        "content":    content,
+        "status":     status,   # pending_review | approved | rejected | posted
+        "source":     source,   # facebook_bot | ideas_bank | manual
+        "idea_id":    idea_id,
+        "post_id":    post_id,  # FB post ID if already live
+        "reviewed_at": None,
+        "edited":     False,
+    })
+    CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
+
+
 def _queue_post(content: str, theme: str):
-    """Save a generated post to the queue folder instead of posting live."""
+    """Save a generated post to the queue folder AND content review."""
     QUEUE_DIR.mkdir(exist_ok=True)
     ts  = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out = QUEUE_DIR / f"post-{ts}.json"
@@ -129,6 +152,7 @@ def _queue_post(content: str, theme: str):
         "content": content,
         "status":  "queued",
     }, indent=2))
+    _save_to_content_review(content, theme, status="pending_review")
     print(f"  → Queued: {out.name}")
 
 
@@ -240,10 +264,11 @@ def post_scheduled_content(secrets: dict):
 
     if _is_live(secrets):
         post_id = _post_live(post, secrets)
+        _save_to_content_review(post, theme, status="posted", post_id=post_id)
         print(f"  ✓ Facebook post published live (ID: {post_id})")
     else:
         _queue_post(post, theme)
-        print(f"  ✓ Facebook post queued (token not set — add FB_PAGE_ACCESS_TOKEN to go live)")
+        print(f"  ✓ Facebook post queued for review (add FB_PAGE_ACCESS_TOKEN to post live)")
 
     schedule["posted_dates"].append(date_key)
     schedule["theme_index"] = idx + 1
@@ -1252,6 +1277,7 @@ if __name__ == "__main__":
         print(f"--- GENERATED POST ---\n{post}\n---\n")
         if _is_live(secrets):
             post_id = _post_live(post, secrets)
+            _save_to_content_review(post, theme, status="posted", post_id=post_id)
             print(f"✓ Posted live (ID: {post_id})")
             schedule["posted_dates"].append(datetime.now(timezone.utc).strftime("%Y-%m-%d"))
         else:
