@@ -29,7 +29,7 @@ RUN AS CRON (every 2 hours):
   op://Private/GoogleSheets/creds-path — path to service account JSON e.g. ~/.battleship-gsheets.json (optional)
 """
 
-import subprocess, requests, json, smtplib, sys, os, re, imaplib, email
+import subprocess, requests, json, smtplib, sys, os, re, imaplib, email, shutil
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -51,7 +51,10 @@ LOGS_DIR     = VAULT_ROOT / "logs"
 STATE_FILE   = CLIENTS_DIR / "state.json"
 
 INTAKE_FORM_ID    = "wbD9VYUa"
+SHORT_FORM_ID     = "5B2p5Q"     # 5-question gateway form — routes to process_short_intake
+FULL_FORM_ID      = "rjK752"     # Full 33-question intake form
 CHECKIN_FORM_ID   = ""           # Legacy Typeform check-in — replaced by Google Sheets
+FULL_ASSESSMENT_URL = "https://webhook.battleshipreset.com/full-assessment"
 CHECKIN_GFORM_URL = "https://forms.gle/TkBjLWd5aotBGTDAA"
 
 COACH_NAME  = "William George BattleShip Barratt"
@@ -194,15 +197,59 @@ UPGRADE_SIGNALS: dict[str, tuple[list[str], str]] = {
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
+def _warn_orphaned_folders(state: dict):
+    """Warn if BSR-* folders exist that have no entry in state.json clients."""
+    known = {cs.get("folder", "") for cs in state.get("clients", {}).values()}
+    pattern = re.compile(r"^BSR-\d{4}-\d{4}-")
+    orphans = sorted(d.name for d in CLIENTS_DIR.iterdir()
+                     if d.is_dir() and pattern.match(d.name) and d.name not in known)
+    if orphans:
+        print(f"\n⚠️  ORPHANED CLIENT FOLDERS (filesystem but NOT in state.json):")
+        for o in orphans:
+            print(f"   • {o}")
+        print(f"   Run: python3 scripts/battleship_pipeline.py --reconcile\n")
+
 def load_state() -> dict:
     CLIENTS_DIR.mkdir(parents=True, exist_ok=True)
+    bak = STATE_FILE.with_suffix(".bak")
+    _empty = {"next_client_number": 1, "processed_intake_ids": [],
+              "processed_checkin_ids": [], "clients": {}}
+
+    def _try_load(path: Path) -> dict | None:
+        try:
+            data = json.loads(path.read_text())
+            if isinstance(data, dict) and "clients" in data:
+                return data
+        except Exception:
+            pass
+        return None
+
     if STATE_FILE.exists():
-        return json.loads(STATE_FILE.read_text())
-    return {"next_client_number": 1, "processed_intake_ids": [],
-            "processed_checkin_ids": [], "clients": {}}
+        state = _try_load(STATE_FILE)
+        if state is not None:
+            _warn_orphaned_folders(state)
+            return state
+        print(f"⚠️  state.json is corrupt — attempting restore from backup...")
+
+    if bak.exists():
+        state = _try_load(bak)
+        if state is not None:
+            print(f"✅ Restored state.json from state.json.bak ({len(state.get('clients', {}))} client(s))")
+            save_state(state)  # Re-write clean main file
+            _warn_orphaned_folders(state)
+            return state
+        print(f"❌ state.json.bak is also corrupt.")
+
+    print(f"⚠️  Starting with empty state.")
+    return _empty
 
 def save_state(state: dict):
-    STATE_FILE.write_text(json.dumps(state, indent=2, default=str))
+    """Atomic save: write to .tmp then rename, keep .bak of previous good state."""
+    tmp = STATE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2, default=str))
+    if STATE_FILE.exists():
+        shutil.copy2(STATE_FILE, STATE_FILE.with_suffix(".bak"))
+    tmp.rename(STATE_FILE)
 
 def next_account_number(state: dict) -> str:
     """Generate next sequential account number e.g. BSR-2026-0001."""
@@ -324,6 +371,9 @@ def tally_parse_submission(payload: dict) -> dict:
                   ("email" in k.lower() and "@" in v)), "")
     raw_text = "\n".join(f"**{q}**\n{a}" for q, a in qa.items() if a)
 
+    # Detect which form this submission came from
+    form_id = data.get("formId", "")
+
     return {
         "response_id":  data.get("responseId", "tally-" + data.get("submittedAt", "")),
         "submitted_at": data.get("submittedAt", ""),
@@ -331,6 +381,8 @@ def tally_parse_submission(payload: dict) -> dict:
         "email":        email,
         "qa":           qa,
         "raw_text":     raw_text,
+        "form_id":      form_id,
+        "short_form":   SHORT_FORM_ID in form_id,
     }
 
 
@@ -350,8 +402,11 @@ def process_tally_queue(secrets: dict, state: dict):
                 print(f"  ↩️  Already processed: {f.name}")
                 f.unlink()
                 continue
-            print(f"  📥 Processing Tally submission: {parsed['name']} ({parsed['email']})")
-            process_new_intake(parsed, secrets, state)
+            print(f"  📥 Processing Tally submission: {parsed['name']} ({parsed['email']}) [{'short' if parsed.get('short_form') else 'full'} form]")
+            if parsed.get("short_form"):
+                process_short_intake(parsed, secrets, state)
+            else:
+                process_new_intake(parsed, secrets, state)
             f.unlink()
         except Exception as e:
             print(f"  ❌ Error processing {f.name}: {e}")
@@ -470,6 +525,43 @@ Notes for AGENT_TAGS_JSON:
 - weight_lbs: their current weight in lbs (convert from kg/stone if needed). 0 if not stated.
 - height_inches: their height in inches (convert from cm/ft if needed). 0 if not stated.
 - overweight_level: "significant" if they have a lot to lose (visibly overweight, 2+ stone, BMI likely 30+) or "moderate" if they just want to lose a bit or tone up."""
+
+SHORT_DIAGNOSIS_PROMPT = """\
+You are the Intake Agent for Battleship – Midlife Fitness Reset.
+A British fitness coaching programme for men 40–60 who've tried and failed before.
+Tone: warm, direct, non-shaming. Like a knowledgeable mate who tells it straight.
+
+A man has filled in a short 5-question form. You don't have full detail yet — no weight,
+injuries, schedule, or history. Write a diagnosis that feels personal and insightful based
+on what you do know, but is honest that the full picture will make the plan significantly better.
+
+CLIENT ANSWERS:
+{intake_text}
+
+Output EXACTLY this structure (no preamble, no sign-off):
+
+# Your Battleship Diagnosis — {name}
+
+## Why It Hasn't Worked Before
+[2 paragraphs. Speak directly to their answer about what stopped them. Name the pattern —
+don't just repeat their words. If they said "life gets in the way", explain WHY generic
+programmes fail busy men and what's different about building around your actual life.
+Make them feel understood, not judged.]
+
+## What The Reset Does Differently
+[2 paragraphs. Based on their goal and biggest problem, explain the Battleship approach:
+walking as a foundation, progressive strength, honest nutrition tracking, sleep, alcohol.
+Be specific to what they said their goal is. End with one confident sentence.]
+
+## Your First Move
+[2 bullet points only. The two simplest things they can do this week based on what they've told us.
+No equipment assumptions. No schedule assumptions. Ultra-simple starting points that anyone can do.]
+
+## One More Thing
+[3–4 sentences. Acknowledge that this is a starting point — their full plan needs more detail.
+Be direct: the full assessment takes 10 minutes and covers schedule, injuries, nutrition, alcohol,
+and training history. The more specific their answers, the more specific the plan.
+End with: "Complete the full assessment here: {full_assessment_url}"]"""
 
 PLAN_PROMPT = """\
 You are the Program Agent for Battleship – Midlife Fitness Reset.
@@ -1274,6 +1366,66 @@ def log_event(folder: str, event: str):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     with open(log_file, "a") as f:
         f.write(f"- {ts}: {event}\n")
+
+
+# ── Pipeline: Short Form → Teaser Diagnosis ───────────────────────────────────
+
+def process_short_intake(client: dict, secrets: dict, state: dict):
+    """Handle 5-question gateway form — generate teaser diagnosis, CTA to full form."""
+    existing = next(
+        (acct for acct, cs in state["clients"].items()
+         if cs.get("email") == client["email"] and cs.get("status") != "error"),
+        None
+    )
+    if existing:
+        # Already in system from full form — skip silently
+        state["processed_intake_ids"].append(client["response_id"])
+        print(f"\n  ⏭  Short form duplicate (already in system): {client['name']} ({existing})")
+        return
+
+    account_no = next_account_number(state)
+    folder     = client_folder_name(account_no, client["name"])
+    print(f"\n  🆕 Short form intake: {client['name']} → {account_no}")
+
+    save_client_file(folder, "intake.md",
+        f"# Intake — {client['name']}\nAccount: {account_no}\nSubmitted: {client['submitted_at']}\nSource: short-form\n\n{client['raw_text']}"
+    )
+
+    print("     🧠 Generating short diagnosis...")
+    prompt = SHORT_DIAGNOSIS_PROMPT.format(
+        intake_text=client["raw_text"],
+        name=client["name"],
+        full_assessment_url=FULL_ASSESSMENT_URL,
+    )
+    diagnosis_text = call_claude(secrets["anthropic"], prompt, max_tokens=1000)
+    save_client_file(folder, "diagnosis.md", diagnosis_text)
+    log_event(folder, "Short-form teaser diagnosis generated")
+
+    if client["email"]:
+        subj, plain, html = email_diagnosis(client["name"], diagnosis_text)
+        send_email(secrets, client["email"], subj, plain, html)
+        log_event(folder, "Short-form diagnosis email sent")
+
+    state["clients"][account_no] = {
+        "account_no":            account_no,
+        "folder":                folder,
+        "name":                  client["name"],
+        "email":                 client["email"],
+        "intake_date":           client["submitted_at"][:10] if client["submitted_at"] else "",
+        "status":                "diagnosed",
+        "current_week":          0,
+        "enrolled_date":         None,
+        "emails_sent":           ["diagnosis"],
+        "tags":                  {},
+        "short_form":            True,
+        "last_checkin_request":  None,
+        "last_checkin_received": None,
+        "notion_page_id":        None,
+        "notion_url":            None,
+    }
+    state["processed_intake_ids"].append(client["response_id"])
+    save_state(state)
+    print(f"     ✅ {account_no} — {client['name']} → short diagnosis sent")
 
 
 # ── Pipeline: Intake → Diagnosis ──────────────────────────────────────────────
@@ -2706,6 +2858,95 @@ def cmd_find(query: str, state: dict):
         print()
 
 
+def _parse_intake_for_reconcile(folder_path: Path) -> dict | None:
+    """Extract name, account, email, submitted from intake.md."""
+    intake = folder_path / "intake.md"
+    if not intake.exists():
+        return None
+    name = account = email = submitted = None
+    lines = intake.read_text().splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("# Intake —"):
+            name = line.replace("# Intake —", "").strip().title()
+        elif line.startswith("Account:"):
+            account = line.split(":", 1)[1].strip()
+        elif line.startswith("Submitted:"):
+            submitted = line.split(":", 1)[1].strip()
+        elif "email" in line.lower() and i + 1 < len(lines):
+            candidate = lines[i + 1].strip()
+            if "@" in candidate and not candidate.startswith("**"):
+                email = candidate
+    return {"name": name, "account": account, "email": email, "submitted": submitted}
+
+
+def cmd_reconcile(state: dict):
+    """--reconcile — scan client folders and rebuild any state.json entries that are missing."""
+    folder_pattern = re.compile(r"^(BSR-\d{4}-\d{4})-")
+    known_folders  = {cs.get("folder", "") for cs in state.get("clients", {}).values()}
+    known_accounts = set(state.get("clients", {}).keys())
+
+    added = 0
+    for d in sorted(CLIENTS_DIR.iterdir()):
+        if not d.is_dir():
+            continue
+        m = folder_pattern.match(d.name)
+        if not m:
+            continue
+        if d.name in known_folders:
+            continue
+        account_no = m.group(1)
+        if account_no in known_accounts:
+            continue
+
+        parsed = _parse_intake_for_reconcile(d)
+        if not parsed or not parsed.get("name"):
+            print(f"  ⚠️  {d.name}: cannot parse intake.md — skipping")
+            continue
+
+        tags = {}
+        tags_file = d / "tags.json"
+        if tags_file.exists():
+            try:
+                tags = json.loads(tags_file.read_text())
+            except Exception:
+                pass
+
+        has_tracker = (d / "progress-tracker.md").exists()
+        has_diag    = (d / "diagnosis.md").exists()
+        status = "active" if has_tracker else ("diagnosed" if has_diag else "error")
+
+        entry = {
+            "account_no":            account_no,
+            "folder":                d.name,
+            "name":                  parsed["name"],
+            "email":                 parsed.get("email") or "",
+            "intake_date":           parsed.get("submitted", ""),
+            "status":                status,
+            "current_week":          1,
+            "enrolled_date":         None,
+            "emails_sent":           [],
+            "tags":                  tags,
+            "last_checkin_request":  None,
+            "last_checkin_received": None,
+            "notion_page_id":        None,
+            "notion_url":            None,
+            "_reconciled":           True,
+            "_reconciled_at":        datetime.now(timezone.utc).isoformat(),
+        }
+        state["clients"][account_no] = entry
+        num = int(account_no.split("-")[-1])
+        if num >= state.get("next_client_number", 1):
+            state["next_client_number"] = num + 1
+        print(f"  ✅ Reconciled: {account_no} — {parsed['name']} ({status})")
+        added += 1
+
+    if added:
+        save_state(state)
+        print(f"\n✅ Reconcile complete — {added} client(s) restored to state.json")
+    else:
+        print(f"\n✅ Nothing to reconcile — all folders are already in state.json")
+
+
 def cmd_status(query: str, state: dict):
     """--status=<query> — full client report: week, emails, tracker, recent events."""
     acct, cs = find_client(query, state)
@@ -2959,6 +3200,10 @@ def main():
         manual_enrol(query, state, secrets, free=free)
         return
 
+    if "--reconcile" in sys.argv:
+        cmd_reconcile(load_state())
+        return
+
     if any(a.startswith("--find=") for a in sys.argv):
         query = next(a.split("=", 1)[1] for a in sys.argv if a.startswith("--find="))
         cmd_find(query, load_state())
@@ -3090,6 +3335,53 @@ def main():
         run_orchestrator(secrets, state)
     except Exception as e:
         print(f"  ⚠️  Orchestrator skipped: {e}")
+
+    # 15. Telegram callback polling — process photo approvals/rejections from Telegram buttons
+    print("\n📱 Telegram callback polling...")
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location("telegram_notify", VAULT_ROOT / "scripts" / "telegram_notify.py")
+        _tg   = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_tg)
+        callbacks = _tg.poll_callbacks()
+        if callbacks:
+            photo_review_file = CLIENTS_DIR / "photo_review_state.json"
+            if photo_review_file.exists():
+                pr_data = json.loads(photo_review_file.read_text())
+            else:
+                pr_data = {"candidates": []}
+            queue_dir = CLIENTS_DIR / "facebook_queue"
+            for cb in callbacks:
+                data_str = cb.get("data", "")
+                if data_str.startswith("photo_approve_"):
+                    photo_id = data_str[len("photo_approve_"):]
+                    for c in pr_data.get("candidates", []):
+                        if c["id"] == photo_id and c.get("status") == "pending":
+                            c["status"] = "approved"
+                            c["reviewed_at"] = datetime.now().isoformat()
+                            c["review_source"] = "telegram"
+                            # Queue for Facebook posting
+                            if c.get("path") and Path(c["path"]).exists():
+                                queue_dir.mkdir(parents=True, exist_ok=True)
+                                import uuid as _uuid
+                                q = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": c["path"],
+                                     "caption": c.get("caption_hint", ""), "source": "telegram_review",
+                                     "queued_at": datetime.now().isoformat(), "status": "pending"}
+                                (queue_dir / f"photo_{photo_id}.json").write_text(json.dumps(q, indent=2))
+                            print(f"  ✅ Photo approved via Telegram: {c.get('filename')}")
+                elif data_str.startswith("photo_reject_"):
+                    photo_id = data_str[len("photo_reject_"):]
+                    for c in pr_data.get("candidates", []):
+                        if c["id"] == photo_id and c.get("status") == "pending":
+                            c["status"] = "rejected"
+                            c["reviewed_at"] = datetime.now().isoformat()
+                            c["review_source"] = "telegram"
+                            print(f"  ❌ Photo rejected via Telegram: {c.get('filename')}")
+            photo_review_file.write_text(json.dumps(pr_data, indent=2))
+        else:
+            print("  ✅ No pending Telegram callbacks")
+    except Exception as e:
+        print(f"  ⚠️  Telegram polling skipped: {e}")
 
     # Save state
     save_state(state)

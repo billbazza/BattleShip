@@ -287,7 +287,10 @@ def get_pnl(state: dict) -> dict:
         "net":           revenue - total_spend,
         "target_mrr":    3000,
         "gap_to_target": max(0, 3000 - mrr_estimate),
-        "active_clients": sum(1 for cs in clients.values() if cs["status"] == "active"),
+        "active_clients": sum(1 for cs in clients.values()
+                             if cs["status"] == "active"
+                             and not cs.get("complimentary")
+                             and not cs.get("test")),
     }
 
 

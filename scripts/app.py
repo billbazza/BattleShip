@@ -608,7 +608,7 @@ RUN_PAGE = BASE.replace("{% block content %}{% endblock %}", """
 <h1>Run Pipeline</h1>
 <div class="card">
   <p style="margin-bottom:20px;color:#555">
-    Polls Typeform for new intakes, checks Stripe for payments, sends education drips.
+    Polls Tally for new intakes, checks Stripe for payments, sends education drips.
     This is the same as the cron job — safe to run any time.
   </p>
   <form method="post" action="/run">
@@ -1574,29 +1574,9 @@ BUSINESS_PAGE = """<!DOCTYPE html>
   </div>
   {% endif %}
 
-  <!-- Pending post drafts -->
-  <div class="rem-card">
-    {% if pending_content %}
-    {% for post in pending_content %}
-    <div class="rem-item" id="cr-{{ post.id }}" style="align-items:flex-start;flex-direction:column">
-      <div style="display:flex;gap:10px;align-items:center;width:100%;margin-bottom:8px">
-        <span class="rem-badge" style="background:#1a0a20;color:#9b59b6">{{ post.source }}</span>
-        <span style="color:#555;font-size:11px">{{ post.theme }} · {{ post.created[:10] }}</span>
-      </div>
-      <div id="cr-text-{{ post.id }}" style="color:#ccc;font-size:13px;line-height:1.6;white-space:pre-wrap;background:#111;padding:12px;border-radius:4px;width:100%;box-sizing:border-box">{{ post.content }}</div>
-      <textarea id="cr-edit-{{ post.id }}" style="display:none;color:#ccc;font-size:13px;line-height:1.6;background:#111;padding:12px;border-radius:4px;width:100%;box-sizing:border-box;border:1px solid #c41e3a;min-height:160px;font-family:inherit">{{ post.content }}</textarea>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button onclick="approveContent('{{ post.id }}')" class="rem-btn done">✅ Approve &amp; queue</button>
-        <button onclick="toggleEditContent('{{ post.id }}')" id="edit-btn-{{ post.id }}" class="rem-btn" style="border-color:#9b59b6;color:#9b59b6">✏️ Edit</button>
-        <button onclick="saveEditContent('{{ post.id }}')" id="save-btn-{{ post.id }}" class="rem-btn" style="display:none;border-color:#2a9d4e;color:#2a9d4e">Save edit</button>
-        <button onclick="rejectContent('{{ post.id }}')" class="rem-btn" style="border-color:#c41e3a;color:#c41e3a">❌ Reject</button>
-      </div>
-    </div>
-    {% endfor %}
-    {% else %}
-    <div style="color:#888;font-size:13px;font-style:italic;padding:12px 0">No content pending review. Posts are drafted Mon/Wed/Fri by Facebook Bot.</div>
-    {% endif %}
-  </div>
+  {% if pending_content %}
+  <div style="color:#888;font-size:12px;font-style:italic;margin-bottom:4px">{{ pending_content|length }} draft{{ 's' if pending_content|length != 1 }} waiting — review in <b style="color:#aaa">Facebook Bot → Content Queue</b> below.</div>
+  {% endif %}
 
   <!-- B4. Bot Activity -->
   <div class="section-label" style="margin-top:32px">Bot Activity</div>
@@ -1641,20 +1621,30 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       {% if all_content %}
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:10px;margin-top:6px">Content Queue</div>
       {% for post in all_content | sort(attribute='created', reverse=True) | list %}
+      {% set has_img = post.get('image_path','') %}
+      {% set img_name = post.get('image_path','').split('/')[-1] if has_img else '' %}
       <div class="post-card" id="pc-{{ post.id }}">
         <div class="post-card-header" onclick="togglePost('{{ post.id }}')">
+          {% if has_img %}
+          <img src="/brand/output/{{ img_name }}" style="width:54px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">
+          {% else %}
           <div class="post-thumb-placeholder">&#128444;</div>
+          {% endif %}
           <div class="post-meta">
-            <div class="post-theme">{{ post.get('theme','—') }} · {{ post.get('created','')[:10] }}</div>
-            <div class="post-preview">{{ post.get('content','')[:100] }}</div>
+            <div class="post-theme">{{ post.get('theme','—') }}</div>
+            <div class="post-preview">{{ post.get('content','')[:90] }}{% if post.get('content','')|length > 90 %}…{% endif %}</div>
+            <div style="font-size:10px;color:#555;margin-top:2px">{{ post.get('created','')[:10] }} · {{ post.get('source','—') }}</div>
           </div>
           <span class="post-status ps-{{ post.get('status','pending_review') }}">{{ post.get('status','—').replace('_',' ') }}</span>
         </div>
         <div class="post-body" id="pb-{{ post.id }}">
-          <div class="post-full-text">{{ post.get('content','') }}</div>
+          {% if has_img %}
+          <img src="/brand/output/{{ img_name }}" style="width:100%;max-height:280px;object-fit:cover;border-radius:4px;margin-bottom:12px" onerror="this.style.display='none'">
+          {% endif %}
+          <div class="post-full-text" style="white-space:pre-wrap">{{ post.get('content','') }}</div>
           {% if post.get('status') == 'pending_review' %}
           <div class="post-actions">
-            <button onclick="approveContent('{{ post.id }}')" class="rem-btn done">&#10003; Approve &amp; queue</button>
+            <button onclick="approveContent('{{ post.id }}')" class="rem-btn done">&#10003; Approve &amp; post</button>
             <button onclick="toggleEditContent('{{ post.id }}')" id="edit-btn-{{ post.id }}" class="rem-btn" style="border-color:#9b59b6;color:#9b59b6">&#9998; Edit</button>
             <button onclick="saveEditContent('{{ post.id }}')" id="save-btn-{{ post.id }}" class="rem-btn" style="display:none;border-color:#2a9d4e;color:#2a9d4e">Save</button>
             <button onclick="rejectContent('{{ post.id }}')" class="rem-btn" style="border-color:#c41e3a;color:#c41e3a">&#10005; Reject</button>
@@ -1663,7 +1653,6 @@ BUSINESS_PAGE = """<!DOCTYPE html>
             <textarea id="cr-edit-{{ post.id }}">{{ post.get('content','') }}</textarea>
           </div>
           {% endif %}
-          <div style="font-size:11px;color:#777;margin-top:8px">Source: {{ post.get('source','—') }} · ID: {{ post.id }}</div>
         </div>
       </div>
       {% endfor %}
@@ -1763,10 +1752,14 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       {% if pending_photos %}
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">Pending Photo Review</div>
       {% for photo in pending_photos %}
-      <div style="display:flex;gap:12px;align-items:center;background:#111;border-radius:4px;padding:10px 14px;margin-bottom:8px" id="photo-{{ photo.id }}">
+      <div style="display:flex;gap:12px;align-items:center;background:#111;border-radius:4px;padding:10px 14px;margin-bottom:8px" id="photoa-{{ photo.id }}">
+        {% if photo.url %}
+        <img src="{{ photo.url }}" style="width:72px;height:72px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid #333" onerror="this.style.display='none'">
+        {% else %}
         <div style="font-size:20px">🖼</div>
+        {% endif %}
         <div style="flex:1">
-          <div style="color:#ccc;font-size:13px">{{ photo.path | replace('/Users/will/','~/') }}</div>
+          <div style="color:#ccc;font-size:13px">{{ photo.filename }}</div>
           <div style="color:#555;font-size:11px;margin-top:2px">{{ photo.get('notes','') }}</div>
         </div>
         <div style="display:flex;gap:6px">
@@ -1854,10 +1847,12 @@ BUSINESS_PAGE = """<!DOCTYPE html>
         </div>
       </div>
       <div class="bot-badges">
-        {% set tech_active = tech_gaps | selectattr('status','ne','done') | list if tech_gaps and tech_gaps[0] is mapping else tech_gaps %}
-        {% set tech_done   = tech_gaps | selectattr('status','equalto','done') | list if tech_gaps and tech_gaps[0] is mapping else [] %}
-        {% set tech_high   = tech_active | selectattr('impact','equalto','high') | list if tech_active and tech_active[0] is mapping else [] %}
-        {% if tech_high %}<span class="bot-badge bb-alert">{{ tech_high|length }} high impact</span>{% endif %}
+        {% set tech_active   = tech_gaps | selectattr('status','ne','done') | list if tech_gaps and tech_gaps[0] is mapping else tech_gaps %}
+        {% set tech_done     = tech_gaps | selectattr('status','equalto','done') | list if tech_gaps and tech_gaps[0] is mapping else [] %}
+        {% set tech_critical = tech_active | selectattr('impact','equalto','critical') | list if tech_active and tech_active[0] is mapping else [] %}
+        {% set tech_high     = tech_active | selectattr('impact','equalto','high') | list if tech_active and tech_active[0] is mapping else [] %}
+        {% if tech_critical %}<span class="bot-badge" style="background:#3a0010;color:#ff4444;border:1px solid #ff4444">🔴 {{ tech_critical|length }} critical</span>{% endif %}
+        {% if tech_high %}<span class="bot-badge bb-alert">{{ tech_high|length }} high</span>{% endif %}
         <span class="bot-badge bb-info">{{ tech_active|length }} tracked</span>
         {% if tech_done %}<span class="bot-badge bb-ok">{{ tech_done|length }} done</span>{% endif %}
       </div>
@@ -1873,7 +1868,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       {% set gid = gap.get('id', loop.index|string) %}
       <div id="tech-gap-{{ gid }}" style="border-bottom:1px solid #1a1a1a">
         <div style="display:flex;gap:10px;align-items:center;padding:10px 0;cursor:pointer" onclick="toggleTechGap('{{ gid }}')">
-          <span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;flex-shrink:0;{% if gap.get('impact') == 'high' %}background:#2a0810;color:#c41e3a{% elif gap.get('impact') == 'medium' %}background:#2a1800;color:#e8a020{% else %}background:#1a1a2a;color:#555{% endif %}">{{ gap.get('impact','—') }}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;flex-shrink:0;{% if gap.get('impact') == 'critical' %}background:#3a0010;color:#ff4444;border:1px solid #ff4444{% elif gap.get('impact') == 'high' %}background:#2a0810;color:#c41e3a{% elif gap.get('impact') == 'medium' %}background:#2a1800;color:#e8a020{% else %}background:#1a1a2a;color:#555{% endif %}">{{ gap.get('impact','—') }}</span>
           <div style="flex:1">
             <div style="color:#ddd;font-size:13px">{{ gap.get('title', gap.get('description','')) }}</div>
             <div style="color:#888;font-size:11px;margin-top:2px">{{ gap.get('category','') }} · unlock at £{{ gap.get('revenue_unlock_gbp',0) }} MRR</div>
@@ -1881,6 +1876,9 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           <span style="font-size:10px;color:#888;flex-shrink:0">›</span>
         </div>
         <div id="tech-detail-{{ gid }}" style="display:none;padding:0 0 14px 0">
+          {% if gap.get('ads_paused') %}
+          <div style="background:#3a0010;border-left:3px solid #ff4444;padding:8px 12px;border-radius:0 4px 4px 0;margin-bottom:10px;font-size:12px;color:#ff8888">🔴 Ads are paused until this is resolved. Fix the form before restarting any campaigns.</div>
+          {% endif %}
           <div style="color:#aaa;font-size:12px;line-height:1.6;margin-bottom:8px">{{ gap.get('description','') }}</div>
           {% if gap.get('free_alternative') %}
           <div style="background:#1a1a1a;border-left:3px solid #777;padding:8px 12px;border-radius:0 4px 4px 0;margin-bottom:10px">
@@ -2035,12 +2033,12 @@ BUSINESS_PAGE = """<!DOCTYPE html>
   <div class="rem-card">
     {% if pending_reminders %}
     {% for r in pending_reminders %}
-    <div class="rem-item" id="rem-{{ r.id }}">
+    <div class="rem-item" id="rem-{{ r.id }}" {% if r.priority == 'critical' %}style="border-left:3px solid #ff4444;background:#1a0008"{% endif %}>
       <span class="rem-badge rb-{{ r.type }}">{{ r.type }}</span>
       <div class="rem-body">
         <div class="rem-title">{{ r.title }}</div>
-        <div class="rem-desc">{{ r.description }}</div>
-        <div class="rem-meta">Added by {{ r.added_by }} · {{ r.created_at }}{% if r.priority == 'high' %} · <span style="color:#e8a020">⚠ high priority</span>{% endif %}</div>
+        <div class="rem-desc" style="white-space:pre-line">{{ r.description }}</div>
+        <div class="rem-meta">Added by {{ r.added_by }} · {{ r.created_at }}{% if r.priority == 'critical' %} · <span style="color:#ff4444">🔴 critical</span>{% elif r.priority == 'high' %} · <span style="color:#e8a020">⚠ high priority</span>{% endif %}</div>
         <div class="rem-actions">
           {% if r.get('content_url') %}
           <a href="{{ r.content_url }}" target="_blank" class="rem-btn" style="border-color:#c41e3a;color:#c41e3a;text-decoration:none">📋 Open content ↗</a>
@@ -2078,14 +2076,18 @@ BUSINESS_PAGE = """<!DOCTYPE html>
   <div class="rem-card">
     {% if pending_photos %}
     {% for photo in pending_photos %}
-    <div class="rem-item" id="photo-{{ photo.id }}" style="align-items:flex-start">
+    <div class="rem-item" id="photob-{{ photo.id }}" style="align-items:flex-start;gap:12px">
+      {% if photo.url %}
+      <img src="{{ photo.url }}" style="width:80px;height:80px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid #333" onerror="this.style.display='none'">
+      {% else %}
       <span class="rem-badge" style="background:#3a2000;color:#e8a020">📸</span>
+      {% endif %}
       <div class="rem-body" style="flex:1">
         <div class="rem-title">{{ photo.filename }}</div>
         <div class="rem-desc">{{ photo.caption_hint }}</div>
         <div class="rem-meta">Source: {{ photo.source }} · Added {{ photo.created_at[:10] }}</div>
         <div class="rem-actions" style="margin-top:8px">
-          <button class="rem-btn done" onclick="approvePhoto('{{ photo.id }}')">✅ Post it</button>
+          <button class="rem-btn done" onclick="approvePhoto('{{ photo.id }}')">✅ Add to library</button>
           <button class="rem-btn" style="border-color:#c41e3a;color:#c41e3a" onclick="rejectPhoto('{{ photo.id }}')">❌ Skip</button>
         </div>
       </div>
@@ -2258,29 +2260,44 @@ function submitPivot(id) {
   });
 }
 function approveContent(id) {
+  // Disable all action buttons immediately to prevent double-post
+  const card = document.getElementById('pc-' + id);
+  if (card) {
+    const btns = card.querySelectorAll('button');
+    btns.forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
+  }
   fetch('/api/content-review/' + id + '/approve', {method:'POST'})
-    .then(r => r.json()).then(() => {
-      const el = document.getElementById('cr-' + id);
-      if (el) el.innerHTML = '<span style="color:#2a9d4e;padding:8px 0;display:block">✅ Approved and queued for posting.</span>';
+    .then(r => r.json()).then(data => {
+      if (card) {
+        const body = document.getElementById('pb-' + id);
+        if (body) {
+          const actions = body.querySelector('.post-actions');
+          if (actions) actions.innerHTML = '<span style="color:#2a9d4e;font-size:13px">' + (data.posted ? '✅ Posted to Facebook!' : '✅ Queued for posting') + '</span>';
+        }
+        card.style.opacity = '0.6';
+      }
     });
 }
 function rejectContent(id) {
   fetch('/api/content-review/' + id + '/reject', {method:'POST'})
     .then(r => r.json()).then(() => {
-      const el = document.getElementById('cr-' + id);
-      if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+      const card = document.getElementById('pc-' + id);
+      if (card) { card.style.opacity='0.3'; card.style.pointerEvents='none'; }
     });
 }
 function toggleEditContent(id) {
-  const view = document.getElementById('cr-text-' + id);
-  const edit = document.getElementById('cr-edit-' + id);
+  const body   = document.getElementById('pb-' + id);
+  if (!body) return;
+  const full   = body.querySelector('.post-full-text');
+  const wrap   = document.getElementById('cr-edit-wrap-' + id);
+  const edit   = document.getElementById('cr-edit-' + id);
   const editBtn = document.getElementById('edit-btn-' + id);
   const saveBtn = document.getElementById('save-btn-' + id);
-  const editing = edit.style.display !== 'none';
-  view.style.display = editing ? 'block' : 'none';
-  edit.style.display = editing ? 'none' : 'block';
-  editBtn.style.display = editing ? 'inline-block' : 'none';
-  saveBtn.style.display = editing ? 'none' : 'inline-block';
+  const editing = wrap && wrap.style.display !== 'none';
+  if (full)    full.style.display   = editing ? 'block' : 'none';
+  if (wrap)    wrap.style.display   = editing ? 'none'  : 'block';
+  if (editBtn) editBtn.style.display = editing ? 'inline-block' : 'none';
+  if (saveBtn) saveBtn.style.display = editing ? 'none'  : 'inline-block';
 }
 function saveEditContent(id) {
   const text = document.getElementById('cr-edit-' + id)?.value?.trim();
@@ -2289,11 +2306,22 @@ function saveEditContent(id) {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({content: text})
   }).then(r => r.json()).then(() => {
-    document.getElementById('cr-text-' + id).textContent = text;
+    const body = document.getElementById('pb-' + id);
+    if (body) {
+      const full = body.querySelector('.post-full-text');
+      if (full) full.textContent = text;
+      // Also update preview in header
+      const card = document.getElementById('pc-' + id);
+      if (card) {
+        const preview = card.querySelector('.post-preview');
+        if (preview) preview.textContent = text.substring(0, 90) + (text.length > 90 ? '…' : '');
+      }
+    }
     toggleEditContent(id);
   });
 }
 var _glIdeaId = null;
+var _glIdeaTitle = '';
 function greenLightIdea(id) {
   _glIdeaId = id;
   const modal = document.getElementById('gl-modal');
@@ -2303,6 +2331,7 @@ function greenLightIdea(id) {
   const ideaEl = document.getElementById('idea-' + id) || document.getElementById('idea-mkt-' + id);
   const ideaTitleEl = ideaEl ? ideaEl.querySelector('[style*="font-weight:600"]') : null;
   const titleText = ideaTitleEl ? ideaTitleEl.textContent.replace(/\s+/g,' ').trim() : '';
+  _glIdeaTitle = titleText;
   if (title) title.textContent = titleText ? 'Green light: ' + titleText.substring(0,50) : 'Pick a photo';
   grid.innerHTML = '<div style="color:#888;font-size:13px;padding:20px 0">Loading photos...</div>';
   modal.style.display = 'flex';
@@ -2312,19 +2341,35 @@ function greenLightIdea(id) {
     .then(data => {
       const candidates = data.candidates || [];
       if (!candidates.length) {
-        grid.innerHTML = '<div style="color:#888;font-size:13px">No photos in catalogue yet.</div>';
+        grid.innerHTML = '<div style="color:#888;font-size:13px;padding:16px 0">No photos found. Drop images into brand/random-snaps to build your library.</div>';
         return;
       }
-      grid.innerHTML = candidates.map(c => `
-        <div onclick="_confirmGreenLight('${c.id}')"
-             style="cursor:pointer;border:2px solid #252525;border-radius:6px;overflow:hidden;background:#111;-webkit-tap-highlight-color:transparent"
+      const photoCards = candidates.map(c => {
+        const isUncatalogued = c.quality === 'uncatalogued';
+        const badge = isUncatalogued
+          ? '<div style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,0.7);color:#e8a020;font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700">NEW</div>'
+          : '';
+        const faceTag = (c.tags||[]).includes('face')
+          ? '<div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);color:#666;font-size:9px;padding:2px 6px;border-radius:3px">face</div>'
+          : '';
+        return `<div onclick="_confirmGreenLight('${c.id}')"
+             style="cursor:pointer;border:2px solid #252525;border-radius:6px;overflow:hidden;background:#111;position:relative;-webkit-tap-highlight-color:transparent"
              onmouseover="this.style.borderColor='#c41e3a'" onmouseout="this.style.borderColor='#252525'">
-          <img src="${c.url}" style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block" loading="lazy">
-          <div style="padding:8px 10px">
-            <div style="font-size:11px;font-weight:600;color:#ddd;text-transform:capitalize">${c.quality} · ${c.period}</div>
-            <div style="font-size:10px;color:#888;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(c.notes||'').substring(0,45)}</div>
+          <div style="position:relative">
+            <img src="${c.url}" style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block" loading="lazy">
+            ${badge}${faceTag}
           </div>
-        </div>`).join('');
+          <div style="padding:7px 8px">
+            <div style="font-size:10px;font-weight:600;color:#ddd;text-transform:capitalize;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.label||c.quality}</div>
+          </div>
+        </div>`;
+      }).join('');
+
+      const noVarietyMsg = !data.has_variety
+        ? '<div style="background:#2a1400;border-left:3px solid #e8a020;padding:10px 12px;border-radius:0 4px 4px 0;margin-bottom:14px;font-size:12px;color:#e8a020">All available photos are face shots. Use <b>Request graphics task</b> below to create on-brand statement images.</div>'
+        : '';
+
+      grid.innerHTML = noVarietyMsg + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px">' + photoCards + '</div>';
     });
 }
 function _closeGlModal() {
@@ -2341,14 +2386,45 @@ function _confirmGreenLight(photoId) {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({photo_id: photoId})
-  }).then(r => r.json()).then(() => {
+  }).then(r => r.json()).then(data => {
     [document.getElementById('idea-' + id), document.getElementById('idea-mkt-' + id)].forEach(el => {
-      if (el) el.innerHTML = '<div style="color:#2a9d4e;padding:10px 0;font-size:13px">✅ Green lit' + (photoId ? ' with photo' : '') + ' — post draft being generated...</div>';
+      if (el) el.innerHTML = '<div style="color:#2a9d4e;padding:10px 0;font-size:13px">✅ Green lit — FB draft generated. Check <b>Facebook Bot → Content Queue</b>.</div>';
     });
+    const toast = document.createElement('div');
+    toast.textContent = '✅ Green lit! FB draft generating — check Content Queue in ~10s.';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2a6f4e;color:#fff;padding:12px 20px;border-radius:6px;font-size:13px;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.4)';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
   });
 }
 function _skipGlPhoto() {
   _confirmGreenLight(null);
+}
+function _requestGraphicsTask() {
+  const ideaLabel = _glIdeaTitle || 'a green-lit idea';
+  const body = {
+    title: 'Create statement graphic for: ' + ideaLabel,
+    description: 'The Marketing Bot needs an on-brand statement image (text on background) to accompany this idea. Suggested formats: bold quote on dark background, stat/headline card, or motivational statement. Drop the finished image into brand/random-snaps/ and green-light the idea again.',
+    type: 'creative',
+    priority: 'medium'
+  };
+  fetch('/api/reminders', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  })
+  .then(r => r.json())
+  .then(() => {
+    _closeGlModal();
+    const toast = document.createElement('div');
+    toast.textContent = '📌 Reminder added: create a graphic for \u201c' + ideaLabel.substring(0,40) + '\u201d';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2a6f4e;color:#fff;padding:12px 20px;border-radius:6px;font-size:13px;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.4)';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  })
+  .catch(() => {
+    alert('Could not create reminder. Check the dashboard is running.');
+  });
 }
 function archiveIdea(id) {
   fetch('/api/ideas-bank/' + id + '/archive', {method:'POST'})
@@ -2361,16 +2437,20 @@ function approvePhoto(id) {
   fetch('/api/photo-review/' + id + '/approve', {method:'POST'})
     .then(r => r.json())
     .then(() => {
-      const el = document.getElementById('photo-' + id);
-      if (el) { el.innerHTML = '<span style="color:#2a9d4e;padding:8px 0;display:block">✅ Approved — queued for posting</span>'; }
+      ['photoa-', 'photob-'].forEach(prefix => {
+        const el = document.getElementById(prefix + id);
+        if (el) { el.innerHTML = '<span style="color:#2a9d4e;padding:8px 0;display:block;font-size:13px">✅ Added to library</span>'; }
+      });
     });
 }
 function rejectPhoto(id) {
   fetch('/api/photo-review/' + id + '/reject', {method:'POST'})
     .then(r => r.json())
     .then(() => {
-      const el = document.getElementById('photo-' + id);
-      if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+      ['photoa-', 'photob-'].forEach(prefix => {
+        const el = document.getElementById(prefix + id);
+        if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+      });
     });
 }
 function toggleBriefing() {
@@ -2420,14 +2500,15 @@ function togglePost(id) {
 
 <!-- Photo picker modal -->
 <div id="gl-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:16px;box-sizing:border-box" onclick="if(event.target===this)_closeGlModal()">
-  <div style="background:#1a1a1a;border-radius:8px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:22px;box-sizing:border-box">
+  <div style="background:#1a1a1a;border-radius:8px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;padding:22px;box-sizing:border-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div id="gl-modal-title" style="font-size:13px;font-weight:600;color:#ddd;flex:1;margin-right:12px">Pick a photo</div>
       <button onclick="_closeGlModal()" style="background:none;border:none;color:#666;font-size:20px;cursor:pointer;padding:0;line-height:1">&times;</button>
     </div>
-    <div id="gl-photo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
+    <div id="gl-photo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:16px"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button onclick="_skipGlPhoto()" style="flex:1;background:none;border:1px solid #555;color:#aaa;padding:10px;border-radius:4px;font-size:13px;cursor:pointer;min-width:120px">No photo — text only</button>
+      <button onclick="_requestGraphicsTask()" style="flex:1;background:none;border:1px solid #e8a020;color:#e8a020;padding:10px;border-radius:4px;font-size:13px;cursor:pointer;min-width:160px">Request statement graphic &#8594;</button>
       <button onclick="_closeGlModal()" style="background:none;border:1px solid #333;color:#666;padding:10px 18px;border-radius:4px;font-size:13px;cursor:pointer">Cancel</button>
     </div>
   </div>
@@ -3004,7 +3085,11 @@ def _build_business_context():
         })
 
     # ── Tech backlog ──────────────────────────────────────────────────────────
-    tech_gaps = backlog.get("gaps", [])
+    _impact_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    tech_gaps = sorted(
+        backlog.get("gaps", []),
+        key=lambda g: (_impact_order.get(g.get("impact", "medium"), 2), g.get("id", ""))
+    )
 
     # ── Reminders ─────────────────────────────────────────────────────────────
     rem_data         = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
@@ -3014,7 +3099,18 @@ def _build_business_context():
     # ── Morning briefing ──────────────────────────────────────────────────────
     briefing      = _load_json_safe(MORNING_BRIEFING_FILE, {})
     photo_review  = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
-    pending_photos = [c for c in photo_review.get("candidates", []) if c.get("status") == "pending"]
+    pending_photos = []
+    for c in photo_review.get("candidates", []):
+        if c.get("status") == "pending":
+            p = dict(c)
+            # Convert absolute path to a Flask-servable URL
+            abs_path = p.get("path", "")
+            brand_prefix = str(VAULT_ROOT / "brand") + "/"
+            if abs_path.startswith(brand_prefix):
+                p["url"] = "/brand/" + abs_path[len(brand_prefix):]
+            else:
+                p["url"] = ""
+            pending_photos.append(p)
 
     # ── Content review ────────────────────────────────────────────────────────
     content_review  = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
@@ -3385,25 +3481,66 @@ def api_photo_reject(photo_id):
 
 @app.route("/api/content-review/<cr_id>/approve", methods=["POST"])
 def api_content_approve(cr_id):
+    env = _read_env()
     data = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
+    result = {"status": "approved", "posted": False, "post_id": ""}
     for p in data.get("posts", []):
-        if p["id"] == cr_id:
-            p["status"] = "approved"
-            p["reviewed_at"] = datetime.now().isoformat()
-            # Move to facebook_queue for posting
-            queue_dir = VAULT_ROOT / "clients" / "facebook_queue"
-            queue_dir.mkdir(parents=True, exist_ok=True)
-            import uuid as _uuid
-            (queue_dir / f"cr_{cr_id}.json").write_text(json.dumps({
-                "id": "fq_" + _uuid.uuid4().hex[:8],
-                "content": p.get("content", ""),
-                "theme": p.get("theme", ""),
-                "source": "content_review",
-                "queued_at": datetime.now().isoformat(),
-                "status": "pending",
-            }, indent=2))
+        if p["id"] != cr_id:
+            continue
+        # Idempotency guard — already actioned, don't double-post
+        if p.get("status") in ("approved", "posted"):
+            result["status"] = p["status"]
+            result["posted"] = p.get("status") == "posted"
+            result["post_id"] = p.get("post_id", "")
+            return jsonify(result)
+        p["status"] = "approved"
+        p["reviewed_at"] = datetime.now().isoformat()
+        content    = p.get("content", "")
+        image_path = p.get("image_path", "")
+        token      = env.get("FB_PAGE_ACCESS_TOKEN", "")
+        page_id    = env.get("FB_PAGE_ID", "")
+
+        if token and page_id:
+            # Post live immediately
+            try:
+                from skills.facebook_bot import post_photo as _post_photo, _post_live as _post_live_fn
+                secrets = {k: env.get(k, "") for k in
+                           ["FB_PAGE_ACCESS_TOKEN", "FB_PAGE_ID", "IG_USER_ID", "FB_USER_TOKEN"]}
+                if image_path and Path(image_path).exists():
+                    post_id = _post_photo(Path(image_path), content, secrets)
+                    print(f"  ✅ Approved + posted with image (ID: {post_id})")
+                else:
+                    post_id = _post_live_fn(content, secrets)
+                    print(f"  ✅ Approved + posted text-only (ID: {post_id})")
+                p["status"]  = "posted"
+                p["post_id"] = post_id
+                result.update({"posted": True, "post_id": post_id})
+            except Exception as e:
+                print(f"  ⚠️  Post failed after approval: {e}")
+                # Fall through to queue
+                _enqueue_for_posting(cr_id, content, image_path, p.get("theme", ""))
+        else:
+            # No token — queue it
+            _enqueue_for_posting(cr_id, content, image_path, p.get("theme", ""))
+        break
+
     CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
-    return jsonify({"status": "approved"})
+    return jsonify(result)
+
+
+def _enqueue_for_posting(cr_id: str, content: str, image_path: str, theme: str):
+    import uuid as _uuid
+    queue_dir = VAULT_ROOT / "clients" / "facebook_queue"
+    queue_dir.mkdir(parents=True, exist_ok=True)
+    (queue_dir / f"cr_{cr_id}.json").write_text(json.dumps({
+        "id":         "fq_" + _uuid.uuid4().hex[:8],
+        "content":    content,
+        "image_path": image_path,
+        "theme":      theme,
+        "source":     "content_review",
+        "queued_at":  datetime.now().isoformat(),
+        "status":     "pending",
+    }, indent=2))
 
 
 @app.route("/api/content-review/<cr_id>/reject", methods=["POST"])
@@ -3431,45 +3568,183 @@ def api_content_edit(cr_id):
 
 @app.route("/api/photo-candidates")
 def api_photo_candidates():
-    """Return up to 3 best catalogue photos as picker candidates."""
+    """Return diverse photo candidates: catalogued non-face-first, then uncatalogued snaps."""
     cat_file = VAULT_ROOT / "brand" / "catalogue.json"
-    if not cat_file.exists():
-        return jsonify({"candidates": []})
-    cat = json.loads(cat_file.read_text())
+    cat = json.loads(cat_file.read_text()) if cat_file.exists() else {}
+
     QUALITY_RANK = {"best": 0, "good": 1, "usable": 2}
-    sorted_photos = sorted(
-        [(k, v) for k, v in cat.items()],
-        key=lambda x: (QUALITY_RANK.get(x[1].get("quality", "usable"), 2), x[0])
-    )
-    candidates = []
-    for key, meta in sorted_photos:
-        if len(candidates) >= 3:
-            break
-        candidates.append({
+    PREFER_USE   = {"social_post", "lifestyle_post", "equipment_post",
+                    "nutrition_post", "progress_post", "cover"}
+
+    # ── 1. Catalogued photos, non-face first ────────────────────────────────
+    non_face, face_only = [], []
+    for key, meta in cat.items():
+        tags = meta.get("tags", [])
+        entry = {
             "id":      key,
             "url":     f"/brand/{key}",
             "quality": meta.get("quality", "usable"),
             "period":  meta.get("period", ""),
             "notes":   meta.get("notes", ""),
-            "tags":    meta.get("tags", []),
-        })
-    return jsonify({"candidates": candidates})
+            "tags":    tags,
+            "type":    "photo",
+            "label":   meta.get("notes", key.split("/")[-1])[:50],
+        }
+        bucket = face_only if "face" in tags else non_face
+        bucket.append((QUALITY_RANK.get(meta.get("quality","usable"), 2),
+                       0 if bool(set(meta.get("use_cases",[])) & PREFER_USE) else 1,
+                       entry))
+
+    non_face.sort(key=lambda x: (x[0], x[1]))
+    face_only.sort(key=lambda x: (x[0], x[1]))
+    catalogued_pool = [e for _,_,e in non_face] + [e for _,_,e in face_only]
+
+    # ── 2. Uncatalogued images in brand/random-snaps ─────────────────────────
+    snap_dir   = VAULT_ROOT / "brand" / "random-snaps"
+    catalogued_keys = set(cat.keys())
+    IMG_EXTS   = {".jpg", ".jpeg", ".png", ".webp", ".JPG", ".JPEG"}
+    uncatalogued = []
+    if snap_dir.exists():
+        for img in sorted(snap_dir.iterdir()):
+            if img.is_dir():
+                continue  # skip subdirs (e.g. drafts/)
+            rel = "random-snaps/" + img.name
+            if img.suffix in IMG_EXTS and rel not in catalogued_keys:
+                from urllib.parse import quote as _quote
+                url_safe = "/brand/random-snaps/" + _quote(img.name)
+                uncatalogued.append({
+                    "id":      rel,
+                    "url":     url_safe,
+                    "quality": "uncatalogued",
+                    "period":  "",
+                    "notes":   img.stem.replace("-", " ").replace("_", " "),
+                    "tags":    [],
+                    "type":    "photo",
+                    "label":   img.stem.replace("-", " ")[:50],
+                })
+
+    # ── 3. Build final list: all uncatalogued + catalogued, no hard cap ──────
+    candidates = []
+    seen = set()
+    for entry in uncatalogued:
+        if entry["id"] not in seen:
+            candidates.append(entry)
+            seen.add(entry["id"])
+    for entry in catalogued_pool:
+        if entry["id"] not in seen:
+            candidates.append(entry)
+            seen.add(entry["id"])
+
+    # ── 4. Flag if all-face-shots so UI can show the task prompt ─────────────
+    all_face = all("face" in e.get("tags", []) for e in candidates if e["type"] == "photo")
+    has_variety = len([e for e in candidates if "face" not in e.get("tags", [])]) > 0
+
+    return jsonify({
+        "candidates":   candidates,
+        "has_variety":  has_variety,
+        "total_photos": len(cat) + len(uncatalogued),
+    })
+
+
+def _generate_gl_draft(idea: dict, photo_id: str):
+    """Background thread: generate Claude FB post + image card for a green-lit idea."""
+    import threading, anthropic as _anthropic, uuid as _uuid, hashlib as _hs
+    def _run():
+        try:
+            env     = _read_env()
+            api_key = env.get("ANTHROPIC_KEY", "")
+            if not api_key:
+                return
+            client  = _anthropic.Anthropic(api_key=api_key)
+            prompt  = (
+                f"You are a direct-response copywriter for Battleship Reset — "
+                f"a 12-week home fitness programme for men 40+. "
+                f"Will Barratt (founder, age 47) lost 2 stone in 18 months via walking, "
+                f"no gym, no PT. Now has visible abs, fitness age of 17.\n\n"
+                f"Write a single Facebook post based on this idea:\n"
+                f"Title: {idea.get('title','')}\n"
+                f"Angle: {idea.get('angle','')}\n\n"
+                f"Requirements:\n"
+                f"- Hook in the first line (no more than 10 words, stops the scroll)\n"
+                f"- 3-5 short paragraphs, conversational, no jargon\n"
+                f"- End with a clear soft CTA (not 'buy now' — invite them to DM or comment)\n"
+                f"- 3-5 relevant hashtags at the end\n"
+                f"- Total length: 150-250 words\n"
+                f"Return only the post text, nothing else."
+            )
+            msg       = client.messages.create(model="claude-sonnet-4-6", max_tokens=500,
+                                               messages=[{"role": "user", "content": prompt}])
+            post_text = msg.content[0].text.strip()
+
+            # Generate image card
+            image_path = ""
+            try:
+                from skills.facebook_bot import _make_post_image
+                if photo_id:
+                    from skills.brand_manager import create_post_card
+                    first_sentence = post_text.split("\n")[0].split(".")[0].strip()
+                    if len(first_sentence) > 80:
+                        first_sentence = first_sentence[:77] + "…"
+                    photo_full = VAULT_ROOT / "brand" / photo_id
+                    if photo_full.exists():
+                        slug = _hs.md5(post_text.encode()).hexdigest()[:8]
+                        card = create_post_card(photo_full, first_sentence,
+                                                output_name=f"idea_card_{slug}.jpg")
+                        image_path = str(card)
+                if not image_path:
+                    card = _make_post_image(post_text, idea.get("title", ""), {})
+                    image_path = str(card) if card else ""
+            except Exception as img_err:
+                print(f"  ⚠️  Image gen for green-lit idea: {img_err}")
+
+            # Save to content_review
+            cr_data = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
+            cr_data.setdefault("posts", []).append({
+                "id":          "cr_" + _uuid.uuid4().hex[:8],
+                "created":     datetime.now(timezone.utc).isoformat(),
+                "theme":       idea.get("title", "idea"),
+                "content":     post_text,
+                "status":      "pending_review",
+                "source":      "ideas_bank",
+                "idea_id":     idea["id"],
+                "post_id":     "",
+                "image_path":  image_path,
+                "reviewed_at": None,
+                "edited":      False,
+            })
+            CONTENT_REVIEW_FILE.write_text(json.dumps(cr_data, indent=2))
+            print(f"  ✅ FB draft generated for green-lit idea: {idea.get('title','')[:50]}")
+        except Exception as e:
+            print(f"  ⚠️  GL draft generation failed: {e}")
+    threading.Thread(target=_run, daemon=True).start()
 
 
 @app.route("/api/ideas-bank/<idea_id>/green-light", methods=["POST"])
 def api_idea_green_light(idea_id):
-    body    = request.get_json(silent=True) or {}
+    body     = request.get_json(silent=True) or {}
     photo_id = body.get("photo_id")  # catalogue key or None
+
     data = _load_json_safe(IDEAS_BANK_FILE, {"ideas": []})
+    matched_idea = None
     for idea in data.get("ideas", []):
         if idea["id"] == idea_id:
             idea["status"]    = "green_lit"
             idea["green_lit"] = datetime.now().strftime("%Y-%m-%d")
             if photo_id:
                 idea["photo_id"] = photo_id
+            matched_idea = idea
+            break
+
+    # Save immediately — don't wait for Claude
     IDEAS_BANK_FILE.write_text(json.dumps(data, indent=2))
     _sync_ideas_bank_md(data)
-    return jsonify({"status": "green_lit", "photo_id": photo_id})
+
+    # Kick off Claude draft + image in background thread
+    if matched_idea:
+        _generate_gl_draft(matched_idea, photo_id or "")
+
+    return jsonify({"status": "green_lit", "photo_id": photo_id,
+                    "draft": {"status": "generating"}})
 
 
 @app.route("/api/ideas-bank/<idea_id>/archive", methods=["POST"])
@@ -3655,6 +3930,20 @@ def privacy_policy():
 @app.route("/data-deletion")
 def data_deletion():
     return render_template_string(_LEGAL_PAGE, title="Data Deletion", body=_DATA_DELETION_BODY)
+
+
+@app.route("/the-reset")
+def the_reset_guide():
+    tpl = (Path(__file__).parent / "templates" / "the_reset_guide.html").read_text()
+    return tpl
+
+@app.route("/assessment")
+def assessment_redirect():
+    return redirect("https://tally.so/r/5B2p5Q", 302)
+
+@app.route("/full-assessment")
+def full_assessment_redirect():
+    return redirect("https://tally.so/r/rjK752", 302)
 
 
 if __name__ == "__main__":
