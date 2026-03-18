@@ -119,7 +119,9 @@ def _claude(prompt: str, secrets: dict, max_tokens: int = 600) -> str:
 
 # ── Queue helpers ──────────────────────────────────────────────────────────────
 
-def _save_to_content_review(content: str, theme: str, status: str = "pending_review", source: str = "facebook_bot", post_id: str = "", idea_id: str = ""):
+def _save_to_content_review(content: str, theme: str, status: str = "pending_review",
+                             source: str = "facebook_bot", post_id: str = "",
+                             idea_id: str = "", image_path: str = ""):
     """Save a post draft to the content review queue for Business Manager visibility."""
     import uuid as _uuid
     if CONTENT_REVIEW_FILE.exists():
@@ -127,33 +129,100 @@ def _save_to_content_review(content: str, theme: str, status: str = "pending_rev
     else:
         data = {"posts": []}
     data.setdefault("posts", []).append({
-        "id":         "cr_" + _uuid.uuid4().hex[:8],
-        "created":    datetime.now(timezone.utc).isoformat(),
-        "theme":      theme,
-        "content":    content,
-        "status":     status,   # pending_review | approved | rejected | posted
-        "source":     source,   # facebook_bot | ideas_bank | manual
-        "idea_id":    idea_id,
-        "post_id":    post_id,  # FB post ID if already live
+        "id":          "cr_" + _uuid.uuid4().hex[:8],
+        "created":     datetime.now(timezone.utc).isoformat(),
+        "theme":       theme,
+        "content":     content,
+        "status":      status,       # pending_review | approved | rejected | posted
+        "source":      source,       # facebook_bot | ideas_bank | manual
+        "idea_id":     idea_id,
+        "post_id":     post_id,      # FB post ID if already live
+        "image_path":  image_path,   # local path to generated card
         "reviewed_at": None,
-        "edited":     False,
+        "edited":      False,
     })
     CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
 
 
-def _queue_post(content: str, theme: str):
+def _queue_post(content: str, theme: str, image_path=None):
     """Save a generated post to the queue folder AND content review."""
     QUEUE_DIR.mkdir(exist_ok=True)
     ts  = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out = QUEUE_DIR / f"post-{ts}.json"
     out.write_text(json.dumps({
-        "created": datetime.now(timezone.utc).isoformat(),
-        "theme":   theme,
-        "content": content,
-        "status":  "queued",
+        "created":    datetime.now(timezone.utc).isoformat(),
+        "theme":      theme,
+        "content":    content,
+        "image_path": str(image_path) if image_path else "",
+        "status":     "queued",
     }, indent=2))
-    _save_to_content_review(content, theme, status="pending_review")
+    _save_to_content_review(content, theme, status="pending_review",
+                            image_path=str(image_path) if image_path else "")
     print(f"  → Queued: {out.name}")
+
+
+def _make_post_image(post_text: str, theme: str, secrets: dict) -> Path | None:
+    """
+    Generate an image card for a scheduled post.
+    Strategy:
+      1. Try to find a suitable non-face photo from the catalogue
+      2. If found: burn the first sentence of the post as a hook overlay
+      3. If not found: create a dark quote card with the hook text
+    Returns the output Path or None on failure.
+    """
+    try:
+        from skills.brand_manager import create_post_card, create_quote_card, load_catalogue
+        import hashlib
+
+        # First sentence = hook burned onto image (max 80 chars)
+        first_sentence = post_text.split("\n")[0].split(".")[0].strip()
+        if len(first_sentence) > 80:
+            first_sentence = first_sentence[:77] + "…"
+        slug = hashlib.md5(post_text.encode()).hexdigest()[:8]
+
+        # Pick a non-face photo from catalogue
+        cat = load_catalogue()
+        QUALITY_RANK = {"best": 0, "good": 1, "usable": 2}
+        PREFER_USE = {"social_post", "lifestyle_post", "equipment_post", "nutrition_post", "progress_post"}
+        candidates = []
+        for key, meta in cat.items():
+            tags = meta.get("tags", [])
+            if "face" in tags:
+                continue
+            score = (QUALITY_RANK.get(meta.get("quality", "usable"), 2),
+                     0 if bool(set(meta.get("use_cases", [])) & PREFER_USE) else 1)
+            candidates.append((score, VAULT_ROOT / "brand" / key))
+        candidates.sort(key=lambda x: x[0])
+
+        # Also scan random-snaps for uncatalogued images
+        snap_dir = VAULT_ROOT / "brand" / "random-snaps"
+        cat_keys = set(cat.keys())
+        IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".JPG", ".JPEG"}
+        if snap_dir.exists():
+            for img in sorted(snap_dir.iterdir()):
+                if img.is_dir():
+                    continue  # skip drafts/ and any other subdirs
+                rel = "random-snaps/" + img.name
+                if img.suffix in IMG_EXTS and rel not in cat_keys:
+                    candidates.append(((2, 1), img))
+
+        # Pick first candidate that actually exists on disk
+        chosen = None
+        for _, p in candidates:
+            if Path(p).exists():
+                chosen = p
+                break
+
+        if chosen:
+            return create_post_card(chosen, first_sentence,
+                                    output_name=f"post_card_{slug}.jpg")
+        else:
+            # No suitable photo — dark quote card
+            return create_quote_card(first_sentence,
+                                     output_name=f"quote_card_{slug}.jpg")
+    except Exception as e:
+        print(f"  ⚠️  Image generation skipped: {e}")
+        return None
 
 
 def _load_schedule() -> dict:
@@ -236,15 +305,19 @@ def _send_dm(recipient_id: str, message: str, secrets: dict):
 # ── Core jobs ──────────────────────────────────────────────────────────────────
 
 def post_scheduled_content(secrets: dict):
-    """Generate and post (or queue) one post on Mon/Wed/Fri."""
+    """Generate and queue one post for review on Mon/Wed/Fri. Never auto-posts live."""
     today = datetime.now(timezone.utc)
     if today.weekday() not in POST_DAYS:
         return
 
-    schedule   = _load_schedule()
-    date_key   = today.strftime("%Y-%m-%d")
+    schedule = _load_schedule()
+    date_key = today.strftime("%Y-%m-%d")
     if date_key in schedule["posted_dates"]:
-        return  # already done today
+        return  # already queued today
+
+    # Write the date guard immediately to prevent double-run on simultaneous wake
+    schedule["posted_dates"].append(date_key)
+    _save_schedule(schedule)
 
     idx   = schedule["theme_index"] % len(POST_THEMES)
     theme = POST_THEMES[idx]
@@ -260,17 +333,13 @@ def post_scheduled_content(secrets: dict):
     except Exception:
         pass
 
-    post  = _claude(POST_PROMPT.format(theme=theme) + arc_hint, secrets)
+    post = _claude(POST_PROMPT.format(theme=theme) + arc_hint, secrets)
 
-    if _is_live(secrets):
-        post_id = _post_live(post, secrets)
-        _save_to_content_review(post, theme, status="posted", post_id=post_id)
-        print(f"  ✓ Facebook post published live (ID: {post_id})")
-    else:
-        _queue_post(post, theme)
-        print(f"  ✓ Facebook post queued for review (add FB_PAGE_ACCESS_TOKEN to post live)")
+    # Generate image card — always goes to pending_review, approved via dashboard
+    image_path = _make_post_image(post, theme, secrets)
+    _queue_post(post, theme, image_path=image_path)
+    print(f"  ✓ Facebook post + image queued for review (pending approval in dashboard)")
 
-    schedule["posted_dates"].append(date_key)
     schedule["theme_index"] = idx + 1
     _save_schedule(schedule)
 
@@ -1050,6 +1119,111 @@ def track_performance(secrets: dict):
 
     _save_metrics(metrics)
     print(f"  ✅ Performance metrics tracked ({today})")
+
+    # Flag any posts that qualify for boosting
+    flag_boost_candidates(metrics, secrets)
+
+
+BOOST_REACH_THRESHOLD      = 50   # unique reach
+BOOST_ENGAGEMENT_THRESHOLD = 5    # likes + comments + shares
+
+
+def flag_boost_candidates(metrics: dict, secrets: dict):
+    """
+    After each performance sync, review recent posts.
+    Any post ≥3 days old that hits reach>50 OR engagement>5 gets flagged
+    for boosting via a reminder + written into social_metrics boost_candidates.
+    Deduplicates — won't re-flag a post that's already been recommended.
+    """
+    reminders_file = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
+    rem_data = json.loads(reminders_file.read_text()) if reminders_file.exists() else {"reminders": [], "pivot_notes": []}
+    existing_titles = {r.get("title", "") for r in rem_data.get("reminders", [])}
+
+    metrics_file = VAULT_ROOT / "clients" / "social_metrics.json"
+    met = json.loads(metrics_file.read_text()) if metrics_file.exists() else {}
+    boost_candidates = met.setdefault("boost_candidates", {})
+
+    today      = datetime.now(timezone.utc).date()
+    new_flags  = []
+
+    for pid, p in metrics.get("posts", {}).items():
+        post_date_str = p.get("date", "")
+        if not post_date_str:
+            continue
+        try:
+            post_date = datetime.strptime(post_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        age_days = (today - post_date).days
+        if age_days < 2:
+            continue  # too new — wait for data to settle
+
+        reach      = p.get("reach", 0)
+        engagement = p.get("likes", 0) + p.get("comments", 0) + p.get("shares", 0)
+        qualifies  = reach >= BOOST_REACH_THRESHOLD or engagement >= BOOST_ENGAGEMENT_THRESHOLD
+
+        if not qualifies:
+            continue
+        if pid in boost_candidates:
+            continue  # already flagged
+
+        preview    = p.get("preview", "")[:60]
+        spend_rec  = "£5/day for 3 days" if engagement >= 8 or reach >= 100 else "£3/day for 3 days"
+
+        boost_candidates[pid] = {
+            "flagged":     today.isoformat(),
+            "reach":       reach,
+            "engagement":  engagement,
+            "spend_rec":   spend_rec,
+            "preview":     preview,
+            "post_date":   post_date_str,
+            "status":      "recommended",
+        }
+
+        title = f"Boost candidate: \"{preview[:50]}…\""
+        if title not in existing_titles:
+            import uuid as _uuid
+            rem_data["reminders"].insert(0, {
+                "id":          "rem_" + _uuid.uuid4().hex[:8],
+                "added_by":    "facebook_bot",
+                "type":        "action",
+                "title":       title,
+                "description": (
+                    f"This post is performing above threshold:\n"
+                    f"  Reach: {reach} · Engagement: {engagement}\n"
+                    f"  Posted: {post_date_str} ({age_days} days ago)\n\n"
+                    f"Recommended boost: {spend_rec}.\n"
+                    f"Go to Facebook → Advertise → Boost post.\n"
+                    f"Target: men 35-55, UK, interests: fitness, health, weight loss."
+                ),
+                "priority":    "high",
+                "created_at":  today.isoformat(),
+                "status":      "pending",
+            })
+            new_flags.append(preview[:40])
+            print(f"  🚀 Boost candidate flagged: {preview[:50]} (reach={reach}, eng={engagement})")
+
+    if new_flags:
+        reminders_file.write_text(json.dumps(rem_data, indent=2))
+        metrics_file.write_text(json.dumps(met, indent=2))
+
+        # Telegram nudge
+        try:
+            token = secrets.get("TELEGRAM_BOT_TOKEN", "")
+            chat_id = secrets.get("TELEGRAM_CHAT_ID", "")
+            if token and chat_id:
+                msg = (
+                    "🚀 *Boost candidate spotted*\n\n"
+                    + "\n".join(f"• {t}" for t in new_flags)
+                    + f"\n\nRecommended: {spend_rec}. Check Action Items in /business."
+                )
+                requests.post(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"},
+                    timeout=10,
+                )
+        except Exception:
+            pass
 
 
 def send_brand_report(secrets: dict):

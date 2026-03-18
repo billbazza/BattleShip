@@ -458,6 +458,197 @@ Return only the 3 headlines, one per line. No numbering. No quotes."""
         return []
 
 
+# ── Post card generator ───────────────────────────────────────────────────────
+
+def _wrap_text(text: str, font, draw: ImageDraw.Draw, max_width: int) -> list[str]:
+    """Word-wrap text to fit within max_width pixels."""
+    words = text.split()
+    lines, current = [], []
+    for word in words:
+        test = " ".join(current + [word])
+        bbox = draw.textbbox((0, 0), test, font=font)
+        if bbox[2] - bbox[0] <= max_width:
+            current.append(word)
+        else:
+            if current:
+                lines.append(" ".join(current))
+            current = [word]
+    if current:
+        lines.append(" ".join(current))
+    return lines
+
+
+def is_infographic(photo_path: str | Path) -> bool:
+    """Return True if the filename contains 'infographic' — use as-is, no text overlay."""
+    return "infographic" in Path(photo_path).name.lower()
+
+
+def create_post_card(
+    photo_path: str | Path,
+    hook_text: str,
+    output_name: str | None = None,
+    size: tuple = (1080, 1080),
+) -> Path:
+    """
+    Overlay a bold hook line at the bottom of a photo.
+    If the file is an infographic, copy it as-is (no text overlay).
+    Square 1:1 crop — optimal for both FB and IG feed.
+    Returns the output path.
+    """
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Resolve path
+    photo_path = Path(photo_path)
+    if not photo_path.is_absolute():
+        if (VAULT_ROOT / photo_path).exists():
+            photo_path = VAULT_ROOT / photo_path
+        else:
+            photo_path = BRAND_DIR / photo_path
+
+    if output_name is None:
+        import hashlib
+        slug = hashlib.md5(hook_text.encode()).hexdigest()[:8]
+        output_name = f"post_card_{slug}.jpg"
+    out_path = OUTPUT_DIR / output_name
+
+    # Infographic: use as-is, just resize to square — no text overlay
+    if is_infographic(photo_path):
+        img = Image.open(photo_path).convert("RGB")
+        w, h = img.size
+        side = min(w, h)
+        left = (w - side) // 2
+        top  = (h - side) // 2
+        img  = img.crop((left, top, left + side, top + side)).resize(size, Image.LANCZOS)
+        img.save(out_path, "JPEG", quality=92)
+        print(f"  ✅ Infographic post card (no overlay): {out_path}")
+        return out_path
+
+    img = Image.open(photo_path).convert("RGB")
+
+    # Square crop from centre
+    w, h = img.size
+    side = min(w, h)
+    left = (w - side) // 2
+    top  = (h - side) // 2
+    img  = img.crop((left, top, left + side, top + side)).resize(size, Image.LANCZOS)
+
+    draw = ImageDraw.Draw(img, "RGBA")
+    canvas_w, canvas_h = size
+
+    # Bottom gradient bar
+    bar_h = 160
+    for y in range(bar_h):
+        alpha = int(210 * (y / bar_h))
+        draw.rectangle(
+            [(0, canvas_h - bar_h + y), (canvas_w, canvas_h - bar_h + y + 1)],
+            fill=(0, 0, 0, alpha),
+        )
+
+    # Font
+    font = None
+    for font_path, font_size in [
+        ("/System/Library/Fonts/Helvetica.ttc", 52),
+        ("/System/Library/Fonts/Helvetica.ttc", 44),
+    ]:
+        try:
+            font = ImageFont.truetype(font_path, font_size)
+            break
+        except Exception:
+            pass
+    if font is None:
+        font = ImageFont.load_default()
+
+    # Word-wrap to 90% width
+    lines = _wrap_text(hook_text, font, draw, int(canvas_w * 0.88))
+    line_h = draw.textbbox((0, 0), "Ag", font=font)[3] + 8
+    total_h = len(lines) * line_h
+    y_start = canvas_h - total_h - 28
+
+    for i, line in enumerate(lines):
+        bbox = draw.textbbox((0, 0), line, font=font)
+        tx = (canvas_w - (bbox[2] - bbox[0])) // 2
+        ty = y_start + i * line_h
+        # Shadow
+        draw.text((tx + 2, ty + 2), line, fill=(0, 0, 0, 200), font=font)
+        draw.text((tx, ty), line, fill=(255, 255, 255, 255), font=font)
+
+    img.save(out_path, "JPEG", quality=92)
+    print(f"  ✅ Post card saved: {out_path}")
+    return out_path
+
+
+def create_quote_card(
+    quote_text: str,
+    sub_text: str = "battleshipreset.com",
+    output_name: str | None = None,
+    size: tuple = (1080, 1080),
+    bg_color: tuple = (15, 15, 20),
+    accent_color: tuple = (230, 160, 32),
+) -> Path:
+    """
+    Create a text-on-dark-background statement card — no photo needed.
+    Bold quote centred, subtle URL at bottom. Square 1:1 for feed.
+    """
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    canvas = Image.new("RGB", size, bg_color)
+    draw   = ImageDraw.Draw(canvas)
+    canvas_w, canvas_h = size
+
+    # Accent bar at top
+    draw.rectangle([(80, 60), (canvas_w - 80, 68)], fill=accent_color)
+
+    # Main quote font
+    font_q = None
+    for fp, fs in [
+        ("/System/Library/Fonts/Helvetica.ttc", 72),
+        ("/System/Library/Fonts/Helvetica.ttc", 60),
+    ]:
+        try:
+            font_q = ImageFont.truetype(fp, fs)
+            break
+        except Exception:
+            pass
+    if font_q is None:
+        font_q = ImageFont.load_default()
+
+    # Sub text font
+    font_s = None
+    try:
+        font_s = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 32)
+    except Exception:
+        font_s = ImageFont.load_default()
+
+    # Word-wrap quote
+    lines  = _wrap_text(quote_text, font_q, draw, int(canvas_w * 0.82))
+    line_h = draw.textbbox((0, 0), "Ag", font=font_q)[3] + 16
+    total_h = len(lines) * line_h
+    y_start = (canvas_h - total_h) // 2 - 30
+
+    for i, line in enumerate(lines):
+        bbox = draw.textbbox((0, 0), line, font=font_q)
+        tx = (canvas_w - (bbox[2] - bbox[0])) // 2
+        ty = y_start + i * line_h
+        draw.text((tx + 2, ty + 2), line, fill=(0, 0, 0), font=font_q)
+        draw.text((tx, ty), line, fill=(255, 255, 255), font=font_q)
+
+    # Sub text at bottom
+    if sub_text:
+        bbox = draw.textbbox((0, 0), sub_text, font=font_s)
+        tx = (canvas_w - (bbox[2] - bbox[0])) // 2
+        draw.text((tx, canvas_h - 80), sub_text, fill=accent_color, font=font_s)
+
+    if output_name is None:
+        import hashlib
+        slug = hashlib.md5(quote_text.encode()).hexdigest()[:8]
+        output_name = f"quote_card_{slug}.jpg"
+
+    out_path = OUTPUT_DIR / output_name
+    canvas.save(out_path, "JPEG", quality=92)
+    print(f"  ✅ Quote card saved: {out_path}")
+    return out_path
+
+
 # ── Catalogue management ──────────────────────────────────────────────────────
 
 def load_catalogue() -> dict:

@@ -320,7 +320,7 @@ def generate_copy(format: str, usp_id: str = None, secrets: dict = None) -> str:
         arc_theme=phase["theme"],
         format=format,
     )
-    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") if secrets else None
+    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic") if secrets else None
     if not api_key:
         return "[No API key — run with secrets]"
 
@@ -403,7 +403,7 @@ def run_daily_review(secrets: dict, state: dict):
         usps=usps_text,
     )
 
-    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")
+    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
     client  = anthropic.Anthropic(api_key=api_key)
     msg = client.messages.create(
         model="claude-sonnet-4-6",
@@ -606,11 +606,142 @@ def get_current_arc_guidance() -> dict:
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
+def review_ideas_bank(secrets: dict):
+    """
+    Check ideas bank for new drafts — flag to Will if green light needed.
+    If any idea is green_lit, develop it into a post draft → content review.
+    """
+    ideas_file   = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
+    content_file = VAULT_ROOT / "clients" / "content_review.json"
+    if not ideas_file.exists():
+        return
+
+    ideas_data = json.loads(ideas_file.read_text())
+    ideas      = ideas_data.get("ideas", [])
+    drafts     = [i for i in ideas if i.get("status") == "draft"]
+    green_lit  = [i for i in ideas if i.get("status") == "green_lit" and not i.get("developed_into")]
+
+    # Develop any green-lit ideas into post drafts
+    for idea in green_lit:
+        print(f"  💡 Developing green-lit idea: {idea['title']}")
+        api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
+        client  = anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=600,
+            messages=[{"role": "user", "content": (
+                f"Write a Facebook post for a fitness coaching business targeting men 40+.\n\n"
+                f"Idea: {idea['title']}\nAngle: {idea['angle']}\n\n"
+                f"Requirements: 150-250 words. Hook in first line. No corporate language. "
+                f"Real, direct voice. End with a question or soft CTA to take the quiz at tally.so/r/rjK752. "
+                f"2-3 hashtags at the end only."
+            )}]
+        )
+        post_text = msg.content[0].text.strip()
+
+        # Save to content review
+        import uuid as _uuid
+        if content_file.exists():
+            cr_data = json.loads(content_file.read_text())
+        else:
+            cr_data = {"posts": []}
+        cr_id = "cr_" + _uuid.uuid4().hex[:8]
+        cr_data.setdefault("posts", []).append({
+            "id":          cr_id,
+            "created":     datetime.now(timezone.utc).isoformat(),
+            "theme":       idea["title"],
+            "content":     post_text,
+            "status":      "pending_review",
+            "source":      "ideas_bank",
+            "idea_id":     idea["id"],
+            "post_id":     "",
+            "reviewed_at": None,
+            "edited":      False,
+        })
+        content_file.write_text(json.dumps(cr_data, indent=2))
+
+        # Mark idea as developed
+        idea["developed_into"] = cr_id
+        ideas_file.write_text(json.dumps(ideas_data, indent=2))
+        print(f"  ✅ Post draft created for '{idea['title']}' → content review")
+
+        # Telegram notification
+        try:
+            sys.path.insert(0, str(VAULT_ROOT))
+            from scripts.telegram_notify import send_message
+            send_message(
+                f"💡 <b>New post draft ready:</b> \"{idea['title']}\"\n"
+                f"Based on your green-lit idea. Review it in the Business Manager → Content Review."
+            )
+        except Exception:
+            pass
+
+    # Flag if there are unreviewed drafts sitting idle
+    if drafts:
+        reminders_file = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
+        try:
+            import requests as _req
+            _req.post("http://localhost:5100/api/reminders", json={
+                "added_by": "marketing_bot",
+                "type": "other",
+                "title": f"Green light an idea from the ideas bank ({len(drafts)} waiting)",
+                "description": f"Drafts: {', '.join(i['title'] for i in drafts[:3])}. Reply on Telegram or visit Business Manager.",
+                "priority": "medium",
+            }, timeout=3)
+        except Exception:
+            pass
+
+
+def check_direction(secrets: dict):
+    """
+    If recent posts are getting zero engagement, flag a direction pivot.
+    Called daily by marketing bot run().
+    """
+    metrics = _load_metrics()
+    posts   = list(metrics.get("posts", {}).values())
+    if len(posts) < 3:
+        return  # not enough data
+
+    # Check last 3 posts for engagement
+    recent = sorted(posts, key=lambda p: p.get("tracked", ""), reverse=True)[:3]
+    zero_engagement = all(
+        (p.get("likes", 0) + p.get("comments", 0) + p.get("shares", 0)) == 0
+        for p in recent
+    )
+    if not zero_engagement:
+        return
+
+    print("  ⚠️  3 consecutive posts with zero engagement — flagging direction pivot")
+    try:
+        import requests as _req
+        _req.post("http://localhost:5100/api/reminders", json={
+            "added_by": "marketing_bot",
+            "type": "other",
+            "title": "Direction review needed — 3 posts with zero engagement",
+            "description": "Recent posts are getting no traction. Consider: different hook, different time, different format, or pivot the arc phase. Discuss with Claude on Telegram.",
+            "priority": "high",
+        }, timeout=3)
+    except Exception:
+        pass
+
+    try:
+        from scripts.telegram_notify import send_message
+        send_message(
+            "⚠️ <b>Direction check</b>\n\n"
+            "Last 3 posts got zero engagement. Something's not connecting.\n\n"
+            "Want to talk through a pivot? Reply here."
+        )
+    except Exception:
+        pass
+
+
 def run(secrets: dict, state: dict, vault_root: Path = VAULT_ROOT):
     """Called from battleship_pipeline.py main()."""
     try:
         run_daily_review(secrets, state)
         send_weekly_strategy(secrets, state)
+        review_ideas_bank(secrets)
+        check_direction(secrets)
     except Exception as e:
         print(f"  ⚠️  Marketing bot error: {e}")
 
