@@ -108,7 +108,7 @@
       "id": "gap_009",
       "reported_by": "orchestrator",
       "title": "Active Ad Campaign",
-      "description": "3 active campaign(s). 714 impressions, £2.93 spend (7d). Meta Standard Access still pending for full API campaign creation.",
+      "description": "2 active campaign(s). 5651 impressions, £17.42 spend (7d). Meta Standard Access still pending for full API campaign creation.",
       "estimated_monthly_cost_gbp": 0,
       "paid_solution": "facebook_ads_bot.py is built and ready — unblocked when Meta approves Standard Access.",
       "free_alternative": "Token wired in env. fetch_meta_metrics.py syncs daily. Campaign stats visible in Business Manager.",
@@ -116,8 +116,23 @@
       "status": "workaround_active",
       "impact": "high",
       "category": "Advertising"
+    },
+    {
+      "id": "gap_010",
+      "reported_by": "will",
+      "title": "Intake Form — Conversion Disaster (ADS PAUSED)",
+      "description": "Tally form rjK752 is killing conversions. People click the ad, hit the form, and bounce. The form needs a complete redesign: shorter, mobile-first, lower friction. Until this is fixed ads are paused to avoid wasted spend.",
+      "estimated_monthly_cost_gbp": 0,
+      "paid_solution": "Typeform (~£25/mo) for better UX. Or rebuild in Tally with a single qualifying question + name/email only.",
+      "free_alternative": "Rebuild the Tally form. Goal: one screen, 2-3 questions max, clear CTA. Qualifying info captured post-payment via onboarding email.",
+      "revenue_unlock_gbp": 5000,
+      "status": "critical",
+      "impact": "critical",
+      "category": "Conversion",
+      "ads_paused": true,
+      "added": "2026-03-16T22:32:35.905434+00:00"
     }
   ],
   "created": "2026-03-15T09:39:13.108511+00:00",
-  "last_updated": "2026-03-15T11:16:35.203387+00:00"
+  "last_updated": "2026-03-19T06:28:11.105254+00:00"
 }

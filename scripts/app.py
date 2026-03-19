@@ -106,17 +106,22 @@ def get_system_status() -> dict:
     except Exception:
         stat["dns"] = _warn("Propagating…")
 
-    # Cron job
+    # Cron / LaunchAgent schedule
     try:
         cron = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
         if "battleship_pipeline" in cron.stdout or "battleship" in cron.stdout:
-            # Extract schedule
             line = next((l for l in cron.stdout.splitlines() if "battleship" in l), "")
             parts = line.split()
             schedule = " ".join(parts[:5]) if len(parts) >= 5 else "set"
             stat["cron"] = _ok(schedule)
         else:
-            stat["cron"] = _warn("Not scheduled")
+            # Check LaunchAgent
+            la = subprocess.run(["launchctl", "list", "com.battleship.pipeline"],
+                                capture_output=True, text=True)
+            if la.returncode == 0:
+                stat["cron"] = _ok("Every 2 hrs (LaunchAgent)")
+            else:
+                stat["cron"] = _warn("Not scheduled")
     except Exception:
         stat["cron"] = _warn("Not scheduled")
 

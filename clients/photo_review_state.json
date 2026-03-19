@@ -1,0 +1,179 @@
+{
+  "candidates": [
+    {
+      "id": "photo_3f334ab6",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/Getting-fit-random-snaps/IMG_0345.jpeg",
+      "filename": "IMG_0345.jpeg",
+      "source": "catalogue",
+      "caption_hint": "Strong ad candidate (best). Sharp jaw, lean face, alert eyes. Good light. Best 'after' face shot.",
+      "quality": "best",
+      "notes": "Sharp jaw, lean face, alert eyes. Good light. Best 'after' face shot.",
+      "use_cases": [
+        "before_after",
+        "ad",
+        "profile"
+      ],
+      "period": "after",
+      "status": "rejected",
+      "created_at": "2026-03-16T07:49:24.671788",
+      "reviewed_at": "2026-03-16T07:49:57.715292",
+      "review_source": "telegram"
+    },
+    {
+      "id": "photo_5a402aa8",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/Getting-fit-random-snaps/IMG_0808.jpeg",
+      "filename": "IMG_0808.jpeg",
+      "source": "catalogue",
+      "caption_hint": "Strong ad candidate (best). Very lean face, strong jaw definition. Clean background. Excellent after shot.",
+      "quality": "best",
+      "notes": "Very lean face, strong jaw definition. Clean background. Excellent after shot.",
+      "use_cases": [
+        "before_after",
+        "ad",
+        "profile"
+      ],
+      "period": "after",
+      "status": "rejected",
+      "created_at": "2026-03-16T07:49:24.671801",
+      "reviewed_at": "2026-03-16T07:50:00.682543",
+      "review_source": "telegram"
+    },
+    {
+      "id": "photo_8c4180dd",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/IMG_0014.jpeg",
+      "filename": "IMG_0014.jpeg",
+      "source": "catalogue",
+      "caption_hint": "Strong ad candidate (best). Gym mirror selfie. Best full-body after shot. Clean grey tiles.",
+      "quality": "best",
+      "notes": "Gym mirror selfie. Best full-body after shot. Clean grey tiles.",
+      "use_cases": [
+        "ad",
+        "profile",
+        "before_after",
+        "hero"
+      ],
+      "period": "after",
+      "status": "rejected",
+      "created_at": "2026-03-16T07:49:24.672133",
+      "reviewed_at": "2026-03-16T07:50:03.673279",
+      "review_source": "telegram"
+    },
+    {
+      "id": "photo_75624275",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/Best-fastood-chicken-burito-bowl.jpeg",
+      "filename": "Best-fastood-chicken-burito-bowl.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "approved",
+      "created_at": "2026-03-17T07:00:01.013288",
+      "reviewed_at": "2026-03-17T07:40:19.751736",
+      "review_source": "dashboard"
+    },
+    {
+      "id": "photo_cce1b42d",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0651.jpeg",
+      "filename": "IMG_0651.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "approved",
+      "created_at": "2026-03-17T07:00:01.013318",
+      "reviewed_at": "2026-03-17T07:02:50.465184",
+      "review_source": "dashboard"
+    },
+    {
+      "id": "photo_a79fd2f6",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0652.jpeg",
+      "filename": "IMG_0652.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "approved",
+      "created_at": "2026-03-17T07:00:01.013328",
+      "reviewed_at": "2026-03-17T07:40:20.894679",
+      "review_source": "dashboard"
+    },
+    {
+      "id": "photo_7210abe4",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0653.jpeg",
+      "filename": "IMG_0653.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "approved",
+      "created_at": "2026-03-17T07:15:27.021496",
+      "reviewed_at": "2026-03-17T17:06:10.917008",
+      "review_source": "dashboard"
+    },
+    {
+      "id": "photo_9465471d",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0663.jpeg",
+      "filename": "IMG_0663.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "approved",
+      "created_at": "2026-03-17T07:15:27.021504",
+      "reviewed_at": "2026-03-17T07:46:43.935968",
+      "review_source": "dashboard"
+    },
+    {
+      "id": "photo_4033c2af",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0671.jpeg",
+      "filename": "IMG_0671.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "approved",
+      "created_at": "2026-03-17T07:15:27.021508",
+      "reviewed_at": "2026-03-17T07:46:45.090763",
+      "review_source": "dashboard"
+    },
+    {
+      "id": "photo_07713ab0",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0672. jpeg.JPG",
+      "filename": "IMG_0672. jpeg.JPG",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-19T07:00:05.218468",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_9e463477",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0673.jpeg",
+      "filename": "IMG_0673.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-19T07:00:05.218480",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_517dbd5f",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0674.jpg",
+      "filename": "IMG_0674.jpg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-19T07:00:05.218488",
+      "reviewed_at": null,
+      "review_source": null
+    }
+  ]
+}

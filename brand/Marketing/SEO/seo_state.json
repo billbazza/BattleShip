@@ -1,9 +1,9 @@
 {
-  "current_task": 0,
-  "tasks_complete": [],
-  "tasks_pending_will": [
+  "current_task": 1,
+  "tasks_complete": [
     0
   ],
+  "tasks_pending_will": [],
   "last_run": "2026-03-15T09:49:34.821843+00:00",
   "competitor_urls": [],
   "gbp_url": null,
