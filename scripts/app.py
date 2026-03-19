@@ -36,6 +36,7 @@ ROADMAP_FILE             = VAULT_ROOT / "roadmap.md"
 FINANCES_FILE            = VAULT_ROOT / "finances.md"
 BIZ_HISTORY_FILE         = CLIENTS_DIR / "business_metrics_history.json"
 MORNING_BRIEFING_FILE    = CLIENTS_DIR / "morning_briefing.json"
+EMAIL_QUEUE_FILE         = CLIENTS_DIR / "email_queue.json"
 PHOTO_REVIEW_FILE        = CLIENTS_DIR / "photo_review_state.json"
 PHOTO_DROP_DIR           = VAULT_ROOT / "brand" / "random-snaps"
 CONTENT_REVIEW_FILE      = CLIENTS_DIR / "content_review.json"
@@ -2030,6 +2031,37 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- G2. Email Approval Queue -->
+  <div class="section-label" id="email-queue-section">
+    Email Approval Queue
+    {% if pending_emails %}<span style="background:#c41e3a;color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700">{{ pending_emails | length }}</span>{% endif %}
+  </div>
+  <div class="rem-card">
+    {% if pending_emails %}
+    {% for eq in pending_emails %}
+    <div class="rem-item" id="eq-{{ eq.id }}">
+      <span class="rem-badge" style="background:#1a0030;color:#c084fc">email</span>
+      <div class="rem-body" style="flex:1">
+        <div class="rem-title">{{ eq.subject }}</div>
+        <div class="rem-desc">To: <strong style="color:#ddd">{{ eq.to }}</strong>{% if eq.client_name %} ({{ eq.client_name }}){% endif %}</div>
+        {% if eq.reason %}<div class="rem-meta" style="color:#c084fc;margin-top:2px">Reason: {{ eq.reason }}</div>{% endif %}
+        <details style="margin-top:8px">
+          <summary style="font-size:12px;color:#666;cursor:pointer">Preview email body</summary>
+          <pre style="margin-top:8px;font-size:11px;color:#888;white-space:pre-wrap;background:#111;padding:10px;border-radius:4px;max-height:200px;overflow-y:auto">{{ eq.body }}</pre>
+        </details>
+        <div class="rem-meta">Queued {{ eq.created_at[:16].replace('T',' ') }}</div>
+        <div class="rem-actions" style="margin-top:8px">
+          <button class="rem-btn done" onclick="approveEmail('{{ eq.id }}')">✓ Send it</button>
+          <button class="rem-btn" style="border-color:#c41e3a;color:#c41e3a" onclick="rejectEmail('{{ eq.id }}')">✗ Discard</button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="color:#888;font-size:13px;font-style:italic;padding:12px 0">No emails pending approval.</div>
+    {% endif %}
+  </div>
+
   <!-- H. Reminders -->
   <div class="section-label" id="reminders-section">
     Action Items
@@ -2456,6 +2488,22 @@ function rejectPhoto(id) {
         const el = document.getElementById(prefix + id);
         if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
       });
+    });
+}
+function approveEmail(id) {
+  fetch('/api/email-queue/' + id + '/approve', {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById('eq-' + id);
+      if (el) { el.innerHTML = '<div style="color:#2a9d4e;font-size:13px;padding:6px 0">✅ Sent.</div>'; }
+    });
+}
+function rejectEmail(id) {
+  fetch('/api/email-queue/' + id + '/reject', {method:'POST'})
+    .then(r => r.json())
+    .then(() => {
+      const el = document.getElementById('eq-' + id);
+      if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
     });
 }
 function toggleBriefing() {
@@ -3096,6 +3144,10 @@ def _build_business_context():
         key=lambda g: (_impact_order.get(g.get("impact", "medium"), 2), g.get("id", ""))
     )
 
+    # ── Email approval queue ──────────────────────────────────────────────────
+    eq_data       = _load_json_safe(EMAIL_QUEUE_FILE, {"emails": []})
+    pending_emails = [e for e in eq_data.get("emails", []) if e.get("status") == "pending"]
+
     # ── Reminders ─────────────────────────────────────────────────────────────
     rem_data         = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
     pending_reminders = [r for r in rem_data.get("reminders", []) if r.get("status") == "pending"]
@@ -3215,6 +3267,7 @@ def _build_business_context():
         posted_by_date=posted_by_date,
         catalogue_stats=catalogue_stats,
         orch=orch,
+        pending_emails=pending_emails,
     )
 
 
@@ -3441,6 +3494,47 @@ Never say you can't do something — figure out the best response with the data 
 
         _threading.Thread(target=_handle_in_background, daemon=True).start()
 
+    return jsonify({"ok": True})
+
+
+@app.route("/api/email-queue", methods=["GET"])
+def api_email_queue_list():
+    data = _load_json_safe(EMAIL_QUEUE_FILE, {"emails": []})
+    pending = [e for e in data.get("emails", []) if e.get("status") == "pending"]
+    return jsonify({"emails": pending})
+
+
+@app.route("/api/email-queue/<eq_id>/approve", methods=["POST"])
+def api_email_queue_approve(eq_id):
+    data = _load_json_safe(EMAIL_QUEUE_FILE, {"emails": []})
+    env  = _read_env()
+    sent = False
+    for e in data.get("emails", []):
+        if e["id"] == eq_id and e["status"] == "pending":
+            # Send via pipeline's send_email helper
+            try:
+                sys.path.insert(0, str(VAULT_ROOT))
+                from scripts.battleship_pipeline import send_email as _send
+                _send(env, to=e["to"], subject=e["subject"],
+                      plain_body=e["body"], html_body=None)
+                e["status"] = "sent"
+                e["sent_at"] = datetime.now(timezone.utc).isoformat()
+                sent = True
+            except Exception as ex:
+                return jsonify({"ok": False, "error": str(ex)}), 500
+            break
+    EMAIL_QUEUE_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"ok": True, "sent": sent})
+
+
+@app.route("/api/email-queue/<eq_id>/reject", methods=["POST"])
+def api_email_queue_reject(eq_id):
+    data = _load_json_safe(EMAIL_QUEUE_FILE, {"emails": []})
+    for e in data.get("emails", []):
+        if e["id"] == eq_id:
+            e["status"] = "rejected"
+            break
+    EMAIL_QUEUE_FILE.write_text(json.dumps(data, indent=2))
     return jsonify({"ok": True})
 
 

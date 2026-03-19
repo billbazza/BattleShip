@@ -95,12 +95,12 @@ EDUCATION_DRIPS = {
     # Dropped lessons (key-to-success, balanced-plate, closing-the-gap, hacking-consistency,
     # whole-foods-reference, gym-terminology, workout-prep, how-much-weight) remain in the vault
     # for Claude to reference in check-in responses or diagnosis emails.
-    1:  [("edu_sleep",       "Week 1 bonus: sleep — the easiest win in the programme",        "education-lessons/sleep/sleep-for-fat-loss.md")],
-    2:  [("edu_zone2",       "Why slow walking beats hard running — the science",              "education-lessons/exercises/zone2-walking.md")],
-    3:  [("edu_8020",        "The 80/20 rule of nutrition",                                    "education-lessons/nutrition/80-20-rule.md")],
-    4:  [("edu_fatloss_1",   "How to actually lose fat: getting started",                      "education-lessons/fat-loss/getting-started.md")],
-    5:  [("edu_fatloss_2",   "How to actually lose fat: awareness",                            "education-lessons/fat-loss/awareness.md"),
+    1:  [("edu_sleep",       "Week 1: sleep — the easiest win in the programme",               "education-lessons/sleep/sleep-for-fat-loss.md")],
+    2:  [("edu_fatloss_1",  "How to actually lose fat: getting started",                       "education-lessons/fat-loss/getting-started.md"),
          ("edu_mfp",        "Your calorie tracking tool: MyFitnessPal — simple setup guide",  "education-lessons/Myfitnesspal/myfitnesspal-guide.md")],
+    3:  [("edu_zone2",      "Why slow walking beats hard running — the science",               "education-lessons/exercises/zone2-walking.md")],
+    4:  [("edu_8020",       "The 80/20 rule of nutrition",                                     "education-lessons/nutrition/80-20-rule.md")],
+    5:  [("edu_fatloss_2",  "How to actually lose fat: awareness",                             "education-lessons/fat-loss/awareness.md")],
     6:  [("edu_training_1",  "Time to add weights — here's what your training looks like",     "education-lessons/training/workout-overview.md")],
     7:  [("edu_gymtim",      "Gymtimidation — and why it ends at session three",               "education-lessons/training/gymtimidation.md")],
     # Week 8: warmup drip + AI-generated challenge email (challenge sent separately)
@@ -341,7 +341,8 @@ def load_secrets() -> dict:
 
 # ── Tally ─────────────────────────────────────────────────────────────────────
 
-TALLY_QUEUE = CLIENTS_DIR / "tally-queue"
+TALLY_QUEUE       = CLIENTS_DIR / "tally-queue"
+EMAIL_QUEUE_FILE  = CLIENTS_DIR / "email_queue.json"
 
 def tally_parse_submission(payload: dict) -> dict:
     """Parse a Tally webhook payload into the same format as tf_parse_response."""
@@ -1279,13 +1280,15 @@ def email_diagnosis(name: str, diagnosis: str,
     return subj, plain, html
 
 
-def email_onboarding(name: str, notion_url: str = None, tracker_url: str = None) -> tuple[str, str, str]:
+def email_onboarding(name: str, notion_url: str = None, tracker_url: str = None,
+                     calorie_target: str = None) -> tuple[str, str, str]:
     subj = f"You're in — welcome to Battleship, {name}"
 
     # Plain text fallback
     portal = f"\n→ Your programme page: {notion_url}\n" if notion_url else ""
     tracker_line = f"\n→ Your workout tracker: {tracker_url}\n" if tracker_url else ""
-    plain = f"Hi {name},\n\nWelcome aboard.{portal}{tracker_line}\n\nOne thing to do today: a 30-minute walk. That's Week 1.\n\nReply with: weight, waist, energy score, steps yesterday.\n\n— {COACH_NAME}"
+    cal_line = f"\n\nYour daily calorie target: {calorie_target}\nStart logging in MyFitnessPal from Week 2 — use this number as your guide." if calorie_target else ""
+    plain = f"Hi {name},\n\nWelcome aboard.{portal}{tracker_line}\n\nWeek 1 — one job: a 30-minute walk every day. That's it.{cal_line}\n\nReply with: weight, waist, energy score, steps yesterday.\n\n— {COACH_NAME}"
 
     # Portal section (optional)
     if notion_url:
@@ -1366,6 +1369,66 @@ def log_event(folder: str, event: str):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     with open(log_file, "a") as f:
         f.write(f"- {ts}: {event}\n")
+
+
+# ── Email Approval Queue ──────────────────────────────────────────────────────
+
+def stage_email(to: str, subject: str, body: str,
+                client_name: str = "", reason: str = "") -> str:
+    """Stage an ad-hoc email for Will's approval in the portal before sending.
+    Use this for any email sent outside the normal pipeline flow.
+    Returns the queue ID.
+    """
+    import uuid as _uuid
+    queue = json.loads(EMAIL_QUEUE_FILE.read_text()) if EMAIL_QUEUE_FILE.exists() else {"emails": []}
+    qid = "eq_" + _uuid.uuid4().hex[:8]
+    queue["emails"].append({
+        "id":           qid,
+        "to":           to,
+        "subject":      subject,
+        "body":         body,
+        "client_name":  client_name,
+        "reason":       reason,
+        "created_at":   datetime.now(timezone.utc).isoformat(),
+        "status":       "pending",
+    })
+    EMAIL_QUEUE_FILE.write_text(json.dumps(queue, indent=2))
+    print(f"  📬 Email queued for approval: '{subject}' → {to}")
+    return qid
+
+
+# ── Tester Feedback ───────────────────────────────────────────────────────────
+
+def send_tester_feedback_requests(state: dict, secrets: dict):
+    """Every Sunday, ask test clients for direct programme feedback."""
+    if datetime.now(timezone.utc).weekday() != 6:
+        return
+    for slug, cs in state["clients"].items():
+        if not cs.get("test") or not cs.get("email") or cs.get("status") != "active":
+            continue
+        last = cs.get("last_tester_feedback")
+        if last:
+            days_since = (datetime.now(timezone.utc).date() -
+                          datetime.fromisoformat(last[:10]).date()).days
+            if days_since < 6:
+                continue
+        name  = cs["name"].split()[0]
+        week  = cs.get("current_week", 1)
+        plain = (
+            f"Hi {name},\n\n"
+            f"Week {week} tester check-in — three questions, be brutal:\n\n"
+            f"1. What's working so far?\n"
+            f"2. What's confusing, missing, or doesn't make sense?\n"
+            f"3. Did you receive anything unexpected, or not receive something you expected?\n\n"
+            f"This is how we fix it before real clients come through.\n\n"
+            f"— Will"
+        )
+        send_email(secrets, cs["email"],
+                   f"Tester feedback — Week {week} check-in", plain)
+        cs["last_tester_feedback"] = datetime.now(timezone.utc).isoformat()
+        log_event(cs["folder"], f"Tester feedback request sent (Week {week})")
+        print(f"  🧪 Tester feedback → {name} ({cs['email']})")
+    save_state(state)
 
 
 # ── Pipeline: Short Form → Teaser Diagnosis ───────────────────────────────────
@@ -1548,8 +1611,9 @@ def enrol_client(account_no: str, cs: dict, secrets: dict):
     cs["notion_url"]     = notion_url
 
     if cs["email"]:
-        tracker_url = f"https://webhook.battleshipreset.com/tracker/{account_no}"
-        subj5, plain5, html5 = email_onboarding(cs["name"], notion_url, tracker_url)
+        tracker_url    = f"https://webhook.battleshipreset.com/tracker/{account_no}"
+        calorie_target = _calorie_target(cs)
+        subj5, plain5, html5 = email_onboarding(cs["name"], notion_url, tracker_url, calorie_target)
         send_email(secrets, cs["email"], subj5, plain5, html5)
         log_event(folder, "Onboarding email sent")
 
@@ -2258,9 +2322,11 @@ def _calorie_target(cs: dict) -> str:
     """Return a personalised calorie target based on body composition.
 
     Rule (Will's formula):
-      - Significantly overweight / lot to lose → weight_lbs × 12
-      - Moderate / not really overweight       → weight_lbs × 15
+      - Significantly overweight / lot to lose → weight_lbs × 10
+      - Moderate / not really overweight       → weight_lbs × 12
+      - Hard cap: 2,500 calories regardless
     """
+    MAX_CALORIES = 2500
     tags = cs.get("tags", {})
     weight_raw = tags.get("weight_lbs", "") or tags.get("weight", "")
 
@@ -2271,21 +2337,20 @@ def _calorie_target(cs: dict) -> str:
 
         # Try BMI first if height available
         height_raw = tags.get("height_inches", "") or tags.get("height", "")
-        multiplier = 12  # default: assume significant if unsure
+        multiplier = 10  # default: assume significant if unsure
         try:
             inches = float(str(height_raw).replace("in", "").replace('"', "").strip())
             if inches > 0:
                 bmi = (lbs / (inches ** 2)) * 703
-                multiplier = 12 if bmi >= 30 else 15
+                multiplier = 10 if bmi >= 30 else 12
         except (ValueError, TypeError):
-            # Fall back to Claude's overweight_level tag
             level = tags.get("overweight_level", "significant").lower()
-            multiplier = 12 if level == "significant" else 15
+            multiplier = 10 if level == "significant" else 12
 
-        target = int(lbs * multiplier)
-        return f"**Your target: {target} calories/day** (your weight × {multiplier})"
+        target = min(int(lbs * multiplier), MAX_CALORIES)
+        return f"**Your target: {target:,} calories/day** (your weight × {multiplier}, capped at 2,500)"
     except (ValueError, TypeError):
-        return "**Your target:** use the formula in the lesson — your weight in lbs × 12 if you have a significant amount to lose, or × 15 if you're closer to your goal weight"
+        return "**Your target:** your weight in lbs × 10 if you have a significant amount to lose, or × 12 if you're closer to your goal weight — maximum 2,500 calories"
 
 
 def _decode_header(value: str) -> str:
@@ -2619,6 +2684,42 @@ def process_inbound_emails(state: dict, secrets: dict):
         print(f"  ✅ Replied to {cs['name']}")
 
     mail.logout()
+
+
+def send_day3_nudge(state: dict, secrets: dict):
+    """Send a Day 3 nudge to clients who enrolled 2–4 days ago and haven't had one yet."""
+    today = datetime.now(timezone.utc).date()
+    for slug, cs in state["clients"].items():
+        if cs.get("status") != "active" or not cs.get("enrolled_date"):
+            continue
+        if not cs.get("email"):
+            continue
+        if "day3_nudge" in cs.get("emails_sent", []):
+            continue
+        enrolled = datetime.fromisoformat(cs["enrolled_date"]).date()
+        days_in  = (today - enrolled).days
+        if days_in < 2 or days_in > 4:
+            continue
+
+        name  = cs["name"].split()[0]
+        goal  = cs.get("tags", {}).get("main_goal", "")
+        plain = (
+            f"Hi {name},\n\n"
+            f"Just checking in — you're three days into Week 1.\n\n"
+            f"This week's only job is the walk. Thirty minutes, every day. "
+            f"That's it. No weights, no meal plan, no complexity. Just the walk.\n\n"
+            f"It sounds simple because it is. But simple done consistently is what "
+            f"everything else gets built on. Most people skip the foundation and wonder "
+            f"why the house falls down.\n\n"
+            f"How's it going? Hit reply — even just one line.\n\n"
+            f"— Will"
+        )
+        subj = f"Day 3 — how's the walking going, {name}?"
+        send_email(secrets, cs["email"], subj, plain)
+        cs.setdefault("emails_sent", []).append("day3_nudge")
+        log_event(cs["folder"], "Day 3 nudge sent")
+        print(f"  👟 Day 3 nudge → {name} ({cs['email']})")
+    save_state(state)
 
 
 def send_education_drips(state: dict, secrets: dict):
@@ -3239,6 +3340,7 @@ def main():
         return
 
     state = load_state()
+    cmd_reconcile(state)
 
     print("\n🔐 Loading secrets from 1Password...")
     secrets = load_secrets()
@@ -3264,7 +3366,15 @@ def main():
     print("\n📬 Processing inbound emails...")
     process_inbound_emails(state, secrets)
 
-    # 6. Education drips
+    # 6. Day 3 nudge — check in with clients 2–4 days after enrolment
+    print("\n👟 Day 3 nudge check...")
+    send_day3_nudge(state, secrets)
+
+    # 6a. Tester feedback — Sundays only
+    print("\n🧪 Tester feedback requests (Sundays)...")
+    send_tester_feedback_requests(state, secrets)
+
+    # 7. Education drips
     print("\n📚 Education drip schedule...")
     send_education_drips(state, secrets)
 
