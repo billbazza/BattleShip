@@ -18,6 +18,7 @@ from flask import Flask, redirect, render_template_string, request, url_for, jso
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from skills.tracker_generator import generate_tracker_for_client  # noqa: E402
+import scripts.db as db  # noqa: E402
 
 VAULT_ROOT          = Path(__file__).parent.parent
 CLIENTS_DIR         = VAULT_ROOT / "clients"
@@ -26,21 +27,16 @@ TALLY_QUEUE         = CLIENTS_DIR / "tally-queue"
 PIPELINE            = VAULT_ROOT / "scripts" / "battleship_pipeline.py"
 PYTHON              = sys.executable
 
-# Business manager data paths
+# Non-DB data paths (still JSON — bots write these)
 MARKETING_STRATEGY_FILE  = CLIENTS_DIR / "marketing_strategy.json"
 SOCIAL_METRICS_FILE      = CLIENTS_DIR / "social_metrics.json"
 SEO_STATE_FILE           = VAULT_ROOT / "brand" / "Marketing" / "SEO" / "seo_state.json"
 TECH_BACKLOG_FILE        = VAULT_ROOT / "brand" / "Marketing" / "tech_backlog.json"
-REMINDERS_FILE           = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
 ROADMAP_FILE             = VAULT_ROOT / "roadmap.md"
 FINANCES_FILE            = VAULT_ROOT / "finances.md"
 BIZ_HISTORY_FILE         = CLIENTS_DIR / "business_metrics_history.json"
 MORNING_BRIEFING_FILE    = CLIENTS_DIR / "morning_briefing.json"
-EMAIL_QUEUE_FILE         = CLIENTS_DIR / "email_queue.json"
-PHOTO_REVIEW_FILE        = CLIENTS_DIR / "photo_review_state.json"
 PHOTO_DROP_DIR           = VAULT_ROOT / "brand" / "random-snaps"
-CONTENT_REVIEW_FILE      = CLIENTS_DIR / "content_review.json"
-IDEAS_BANK_FILE          = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
 
 app = Flask(__name__)
 
@@ -1554,55 +1550,229 @@ BUSINESS_PAGE = """<!DOCTYPE html>
   </div>
   {% endif %}
 
-  <!-- B3. Content Review -->
-  <div class="section-label" id="content-review-section">
-    Content Review
-    {% if pending_content %}<span style="background:#c41e3a;color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700">{{ pending_content | length }}</span>{% endif %}
-    {% if ideas_drafts %}<span style="background:#3a2000;color:#e8a020;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:6px;font-weight:700">{{ ideas_drafts | length }} idea{{ 's' if ideas_drafts | length != 1 }} to green light</span>{% endif %}
+  <!-- B3. Content Pipeline -->
+  <div class="section-label" id="content-pipeline-section" style="margin-top:32px">
+    Content Pipeline
+    {% if pipeline_counts.content_review %}<span style="background:#c41e3a;color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700">{{ pipeline_counts.content_review }} to review</span>{% endif %}
+    {% if pipeline_counts.awaiting_graphic %}<span style="background:#3a2000;color:#e8a020;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:6px">⏱ {{ pipeline_counts.awaiting_graphic }} awaiting graphic</span>{% endif %}
   </div>
 
-  <!-- Ideas bank -->
-  {% if ideas_drafts %}
-  <div style="background:#111;border-radius:4px;padding:12px 16px;margin-bottom:8px;border-left:3px solid #e8a020">
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#e8a020;margin-bottom:10px">💡 Ideas Bank — Awaiting Green Light</div>
-    {% for idea in ideas_drafts %}
-    <div style="padding:8px 0;border-bottom:1px solid #1e1e1e;display:flex;justify-content:space-between;align-items:flex-start;gap:12px" id="idea-{{ idea.id }}">
-      <div style="flex:1">
-        <div style="color:#fff;font-size:13px;font-weight:600">{{ idea.title }}</div>
-        <div style="color:#777;font-size:12px;margin-top:3px">{{ idea.angle[:120] }}{% if idea.angle | length > 120 %}…{% endif %}</div>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
-        <button onclick="greenLightIdea('{{ idea.id }}')" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer">✅ Green light</button>
-        <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer">Archive</button>
-      </div>
+  <!-- FB Queue pause/play bar -->
+  <div style="display:flex;align-items:center;justify-content:space-between;background:#141414;border:1px solid #222;border-radius:4px;padding:10px 16px;margin-bottom:14px">
+    <div>
+      {% if queue_settings.paused %}
+      <span style="color:#c41e3a;font-weight:700;font-size:12px">⏸ PAUSED</span>
+      <span style="color:#555;font-size:11px;margin-left:10px">Schedule frozen — resume to redistribute posts from today</span>
+      {% else %}
+      <span style="color:#2a9d4e;font-weight:700;font-size:12px">▶ POSTING ACTIVE</span>
+      <span style="color:#555;font-size:11px;margin-left:10px">Mon · Wed · Fri</span>
+      {% endif %}
     </div>
-    {% endfor %}
+    <div style="display:flex;gap:8px;align-items:center">
+      <span style="font-size:11px;color:#444">{{ pipeline_counts.fb_queue }} queued · {{ pipeline_counts.posted }} posted</span>
+      {% if queue_settings.paused %}
+      <button onclick="fbQueueResume()" style="background:#2a9d4e;color:#fff;border:none;padding:5px 14px;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">▶ Resume</button>
+      {% else %}
+      <button onclick="fbQueuePause()" style="background:none;border:1px solid #c41e3a;color:#c41e3a;padding:5px 14px;border-radius:3px;font-size:11px;cursor:pointer">⏸ Pause</button>
+      {% endif %}
+    </div>
   </div>
-  {% endif %}
 
-  {% if pending_content %}
-  <div style="color:#888;font-size:12px;font-style:italic;margin-bottom:4px">{{ pending_content|length }} draft{{ 's' if pending_content|length != 1 }} waiting — review in <b style="color:#aaa">Facebook Bot → Content Queue</b> below.</div>
-  {% endif %}
+  <!-- Pipeline kanban -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px">
+
+    <!-- Col 1: Ideas Bank -->
+    <div style="background:#141414;border:1px solid #222;border-radius:4px;padding:12px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
+        <span>Ideas Bank</span>
+        <span style="background:#2a1800;color:#e8a020;padding:1px 7px;border-radius:10px">{{ ideas_drafts|length }}</span>
+      </div>
+      {% for idea in ideas_drafts %}
+      <div id="idea-{{ idea.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:7px">
+        <div style="color:#ccc;font-size:12px;font-weight:600;line-height:1.4;margin-bottom:5px">{{ idea.title }}</div>
+        <div style="color:#555;font-size:11px;line-height:1.4;margin-bottom:7px">{{ idea.angle[:80] }}{% if idea.angle|length > 80 %}…{% endif %}</div>
+        {% if idea.copy %}
+        <div style="font-size:10px;color:#2a9d4e;margin-bottom:5px">✍ Copy ready</div>
+        {% endif %}
+        <div style="display:flex;gap:5px">
+          <button onclick="greenLightIdea('{{ idea.id }}')" style="flex:1;background:#2a9d4e;color:#fff;border:none;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">✓ Green light</button>
+          <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:4px 8px;border-radius:3px;font-size:10px;cursor:pointer">✗</button>
+        </div>
+      </div>
+      {% endfor %}
+      {% if not ideas_drafts %}<div style="color:#333;font-size:11px;font-style:italic">No ideas waiting</div>{% endif %}
+    </div>
+
+    <!-- Col 2: Awaiting Graphic -->
+    {% set awaiting_graphic = all_content | selectattr('stage','equalto','awaiting_graphic') | list %}
+    <div style="background:#141414;border:1px solid #222;border-radius:4px;padding:12px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
+        <span>⏱ Awaiting Graphic</span>
+        {% if awaiting_graphic %}<span style="background:#2a1800;color:#e8a020;padding:1px 7px;border-radius:10px">{{ awaiting_graphic|length }}</span>{% endif %}
+      </div>
+      {% for post in awaiting_graphic %}
+      <div style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:7px">
+        <div style="color:#e8a020;font-size:10px;margin-bottom:4px">Drop image into brand/random-snaps/</div>
+        <div style="color:#ccc;font-size:12px;font-weight:600;margin-bottom:6px">{{ post.theme[:50] }}</div>
+        <div style="font-size:10px;color:#555">Requested: {{ post.graphic_requested_at[:10] if post.graphic_requested_at else '—' }}</div>
+        <button onclick="markGraphicReady('{{ post.id }}')" style="margin-top:7px;width:100%;background:none;border:1px solid #e8a020;color:#e8a020;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">✓ Graphic added</button>
+      </div>
+      {% endfor %}
+      {% if not awaiting_graphic %}<div style="color:#333;font-size:11px;font-style:italic">None waiting</div>{% endif %}
+    </div>
+
+    <!-- Col 3: Content Review -->
+    <div style="background:#141414;border:1px solid #c41e3a;border-radius:4px;padding:12px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
+        <span style="color:#c41e3a">Content Review</span>
+        {% if pending_content %}<span style="background:#1a0008;color:#c41e3a;padding:1px 7px;border-radius:10px">{{ pending_content|length }}</span>{% endif %}
+      </div>
+      {% for post in pending_content %}
+      <div id="cr-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:7px">
+        {% if post.image_path and post.image_path != '' %}
+        {% set brand_prefix = vault_brand_prefix if vault_brand_prefix is defined else '' %}
+        <div style="margin-bottom:6px">
+          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:80px;object-fit:cover;border-radius:3px;border:1px solid #222" onerror="this.style.display='none'">
+        </div>
+        {% endif %}
+        <div style="color:#ccc;font-size:12px;font-weight:600;margin-bottom:4px">{{ post.theme[:50] }}</div>
+        {% if post.send_back_comment %}
+        <div style="background:#1a1000;border-left:2px solid #e8a020;padding:4px 8px;margin-bottom:5px;font-size:10px;color:#e8a020">↩ {{ post.send_back_comment[:80] }}</div>
+        {% endif %}
+        <details style="margin-bottom:8px">
+          <summary style="font-size:11px;color:#666;cursor:pointer">Read full post</summary>
+          <div style="margin-top:6px;font-size:11px;color:#888;white-space:pre-wrap;max-height:150px;overflow-y:auto;background:#0a0a0a;padding:8px;border-radius:3px">{{ post.content }}</div>
+          <button onclick="swapPhoto('{{ post.id }}')" style="margin-top:5px;background:none;border:1px solid #333;color:#666;padding:3px 8px;border-radius:3px;font-size:10px;cursor:pointer">⇄ Swap photo</button>
+        </details>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;gap:5px">
+            <button onclick="approveToQueue('{{ post.id }}')" style="flex:1;background:#2a9d4e;color:#fff;border:none;padding:5px 0;border-radius:3px;font-size:10px;cursor:pointer;font-weight:600">✓ Queue it</button>
+            <button onclick="postNow('{{ post.id }}')" style="flex:1;background:#1a4a2a;color:#2a9d4e;border:1px solid #2a9d4e;padding:5px 0;border-radius:3px;font-size:10px;cursor:pointer">▶ Post now</button>
+          </div>
+          <div style="display:flex;gap:5px">
+            <button onclick="requestGraphic('{{ post.id }}')" style="flex:1;background:none;border:1px solid #e8a020;color:#e8a020;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">⏱ Need graphic</button>
+            <button onclick="showSendBack('{{ post.id }}')" style="flex:1;background:none;border:1px solid #555;color:#888;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">↩ Send back</button>
+            <button onclick="archivePost('{{ post.id }}')" style="background:none;border:1px solid #333;color:#555;padding:4px 8px;border-radius:3px;font-size:10px;cursor:pointer">✗</button>
+          </div>
+          <div id="sendback-{{ post.id }}" style="display:none">
+            <textarea id="sendback-txt-{{ post.id }}" placeholder="Comment for the bot…" style="width:100%;background:#0a0a0a;border:1px solid #333;color:#aaa;padding:6px;font-size:11px;border-radius:3px;box-sizing:border-box;resize:vertical;min-height:60px"></textarea>
+            <button onclick="submitSendBack('{{ post.id }}')" style="margin-top:4px;width:100%;background:#c41e3a;color:#fff;border:none;padding:4px;border-radius:3px;font-size:10px;cursor:pointer">Send back</button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      {% if not pending_content %}<div style="color:#333;font-size:11px;font-style:italic">Nothing to review</div>{% endif %}
+    </div>
+
+    <!-- Col 4: FB Queue -->
+    <div style="background:#141414;border:1px solid #222;border-radius:4px;padding:12px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
+        <span>FB Queue</span>
+        {% if fb_queued_posts %}<span style="background:#001a0a;color:#2a9d4e;padding:1px 7px;border-radius:10px">{{ fb_queued_posts|length }}</span>{% endif %}
+      </div>
+      {% for post in fb_queued_posts %}
+      <div style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:7px">
+        <div style="color:#2a9d4e;font-size:10px;font-weight:600;margin-bottom:3px">{{ post.scheduled_for or '—' }}</div>
+        <div style="color:#ccc;font-size:12px;margin-bottom:5px">{{ post.theme[:50] }}</div>
+        {% if post.image_path %}
+        <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:50px;object-fit:cover;border-radius:2px;border:1px solid #222;margin-bottom:5px" onerror="this.style.display='none'">
+        {% endif %}
+        <button onclick="unqueuePost('{{ post.id }}')" style="width:100%;background:none;border:1px solid #333;color:#555;padding:3px 0;border-radius:3px;font-size:10px;cursor:pointer">← Return to review</button>
+      </div>
+      {% endfor %}
+      {% if not fb_queued_posts %}<div style="color:#333;font-size:11px;font-style:italic">Queue empty</div>{% endif %}
+    </div>
+
+    <!-- Col 5: Posted -->
+    {% set posted_posts = all_content | selectattr('stage','equalto','posted') | list %}
+    <div style="background:#141414;border:1px solid #222;border-radius:4px;padding:12px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
+        <span>Posted</span>
+        {% if posted_posts %}<span style="background:#1e1e1e;color:#555;padding:1px 7px;border-radius:10px">{{ posted_posts|length }}</span>{% endif %}
+      </div>
+      {% for post in posted_posts[:8] %}
+      <div style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:5px;opacity:0.8">
+        <div style="color:#555;font-size:10px;margin-bottom:2px">{{ post.posted_at[:10] if post.posted_at else (post.created_at[:10] if post.created_at else '—') }}</div>
+        <div style="color:#888;font-size:11px">{{ post.theme[:45] }}</div>
+        {% if post.fb_post_id %}
+        <a href="https://facebook.com/{{ post.fb_post_id }}" target="_blank" style="font-size:10px;color:#555;text-decoration:none">View ↗</a>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% if not posted_posts %}<div style="color:#333;font-size:11px;font-style:italic">Nothing posted yet</div>{% endif %}
+    </div>
+
+  </div>
 
   <!-- B4. Bot Activity -->
   <div class="section-label" style="margin-top:32px">Bot Activity</div>
 
-  <!-- Facebook Bot -->
+  <!-- Marketing Bot (Ideas arc + management only — posting moved to pipeline above) -->
+  <div class="bot-section">
+    <div class="bot-header" onclick="toggleBot('mkt')">
+      <div class="bot-title">
+        <span class="bot-icon">📣</span>
+        <div>
+          <div class="bot-name">Marketing Bot</div>
+          <div class="bot-last-run">Ideas bank · content arc · direction check</div>
+        </div>
+      </div>
+      <div class="bot-badges">
+        {% set green_lit = all_ideas | selectattr('status','equalto','green_lit') | list %}
+        {% set drafts    = all_ideas | selectattr('status','equalto','draft') | list %}
+        {% if green_lit %}<span class="bot-badge bb-ok">{{ green_lit|length }} green lit</span>{% endif %}
+        {% if drafts    %}<span class="bot-badge bb-warn">{{ drafts|length }} draft{% if drafts|length != 1 %}s{% endif %}</span>{% endif %}
+      </div>
+      <span class="bot-chevron" id="chev-mkt">&#9660;</span>
+    </div>
+    <div class="bot-body" id="body-mkt">
+      <!-- Arc position -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">Content Arc</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">
+        {% for phase in arc_phases %}
+        <div style="padding:6px 12px;border-radius:20px;font-size:11px;{% if loop.index0 == arc_phase_index %}background:#c41e3a;color:#fff;font-weight:700{% else %}background:#1e1e1e;color:#555{% endif %}">{{ phase }}</div>
+        {% endfor %}
+      </div>
+      <!-- Ideas bank full list -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">All Ideas</div>
+      {% if all_ideas %}
+      {% for idea in all_ideas %}
+      <div style="background:#111;border-radius:4px;padding:10px 12px;margin-bottom:6px;border-left:3px solid {% if idea.status == 'green_lit' %}#2a9d4e{% elif idea.status == 'archived' %}#333{% else %}#e8a020{% endif %}" id="idea-mkt-{{ idea.id }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div style="flex:1">
+            <div style="color:#fff;font-size:13px;font-weight:600">{{ idea.title }}
+              <span style="font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;{% if idea.status == 'green_lit' %}background:#001a0a;color:#2a9d4e{% elif idea.status == 'archived' %}background:#1e1e1e;color:#444{% else %}background:#2a1800;color:#e8a020{% endif %}">{{ idea.status.replace('_',' ') }}</span>
+            </div>
+            <div style="color:#777;font-size:12px;margin-top:4px;line-height:1.5">{{ idea.angle }}</div>
+          </div>
+          {% if idea.status == 'draft' %}
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button onclick="greenLightIdea('{{ idea.id }}')" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer">Green light</button>
+            <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer">Archive</button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="color:#444;font-size:13px;font-style:italic">No ideas yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Facebook Bot (legacy accordion kept for comment/DM management) -->
   <div class="bot-section">
     <div class="bot-header" onclick="toggleBot('fb')">
       <div class="bot-title">
         <span class="bot-icon">📘</span>
         <div>
           <div class="bot-name">Facebook Bot</div>
-          <div class="bot-last-run">Posts: Mon · Wed · Fri</div>
+          <div class="bot-last-run">Comments · DMs · engagement</div>
         </div>
       </div>
       <div class="bot-badges">
-        {% set fb_pending = all_content | selectattr('status','equalto','pending_review') | list %}
-        {% set fb_posted  = all_content | selectattr('status','equalto','posted') | list %}
-        {% if fb_pending %}<span class="bot-badge bb-warn">{{ fb_pending|length }} pending</span>{% endif %}
-        {% if fb_posted  %}<span class="bot-badge bb-ok">{{ fb_posted|length }} posted</span>{% endif %}
-        {% if not fb_pending and not fb_posted %}<span class="bot-badge bb-info">No drafts yet</span>{% endif %}
+        {% set fb_posted = all_content | selectattr('stage','equalto','posted') | list %}
+        {% if fb_posted %}<span class="bot-badge bb-ok">{{ fb_posted|length }} posted</span>{% endif %}
       </div>
       <span class="bot-chevron" id="chev-fb">&#9660;</span>
     </div>
@@ -1707,19 +1877,18 @@ BUSINESS_PAGE = """<!DOCTYPE html>
               <span style="font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;{% if idea.status == 'green_lit' %}background:#001a0a;color:#2a9d4e{% elif idea.status == 'developed' %}background:#001a2a;color:#4a9fd4{% elif idea.status == 'archived' %}background:#1e1e1e;color:#444{% else %}background:#2a1800;color:#e8a020{% endif %}">{{ idea.status.replace('_',' ') }}</span>
             </div>
             <div style="color:#777;font-size:12px;margin-top:4px;line-height:1.5">{{ idea.angle }}</div>
-            {% if idea.green_lit %}<div style="color:#777;font-size:11px;margin-top:4px">Green lit: {{ idea.green_lit[:10] }}</div>{% endif %}
-          </div>
           {% if idea.status == 'draft' %}
-          <div style="display:flex;gap:6px;flex-shrink:0">
+          <div style="display:flex;gap:6px;flex-shrink:0;margin-top:6px">
             <button onclick="greenLightIdea('{{ idea.id }}')" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer">Green light</button>
             <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer">Archive</button>
           </div>
           {% endif %}
         </div>
       </div>
+      </div>
       {% endfor %}
       {% else %}
-      <div style="color:#444;font-size:13px;font-style:italic">No ideas yet. Add ideas via Telegram evening check-in.</div>
+      <div style="color:#444;font-size:13px;font-style:italic">No ideas yet.</div>
       {% endif %}
     </div>
   </div>
@@ -2490,6 +2659,73 @@ function rejectPhoto(id) {
       });
     });
 }
+// ── Content Pipeline ─────────────────────────────────────────────────────────
+function approveToQueue(id) {
+  fetch('/api/content/' + id + '/approve', {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById('cr-' + id);
+      if (el) el.innerHTML = '<div style="color:#2a9d4e;font-size:12px;padding:8px">✓ Queued for ' + (d.scheduled_for || '—') + '</div>';
+    });
+}
+function postNow(id) {
+  if (!confirm('Post this live to Facebook right now?')) return;
+  fetch('/api/content/' + id + '/post-now', {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById('cr-' + id);
+      if (el) el.innerHTML = d.ok
+        ? '<div style="color:#2a9d4e;font-size:12px;padding:8px">✅ Posted live (ID: ' + d.fb_post_id + ')</div>'
+        : '<div style="color:#c41e3a;font-size:12px;padding:8px">⚠ Error: ' + d.error + '</div>';
+    });
+}
+function requestGraphic(id) {
+  fetch('/api/content/' + id + '/request-graphic', {method:'POST'})
+    .then(() => location.reload());
+}
+function markGraphicReady(id) {
+  fetch('/api/content/' + id + '/graphic-ready', {method:'POST'})
+    .then(() => location.reload());
+}
+function showSendBack(id) {
+  const el = document.getElementById('sendback-' + id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function submitSendBack(id) {
+  const comment = document.getElementById('sendback-txt-' + id).value;
+  fetch('/api/content/' + id + '/send-back', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({comment})
+  }).then(() => location.reload());
+}
+function archivePost(id) {
+  fetch('/api/content/' + id + '/archive', {method:'POST'})
+    .then(() => {
+      const el = document.getElementById('cr-' + id);
+      if (el) { el.style.opacity = '0.3'; el.style.pointerEvents = 'none'; }
+    });
+}
+function unqueuePost(id) {
+  fetch('/api/content/' + id + '/send-back', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({comment: ''})
+  }).then(() => location.reload());
+}
+function swapPhoto(id) {
+  const photoId = prompt('Enter photo ID (catalogue key or random-snaps/filename):');
+  if (!photoId) return;
+  fetch('/api/content/' + id + '/swap-photo', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({photo_id: photoId})
+  }).then(() => location.reload());
+}
+function fbQueuePause() {
+  fetch('/api/fb-queue/pause', {method:'POST'}).then(() => location.reload());
+}
+function fbQueueResume() {
+  fetch('/api/fb-queue/resume', {method:'POST'}).then(() => location.reload());
+}
+// ─────────────────────────────────────────────────────────────────────────────
 function approveEmail(id) {
   fetch('/api/email-queue/' + id + '/approve', {method:'POST'})
     .then(r => r.json())
@@ -2808,7 +3044,11 @@ def brand_asset(filename):
 @app.route("/")
 def dashboard():
     state          = load_state()
-    clients        = sorted(state["clients"].items(), key=lambda x: x[0])
+    clients        = sorted(
+        [(k, v) for k, v in state["clients"].items()
+         if v.get("status") not in ("archived", "deleted")],
+        key=lambda x: x[0]
+    )
     flash          = request.args.get("flash", "")
     active_count   = sum(1 for _, cs in clients if cs.get("status") == "active")
     diagnosed_count= sum(1 for _, cs in clients if cs.get("status") == "diagnosed")
@@ -2893,12 +3133,14 @@ def action_delete(acct):
         return redirect(url_for("dashboard", flash=f"Client {acct} not found."))
     name = cs.get("name", acct)
     # Safety: block deletion of active paying clients
-    if cs.get("status") == "active" and not cs.get("complimentary"):
+    if cs.get("status") == "active" and not cs.get("complimentary") and not cs.get("test"):
         return redirect(url_for("client_detail", acct=acct,
-                                flash="Cannot delete an active paying client. Archive or refund first."))
-    del state["clients"][acct]
+                                flash="Cannot archive an active paying client. Change status first."))
+    # Archive (never hard-delete — keeps history and prevents reconcile resurrection)
+    cs["status"] = "archived"
+    cs["archived_at"] = datetime.utcnow().isoformat()
     STATE_FILE.write_text(json.dumps(state, indent=2, default=str))
-    return redirect(url_for("dashboard", flash=f"{name} removed. Files kept in clients/{cs.get('folder', acct)}/."))
+    return redirect(url_for("dashboard", flash=f"{name} archived. Files and history kept."))
 
 def _verify_tally_signature(raw_body: bytes, header: str, secret: str) -> bool:
     """Verify Tally webhook signature: sha256=<hmac> against raw body."""
@@ -3144,43 +3386,32 @@ def _build_business_context():
         key=lambda g: (_impact_order.get(g.get("impact", "medium"), 2), g.get("id", ""))
     )
 
-    # ── Email approval queue ──────────────────────────────────────────────────
-    eq_data       = _load_json_safe(EMAIL_QUEUE_FILE, {"emails": []})
-    pending_emails = [e for e in eq_data.get("emails", []) if e.get("status") == "pending"]
+    # ── DB-backed data ────────────────────────────────────────────────────────
+    pending_emails    = db.get_pending_emails()
+    pending_reminders = db.get_reminders(status="pending")
+    pivot_notes       = db.get_pivot_notes()
+    pending_photos    = db.get_pending_photos()
+    pending_content   = db.get_posts(stage="content_review")
+    ideas_drafts      = db.get_ideas(status="draft")
+    all_ideas         = db.get_ideas()
+    all_content       = db.get_posts()
+    queue_settings    = db.get_queue_settings()
 
-    # ── Reminders ─────────────────────────────────────────────────────────────
-    rem_data         = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
-    pending_reminders = [r for r in rem_data.get("reminders", []) if r.get("status") == "pending"]
-    pivot_notes       = rem_data.get("pivot_notes", [])
-
-    # ── Morning briefing ──────────────────────────────────────────────────────
-    briefing      = _load_json_safe(MORNING_BRIEFING_FILE, {})
-    photo_review  = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
-    pending_photos = []
-    for c in photo_review.get("candidates", []):
-        if c.get("status") == "pending":
-            p = dict(c)
-            # Convert absolute path to a Flask-servable URL
-            abs_path = p.get("path", "")
-            brand_prefix = str(VAULT_ROOT / "brand") + "/"
-            if abs_path.startswith(brand_prefix):
-                p["url"] = "/brand/" + abs_path[len(brand_prefix):]
-            else:
-                p["url"] = ""
-            pending_photos.append(p)
-
-    # ── Content review ────────────────────────────────────────────────────────
-    content_review  = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
-    pending_content = [p for p in content_review.get("posts", []) if p.get("status") == "pending_review"]
-    ideas_data      = _load_json_safe(IDEAS_BANK_FILE, {"ideas": []})
-    ideas_drafts    = [i for i in ideas_data.get("ideas", []) if i.get("status") == "draft"]
+    # Pipeline stage counts
+    pipeline_counts = {
+        "marketing_review": len(db.get_posts(stage="marketing_review")),
+        "awaiting_graphic": len(db.get_posts(stage="awaiting_graphic")),
+        "content_review":   len(pending_content),
+        "fb_queue":         len(db.get_posts(stage="fb_queue")),
+        "posted":           len(db.get_posts(stage="posted")),
+    }
+    fb_queued_posts   = db.get_posts(stage="fb_queue")
 
     # ── Roadmap ───────────────────────────────────────────────────────────────
     roadmap_items = []
     if ROADMAP_FILE.exists():
         import re as _re
         rm_text = ROADMAP_FILE.read_text()
-        # Parse the build order table at the bottom
         for row in _re.finditer(
             r'\|\s*\d+\s*\|\s*#\d+\s+([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|', rm_text
         ):
@@ -3191,25 +3422,20 @@ def _build_business_context():
             })
 
     # ── Ad results label ──────────────────────────────────────────────────────
-    # Show link_clicks rather than generic "results"
     if has_ad_data:
         ad_results = f"{last_ad.get('link_clicks', last_ad.get('clicks', '—'))} link clicks"
 
-    # ── Weekly targets (actuals TODO when tracking is implemented) ────────────
+    # ── Weekly targets ────────────────────────────────────────────────────────
     weekly_targets = [
         {"label": "Content pieces",  "current": 0, "target": 5},
         {"label": "Leads generated", "current": 0, "target": 5},
         {"label": "New clients",     "current": 0, "target": 1},
     ]
 
-    # ── Bot Activity: all content + all ideas ─────────────────────────────────
-    all_content  = content_review.get("posts", [])
-    all_ideas    = ideas_data.get("ideas", [])
-
-    # Next 3 Mon/Wed/Fri posting dates from today
+    # ── Next 3 posting slots ──────────────────────────────────────────────────
     from datetime import timedelta
-    POST_DAYS = {0, 2, 4}  # Mon=0, Wed=2, Fri=4
-    DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    POST_DAYS  = {0, 2, 4}
+    DAY_NAMES  = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     fb_schedule = []
     d = datetime.now().date()
     while len(fb_schedule) < 3:
@@ -3217,15 +3443,15 @@ def _build_business_context():
             fb_schedule.append({"date": d.strftime("%Y-%m-%d"), "day": DAY_NAMES[d.weekday()]})
         d += timedelta(days=1)
 
-    # Match scheduled content to those dates
+    # Map queued posts to upcoming slots
     posted_by_date = {}
-    for p in all_content:
-        sched = p.get("scheduled_for") or p.get("created", "")[:10]
+    for p in fb_queued_posts:
+        sched = p.get("scheduled_for", "")
         for slot in fb_schedule:
             if sched == slot["date"]:
                 posted_by_date.setdefault(slot["date"], []).append(p)
 
-    # Catalogue stats
+    # ── Catalogue stats ───────────────────────────────────────────────────────
     catalogue_file = VAULT_ROOT / "brand" / "catalogue.json"
     catalogue_stats = {"total": 0, "best": 0, "good": 0, "usable": 0, "pending_review_photos": len(pending_photos)}
     if catalogue_file.exists():
@@ -3236,8 +3462,11 @@ def _build_business_context():
             if q in catalogue_stats:
                 catalogue_stats[q] += 1
 
-    # Orchestrator last-run times
+    # ── Orchestrator last-run times ───────────────────────────────────────────
     orch = _load_json_safe(VAULT_ROOT / "brand" / "Marketing" / "orchestrator_state.json", {})
+
+    # Morning briefing
+    briefing = _load_json_safe(MORNING_BRIEFING_FILE, {})
 
     return dict(
         today=today,
@@ -3268,44 +3497,37 @@ def _build_business_context():
         catalogue_stats=catalogue_stats,
         orch=orch,
         pending_emails=pending_emails,
+        queue_settings=queue_settings,
+        pipeline_counts=pipeline_counts,
+        fb_queued_posts=fb_queued_posts,
     )
 
 
 @app.route("/api/reminders", methods=["GET", "POST"])
 def api_reminders():
     """GET: list pending. POST: add a new reminder (for bots)."""
-    data = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
     if request.method == "GET":
-        return jsonify({"reminders": [r for r in data.get("reminders", []) if r.get("status") == "pending"]})
+        return jsonify({"reminders": db.get_reminders(status="pending")})
     body = request.get_json(silent=True) or {}
-    # Deduplicate by title
-    existing_titles = {r.get("title", "") for r in data.get("reminders", [])}
-    if body.get("title") in existing_titles:
+    title = body.get("title", "Untitled")
+    # Deduplicate by title among pending reminders
+    existing = db.get_reminders(status="pending")
+    if any(r.get("title") == title for r in existing):
         return jsonify({"status": "duplicate", "message": "Reminder already exists"}), 200
-    import uuid as _uuid
-    new_rem = {
-        "id": "rem_" + _uuid.uuid4().hex[:8],
-        "added_by": body.get("added_by", "bot"),
-        "type": body.get("type", "other"),
-        "title": body.get("title", "Untitled"),
+    rid = db.insert_reminder({
+        "added_by":    body.get("added_by", "bot"),
+        "type":        body.get("type", "other"),
+        "title":       title,
         "description": body.get("description", ""),
-        "priority": body.get("priority", "medium"),
-        "created_at": datetime.now().strftime("%Y-%m-%d"),
-        "status": "pending",
-    }
-    data.setdefault("reminders", []).append(new_rem)
-    REMINDERS_FILE.write_text(json.dumps(data, indent=2))
-    return jsonify({"status": "added", "id": new_rem["id"]}), 201
+        "priority":    body.get("priority", "medium"),
+        "content_url": body.get("content_url"),
+    })
+    return jsonify({"status": "added", "id": rid}), 201
 
 
 @app.route("/api/reminders/<rem_id>/dismiss", methods=["POST"])
 def api_reminder_dismiss(rem_id):
-    data = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
-    for r in data.get("reminders", []):
-        if r["id"] == rem_id:
-            r["status"] = "done"
-            r["done_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-    REMINDERS_FILE.write_text(json.dumps(data, indent=2))
+    db.dismiss_reminder(rem_id)
     return jsonify({"status": "ok"})
 
 
@@ -3313,18 +3535,7 @@ def api_reminder_dismiss(rem_id):
 def api_reminder_pivot(rem_id):
     body = request.get_json(silent=True) or {}
     note = body.get("note", "").strip()
-    data = _load_json_safe(REMINDERS_FILE, {"reminders": [], "pivot_notes": []})
-    for r in data.get("reminders", []):
-        if r["id"] == rem_id:
-            r["status"] = "pivoted"
-            r["pivoted_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-    pivot = {
-        "reminder_id": rem_id,
-        "note": note,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-    }
-    data.setdefault("pivot_notes", []).append(pivot)
-    REMINDERS_FILE.write_text(json.dumps(data, indent=2))
+    db.pivot_reminder(rem_id, note)
     return jsonify({"status": "ok"})
 
 
@@ -3499,170 +3710,177 @@ Never say you can't do something — figure out the best response with the data 
 
 @app.route("/api/email-queue", methods=["GET"])
 def api_email_queue_list():
-    data = _load_json_safe(EMAIL_QUEUE_FILE, {"emails": []})
-    pending = [e for e in data.get("emails", []) if e.get("status") == "pending"]
-    return jsonify({"emails": pending})
+    return jsonify({"emails": db.get_pending_emails()})
 
 
 @app.route("/api/email-queue/<eq_id>/approve", methods=["POST"])
 def api_email_queue_approve(eq_id):
-    data = _load_json_safe(EMAIL_QUEUE_FILE, {"emails": []})
-    env  = _read_env()
-    sent = False
-    for e in data.get("emails", []):
-        if e["id"] == eq_id and e["status"] == "pending":
-            # Send via pipeline's send_email helper
-            try:
-                sys.path.insert(0, str(VAULT_ROOT))
-                from scripts.battleship_pipeline import send_email as _send
-                _send(env, to=e["to"], subject=e["subject"],
-                      plain_body=e["body"], html_body=None)
-                e["status"] = "sent"
-                e["sent_at"] = datetime.now(timezone.utc).isoformat()
-                sent = True
-            except Exception as ex:
-                return jsonify({"ok": False, "error": str(ex)}), 500
-            break
-    EMAIL_QUEUE_FILE.write_text(json.dumps(data, indent=2))
-    return jsonify({"ok": True, "sent": sent})
+    emails = db.get_pending_emails()
+    e = next((x for x in emails if x["id"] == eq_id), None)
+    if not e:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    env = _read_env()
+    try:
+        from scripts.battleship_pipeline import send_email as _send
+        _send(env, to=e["to_addr"], subject=e["subject"],
+              plain_body=e["body"], html_body=e.get("html_body"))
+        db.mark_email_sent(eq_id)
+        return jsonify({"ok": True, "sent": True})
+    except Exception as ex:
+        return jsonify({"ok": False, "error": str(ex)}), 500
 
 
 @app.route("/api/email-queue/<eq_id>/reject", methods=["POST"])
 def api_email_queue_reject(eq_id):
-    data = _load_json_safe(EMAIL_QUEUE_FILE, {"emails": []})
-    for e in data.get("emails", []):
-        if e["id"] == eq_id:
-            e["status"] = "rejected"
-            break
-    EMAIL_QUEUE_FILE.write_text(json.dumps(data, indent=2))
+    db.mark_email_rejected(eq_id)
     return jsonify({"ok": True})
 
 
 @app.route("/api/photo-review/<photo_id>/approve", methods=["POST"])
 def api_photo_approve(photo_id):
-    data = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
-    approved_path = None
-    for c in data.get("candidates", []):
-        if c["id"] == photo_id:
-            c["status"] = "approved"
-            c["reviewed_at"] = datetime.now().isoformat()
-            c["review_source"] = "dashboard"
-            approved_path = c.get("path")
-    PHOTO_REVIEW_FILE.write_text(json.dumps(data, indent=2))
-    # Queue approved photo for Facebook posting
-    if approved_path and Path(approved_path).exists():
-        queue_dir = VAULT_ROOT / "clients" / "facebook_queue"
-        queue_dir.mkdir(parents=True, exist_ok=True)
-        import uuid as _uuid
-        queue_item = {
-            "id": "fq_" + _uuid.uuid4().hex[:8],
-            "image_path": approved_path,
-            "caption": "",
-            "source": "photo_review",
-            "queued_at": datetime.now().isoformat(),
-            "status": "pending",
-        }
-        (queue_dir / f"photo_{photo_id}.json").write_text(json.dumps(queue_item, indent=2))
+    photo = next((p for p in db.get_pending_photos() if p["id"] == photo_id), None)
+    db.set_photo_status(photo_id, "approved", "dashboard")
+    # Move to content pipeline as marketing_review so it surfaces for captioning
+    if photo:
+        db.insert_post({
+            "theme":      "Photo — " + (photo.get("filename") or photo_id),
+            "stage":      "marketing_review",
+            "source":     "photo_review",
+            "image_path": photo.get("path", ""),
+        })
     return jsonify({"status": "approved"})
 
 
 @app.route("/api/photo-review/<photo_id>/reject", methods=["POST"])
 def api_photo_reject(photo_id):
-    data = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
-    for c in data.get("candidates", []):
-        if c["id"] == photo_id:
-            c["status"] = "rejected"
-            c["reviewed_at"] = datetime.now().isoformat()
-            c["review_source"] = "dashboard"
-    PHOTO_REVIEW_FILE.write_text(json.dumps(data, indent=2))
+    db.set_photo_status(photo_id, "rejected", "dashboard")
     return jsonify({"status": "rejected"})
 
 
+# ── Content pipeline routes ────────────────────────────────────────────────────
+
+@app.route("/api/content/<cr_id>/approve", methods=["POST"])
 @app.route("/api/content-review/<cr_id>/approve", methods=["POST"])
 def api_content_approve(cr_id):
-    env = _read_env()
-    data = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
-    result = {"status": "approved", "posted": False, "post_id": ""}
-    for p in data.get("posts", []):
-        if p["id"] != cr_id:
-            continue
-        # Idempotency guard — already actioned, don't double-post
-        if p.get("status") in ("approved", "posted"):
-            result["status"] = p["status"]
-            result["posted"] = p.get("status") == "posted"
-            result["post_id"] = p.get("post_id", "")
-            return jsonify(result)
-        p["status"] = "approved"
-        p["reviewed_at"] = datetime.now().isoformat()
-        content    = p.get("content", "")
-        image_path = p.get("image_path", "")
-        token      = env.get("FB_PAGE_ACCESS_TOKEN", "")
-        page_id    = env.get("FB_PAGE_ID", "")
+    """Move content_review → fb_queue, assign next available slot."""
+    post = db.get_post(cr_id)
+    if not post:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    if post["stage"] in ("fb_queue", "posted"):
+        return jsonify({"ok": True, "stage": post["stage"]})
+    slot = db.next_available_slot()
+    db.advance_post_stage(cr_id, "fb_queue", {
+        "scheduled_for": slot,
+        "reviewed_at":   datetime.now(timezone.utc).isoformat(),
+    })
+    return jsonify({"ok": True, "scheduled_for": slot})
 
-        if token and page_id:
-            # Post live immediately
-            try:
-                from skills.facebook_bot import post_photo as _post_photo, _post_live as _post_live_fn
-                secrets = {k: env.get(k, "") for k in
-                           ["FB_PAGE_ACCESS_TOKEN", "FB_PAGE_ID", "IG_USER_ID", "FB_USER_TOKEN"]}
-                if image_path and Path(image_path).exists():
-                    post_id = _post_photo(Path(image_path), content, secrets)
-                    print(f"  ✅ Approved + posted with image (ID: {post_id})")
-                else:
-                    post_id = _post_live_fn(content, secrets)
-                    print(f"  ✅ Approved + posted text-only (ID: {post_id})")
-                p["status"]  = "posted"
-                p["post_id"] = post_id
-                result.update({"posted": True, "post_id": post_id})
-            except Exception as e:
-                print(f"  ⚠️  Post failed after approval: {e}")
-                # Fall through to queue
-                _enqueue_for_posting(cr_id, content, image_path, p.get("theme", ""))
+
+@app.route("/api/content/<cr_id>/post-now", methods=["POST"])
+def api_content_post_now(cr_id):
+    """Approve and post live immediately (bypasses FB queue)."""
+    post = db.get_post(cr_id)
+    if not post:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    env     = _read_env()
+    token   = env.get("FB_PAGE_ACCESS_TOKEN", "")
+    page_id = env.get("FB_PAGE_ID", "")
+    if not (token and page_id):
+        return jsonify({"ok": False, "error": "FB token not configured"}), 400
+    try:
+        from skills.facebook_bot import post_photo as _post_photo, _post_live as _post_live_fn
+        secrets = {k: env.get(k, "") for k in
+                   ["FB_PAGE_ACCESS_TOKEN", "FB_PAGE_ID", "IG_USER_ID", "FB_USER_TOKEN"]}
+        image_path = post.get("image_path", "")
+        if image_path and Path(image_path).exists():
+            fb_id = _post_photo(Path(image_path), post["content"], secrets)
         else:
-            # No token — queue it
-            _enqueue_for_posting(cr_id, content, image_path, p.get("theme", ""))
-        break
-
-    CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
-    return jsonify(result)
-
-
-def _enqueue_for_posting(cr_id: str, content: str, image_path: str, theme: str):
-    import uuid as _uuid
-    queue_dir = VAULT_ROOT / "clients" / "facebook_queue"
-    queue_dir.mkdir(parents=True, exist_ok=True)
-    (queue_dir / f"cr_{cr_id}.json").write_text(json.dumps({
-        "id":         "fq_" + _uuid.uuid4().hex[:8],
-        "content":    content,
-        "image_path": image_path,
-        "theme":      theme,
-        "source":     "content_review",
-        "queued_at":  datetime.now().isoformat(),
-        "status":     "pending",
-    }, indent=2))
+            fb_id = _post_live_fn(post["content"], secrets)
+        db.advance_post_stage(cr_id, "posted", {
+            "fb_post_id": fb_id,
+            "posted_at":  datetime.now(timezone.utc).isoformat(),
+        })
+        return jsonify({"ok": True, "fb_post_id": fb_id})
+    except Exception as ex:
+        return jsonify({"ok": False, "error": str(ex)}), 500
 
 
+@app.route("/api/content/<cr_id>/request-graphic", methods=["POST"])
+def api_content_request_graphic(cr_id):
+    """Signal that a statement graphic is needed before this post can be reviewed."""
+    db.advance_post_stage(cr_id, "awaiting_graphic", {
+        "graphic_requested_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return jsonify({"ok": True})
+
+
+@app.route("/api/content/<cr_id>/graphic-ready", methods=["POST"])
+def api_content_graphic_ready(cr_id):
+    """Mark graphic as done — move back to content_review."""
+    body = request.get_json(silent=True) or {}
+    fields = {"stage": "content_review"}
+    if body.get("image_path"):
+        fields["image_path"] = body["image_path"]
+    db.update_post(cr_id, fields)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/content/<cr_id>/send-back", methods=["POST"])
+def api_content_send_back(cr_id):
+    """Return post to content_review with Will's comment for the bot to revise."""
+    body    = request.get_json(silent=True) or {}
+    comment = body.get("comment", "").strip()
+    db.update_post(cr_id, {
+        "stage":            "content_review",
+        "send_back_comment": comment,
+    })
+    return jsonify({"ok": True})
+
+
+@app.route("/api/content/<cr_id>/archive", methods=["POST"])
 @app.route("/api/content-review/<cr_id>/reject", methods=["POST"])
 def api_content_reject(cr_id):
-    data = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
-    for p in data.get("posts", []):
-        if p["id"] == cr_id:
-            p["status"] = "rejected"
-            p["reviewed_at"] = datetime.now().isoformat()
-    CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
-    return jsonify({"status": "rejected"})
+    db.advance_post_stage(cr_id, "archived", {
+        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return jsonify({"status": "archived"})
 
 
+@app.route("/api/content/<cr_id>/edit", methods=["POST"])
 @app.route("/api/content-review/<cr_id>/edit", methods=["POST"])
 def api_content_edit(cr_id):
     body = request.get_json(silent=True) or {}
-    data = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
-    for p in data.get("posts", []):
-        if p["id"] == cr_id:
-            p["content"] = body.get("content", p["content"])
-            p["edited"]  = True
-    CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
+    db.update_post(cr_id, {"content": body.get("content", ""), "edited": 1})
     return jsonify({"status": "saved"})
+
+
+@app.route("/api/content/<cr_id>/swap-photo", methods=["POST"])
+def api_content_swap_photo(cr_id):
+    body = request.get_json(silent=True) or {}
+    photo_id = body.get("photo_id", "")
+    # photo_id is a catalogue key or random-snaps relative path
+    abs_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
+    db.update_post(cr_id, {"image_path": abs_path})
+    return jsonify({"ok": True})
+
+
+# ── FB Queue pause / resume ────────────────────────────────────────────────────
+
+@app.route("/api/fb-queue/settings", methods=["GET"])
+def api_fb_queue_settings():
+    return jsonify(db.get_queue_settings())
+
+
+@app.route("/api/fb-queue/pause", methods=["POST"])
+def api_fb_queue_pause():
+    db.set_queue_paused(True)
+    return jsonify({"ok": True, "paused": True})
+
+
+@app.route("/api/fb-queue/resume", methods=["POST"])
+def api_fb_queue_resume():
+    db.set_queue_paused(False)   # recalculate_schedule called inside
+    return jsonify({"ok": True, "paused": False})
 
 
 @app.route("/api/photo-candidates")
@@ -3796,22 +4014,16 @@ def _generate_gl_draft(idea: dict, photo_id: str):
             except Exception as img_err:
                 print(f"  ⚠️  Image gen for green-lit idea: {img_err}")
 
-            # Save to content_review
-            cr_data = _load_json_safe(CONTENT_REVIEW_FILE, {"posts": []})
-            cr_data.setdefault("posts", []).append({
-                "id":          "cr_" + _uuid.uuid4().hex[:8],
-                "created":     datetime.now(timezone.utc).isoformat(),
-                "theme":       idea.get("title", "idea"),
-                "content":     post_text,
-                "status":      "pending_review",
-                "source":      "ideas_bank",
-                "idea_id":     idea["id"],
-                "post_id":     "",
-                "image_path":  image_path,
-                "reviewed_at": None,
-                "edited":      False,
+            # Save to DB as content_review stage
+            db.insert_post({
+                "idea_id":    idea["id"],
+                "theme":      idea.get("title", "idea"),
+                "content":    post_text,
+                "stage":      "content_review",
+                "source":     "ideas_bank",
+                "image_path": image_path,
             })
-            CONTENT_REVIEW_FILE.write_text(json.dumps(cr_data, indent=2))
+            db.set_idea_status(idea["id"], "green_lit", {"green_lit_at": db._now()})
             print(f"  ✅ FB draft generated for green-lit idea: {idea.get('title','')[:50]}")
         except Exception as e:
             print(f"  ⚠️  GL draft generation failed: {e}")
@@ -3821,39 +4033,38 @@ def _generate_gl_draft(idea: dict, photo_id: str):
 @app.route("/api/ideas-bank/<idea_id>/green-light", methods=["POST"])
 def api_idea_green_light(idea_id):
     body     = request.get_json(silent=True) or {}
-    photo_id = body.get("photo_id")  # catalogue key or None
+    photo_id = body.get("photo_id")
+    idea     = db.get_idea(idea_id)
+    if not idea:
+        return jsonify({"error": "not found"}), 404
 
-    data = _load_json_safe(IDEAS_BANK_FILE, {"ideas": []})
-    matched_idea = None
-    for idea in data.get("ideas", []):
-        if idea["id"] == idea_id:
-            idea["status"]    = "green_lit"
-            idea["green_lit"] = datetime.now().strftime("%Y-%m-%d")
-            if photo_id:
-                idea["photo_id"] = photo_id
-            matched_idea = idea
-            break
+    # If idea has pre-written copy (will_submitted), skip Claude generation
+    # and go straight to content_review
+    if idea.get("copy"):
+        db.set_idea_status(idea_id, "green_lit", {"green_lit_at": db._now(),
+                                                   "photo_id": photo_id})
+        img_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
+        db.insert_post({
+            "idea_id":    idea_id,
+            "theme":      idea.get("title", "idea"),
+            "content":    idea["copy"],
+            "stage":      "content_review",
+            "source":     "ideas_bank",
+            "image_path": img_path,
+        })
+        return jsonify({"status": "green_lit", "draft": {"status": "ready"}})
 
-    # Save immediately — don't wait for Claude
-    IDEAS_BANK_FILE.write_text(json.dumps(data, indent=2))
-    _sync_ideas_bank_md(data)
-
-    # Kick off Claude draft + image in background thread
-    if matched_idea:
-        _generate_gl_draft(matched_idea, photo_id or "")
-
-    return jsonify({"status": "green_lit", "photo_id": photo_id,
-                    "draft": {"status": "generating"}})
+    # Otherwise kick off Claude draft generation in background
+    db.set_idea_status(idea_id, "green_lit", {"green_lit_at": db._now(),
+                                               "photo_id": photo_id})
+    idea["photo_id"] = photo_id or ""
+    _generate_gl_draft(idea, photo_id or "")
+    return jsonify({"status": "green_lit", "draft": {"status": "generating"}})
 
 
 @app.route("/api/ideas-bank/<idea_id>/archive", methods=["POST"])
 def api_idea_archive(idea_id):
-    data = _load_json_safe(IDEAS_BANK_FILE, {"ideas": []})
-    for idea in data.get("ideas", []):
-        if idea["id"] == idea_id:
-            idea["status"] = "archived"
-    IDEAS_BANK_FILE.write_text(json.dumps(data, indent=2))
-    _sync_ideas_bank_md(data)
+    db.set_idea_status(idea_id, "archived")
     return jsonify({"status": "archived"})
 
 
