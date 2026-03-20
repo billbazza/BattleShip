@@ -1,0 +1,107 @@
+{
+  "campaign_start": "2026-03-15T09:49:57.561005+00:00",
+  "campaign_week": 1,
+  "arc_phase_index": 0,
+  "funnel": {
+    "impressions": 0,
+    "clicks": 0,
+    "quiz_starts": 0,
+    "diagnosed": 3,
+    "paid": 3,
+    "retained_week4": 0
+  },
+  "copy_tests": [
+    {
+      "date": "2026-03-15",
+      "format": "post_hook",
+      "usp": "transformation",
+      "copy": "**47. Desk job. 3 stone down. My fitness age is now 17.**",
+      "phase": "Problem Agitation",
+      "performance": null
+    },
+    {
+      "date": "2026-03-15",
+      "format": "ad_headline",
+      "usp": "transformation",
+      "copy": "**Desk job. 47. 3 stone down.**",
+      "phase": "Problem Agitation",
+      "performance": null
+    },
+    {
+      "date": "2026-03-17",
+      "format": "post_hook",
+      "usp": "transformation",
+      "copy": "**47, desk job, 3 stone down. This wasn't luck.**",
+      "phase": "Problem Agitation",
+      "performance": null
+    },
+    {
+      "date": "2026-03-17",
+      "format": "ad_headline",
+      "usp": "transformation",
+      "copy": "**Still carrying that desk job stone.**",
+      "phase": "Problem Agitation",
+      "performance": null
+    },
+    {
+      "date": "2026-03-17",
+      "format": "post_hook",
+      "usp": "transformation",
+      "copy": "**47. Desk job. 3 stone down. My fitness age is now 17.**",
+      "phase": "Problem Agitation",
+      "performance": null
+    },
+    {
+      "date": "2026-03-17",
+      "format": "ad_headline",
+      "usp": "transformation",
+      "copy": "**Desk job. 3 stone down. Fitness age 17.**",
+      "phase": "Problem Agitation",
+      "performance": null
+    }
+  ],
+  "daily_reviews": [
+    {
+      "date": "2026-03-15",
+      "review": "# Battleship Reset \u2014 Week 1 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Quiz \u2192 Paid conversion is 100% (5/5).** Every single person who completed the quiz bought. That's not luck \u2014 that's a qualification mechanism doing exactly what it should. The quiz is filtering intent correctly. Protect this asset.\n\n**You have a proof-of-concept client (the 47-year-old, 3 stone, fitness age 55\u219217).** This is your entire marketing strategy in one person. You don't need more data. You need more versions of"
+    },
+    {
+      "date": "2026-03-16",
+      "review": "# Battleship Reset \u2014 Week 1 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**CTR of 16.57% is exceptional.** Benchmark for fitness/health paid social is 1-3%. Even organic content rarely hits this. Something in your creative or copy is stopping the scroll hard. The hook, the visual, or the promise is landing with the right audience. Protect whatever you're doing at the top of the funnel \u2014 don't touch it.\n\n**Quiz \u2192 paid conversion is running at 100% (2/2).** Every person who finished the quiz boug"
+    },
+    {
+      "date": "2026-03-16",
+      "review": "# Battleship Reset \u2014 Week 1 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**CTR of 16.57% is exceptional.** Benchmark for cold audience fitness content is 1-3%. You're at 16.57%. The creative or the copy (or both) is hitting a genuine nerve with the right demographic. The hook is working. People are curious enough to click.\n\n**Zero wasted spend on wrong audience.** 2 paid clients from 2 quiz completions = 100% quiz-to-paid conversion once someone actually finishes the quiz. That's not a sales pr"
+    },
+    {
+      "date": "2026-03-17",
+      "review": "# Battleship Reset \u2014 Week 1 Campaign Diagnostic\n\n---\n\n## 1. WHAT'S WORKING\n\n**Nothing yet \u2014 and that's the correct answer.**\n\nWeek 1, zero data across every metric. There is no false positive to protect. The slate is clean. That's not a problem, that's a starting position.\n\n---\n\n## 2. WHAT'S NOT WORKING\n\n**Everything, because nothing exists yet.**\n\nBut here's the real diagnosis underneath the zeros:\n\n**The funnel has no top.** Zero impressions means the content either hasn't been posted, hasn't "
+    },
+    {
+      "date": "2026-03-18",
+      "review": "# Battleship Reset \u2014 Week 1 Strategy Review\n\n---\n\n## 1. WHAT'S WORKING\n\n**The offer converts when it reaches the right person.**\nYou have 1 quiz completion and 1 paid client. That's a 100% quiz-to-paid conversion rate on the one human who made it through. That's not luck \u2014 that's a validated offer. The product sells itself at point of contact. Protect that.\n\n**The diagnosis mechanic works.**\nSomeone engaged deeply enough to complete the quiz and then bought. The quiz is doing its job as a conver"
+    },
+    {
+      "date": "2026-03-19",
+      "review": "# Battleship Reset \u2014 Week 1 Strategy Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Quiz \u2192 Paid conversion is 100% (3/3).** This is the only data point that matters right now and it's exceptional. Every person who completed the quiz bought. That means the offer, the price point, and the conversation that follows the quiz are working. Don't touch that mechanism.\n\n**You have a proof-of-concept.** Three paying clients in Week 1 with zero paid impressions means every sale came from direct outreach, word of m"
+    }
+  ],
+  "flags_sent": [
+    "strategy_2026-11"
+  ],
+  "last_review_date": "2026-03-19",
+  "last_ad_metrics": {
+    "impressions": 0,
+    "reach": 0,
+    "clicks": 0,
+    "link_clicks": 0,
+    "landing_page_views": 0,
+    "spend": "0.0",
+    "campaigns_active": 0,
+    "campaigns": [],
+    "ctr": 0.0,
+    "cpm": 0.0,
+    "cpc": 0.0,
+    "fetched_at": "2026-03-19T06:28:11.102834+00:00"
+  }
+}

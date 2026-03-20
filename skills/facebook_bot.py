@@ -27,9 +27,10 @@ import anthropic
 GRAPH   = "https://graph.facebook.com/v22.0"
 VAULT_ROOT = Path(__file__).parent.parent
 
-QUEUE_DIR      = VAULT_ROOT / "facebook_queue"
-SCHEDULE_FILE  = VAULT_ROOT / "clients" / "facebook_schedule.json"
-STATE_FILE     = VAULT_ROOT / "clients" / "facebook_state.json"
+QUEUE_DIR           = VAULT_ROOT / "facebook_queue"
+SCHEDULE_FILE       = VAULT_ROOT / "clients" / "facebook_schedule.json"
+STATE_FILE          = VAULT_ROOT / "clients" / "facebook_state.json"
+CONTENT_REVIEW_FILE = VAULT_ROOT / "clients" / "content_review.json"
 
 # Post 3x/week: Mon, Wed, Fri
 POST_DAYS = {0, 2, 4}
@@ -118,18 +119,92 @@ def _claude(prompt: str, secrets: dict, max_tokens: int = 600) -> str:
 
 # ── Queue helpers ──────────────────────────────────────────────────────────────
 
-def _queue_post(content: str, theme: str):
-    """Save a generated post to the queue folder instead of posting live."""
-    QUEUE_DIR.mkdir(exist_ok=True)
-    ts  = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    out = QUEUE_DIR / f"post-{ts}.json"
-    out.write_text(json.dumps({
-        "created": datetime.now(timezone.utc).isoformat(),
-        "theme":   theme,
-        "content": content,
-        "status":  "queued",
-    }, indent=2))
-    print(f"  → Queued: {out.name}")
+def _save_to_content_review(content: str, theme: str, status: str = "pending_review",
+                             source: str = "facebook_bot", post_id: str = "",
+                             idea_id: str = "", image_path: str = ""):
+    """Save a post draft to the DB content_review stage (authoritative) + legacy JSON."""
+    import sys as _sys
+    _sys.path.insert(0, str(VAULT_ROOT))
+    import scripts.db as _db
+    _db.insert_post({
+        "theme":      theme,
+        "content":    content,
+        "stage":      "content_review",
+        "source":     source,
+        "idea_id":    idea_id or "",
+        "image_path": image_path or "",
+    })
+
+
+def _queue_post(content: str, theme: str, image_path=None):
+    """Save a generated post to the DB (content_review) for dashboard approval."""
+    _save_to_content_review(content, theme, status="pending_review",
+                            image_path=str(image_path) if image_path else "")
+    print(f"  → Post queued for content review in dashboard")
+
+
+def _make_post_image(post_text: str, theme: str, secrets: dict) -> Path | None:
+    """
+    Generate an image card for a scheduled post.
+    Strategy:
+      1. Try to find a suitable non-face photo from the catalogue
+      2. If found: burn the first sentence of the post as a hook overlay
+      3. If not found: create a dark quote card with the hook text
+    Returns the output Path or None on failure.
+    """
+    try:
+        from skills.brand_manager import create_post_card, create_quote_card, load_catalogue
+        import hashlib
+
+        # First sentence = hook burned onto image (max 80 chars)
+        first_sentence = post_text.split("\n")[0].split(".")[0].strip()
+        if len(first_sentence) > 80:
+            first_sentence = first_sentence[:77] + "…"
+        slug = hashlib.md5(post_text.encode()).hexdigest()[:8]
+
+        # Pick a non-face photo from catalogue
+        cat = load_catalogue()
+        QUALITY_RANK = {"best": 0, "good": 1, "usable": 2}
+        PREFER_USE = {"social_post", "lifestyle_post", "equipment_post", "nutrition_post", "progress_post"}
+        candidates = []
+        for key, meta in cat.items():
+            tags = meta.get("tags", [])
+            if "face" in tags:
+                continue
+            score = (QUALITY_RANK.get(meta.get("quality", "usable"), 2),
+                     0 if bool(set(meta.get("use_cases", [])) & PREFER_USE) else 1)
+            candidates.append((score, VAULT_ROOT / "brand" / key))
+        candidates.sort(key=lambda x: x[0])
+
+        # Also scan random-snaps for uncatalogued images
+        snap_dir = VAULT_ROOT / "brand" / "random-snaps"
+        cat_keys = set(cat.keys())
+        IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".JPG", ".JPEG"}
+        if snap_dir.exists():
+            for img in sorted(snap_dir.iterdir()):
+                if img.is_dir():
+                    continue  # skip drafts/ and any other subdirs
+                rel = "random-snaps/" + img.name
+                if img.suffix in IMG_EXTS and rel not in cat_keys:
+                    candidates.append(((2, 1), img))
+
+        # Pick first candidate that actually exists on disk
+        chosen = None
+        for _, p in candidates:
+            if Path(p).exists():
+                chosen = p
+                break
+
+        if chosen:
+            return create_post_card(chosen, first_sentence,
+                                    output_name=f"post_card_{slug}.jpg")
+        else:
+            # No suitable photo — dark quote card
+            return create_quote_card(first_sentence,
+                                     output_name=f"quote_card_{slug}.jpg")
+    except Exception as e:
+        print(f"  ⚠️  Image generation skipped: {e}")
+        return None
 
 
 def _load_schedule() -> dict:
@@ -171,9 +246,10 @@ def _get_recent_posts(secrets: dict) -> list:
 
 
 def _get_comments(post_id: str, secrets: dict) -> list:
+    token = secrets.get("FB_SYSTEM_TOKEN") or secrets.get("FB_PAGE_ACCESS_TOKEN", "")
     r = requests.get(
         f"{GRAPH}/{post_id}/comments",
-        params={"access_token": secrets["FB_PAGE_ACCESS_TOKEN"],
+        params={"access_token": token,
                 "fields": "id,message,from,created_time"},
         timeout=15,
     )
@@ -212,28 +288,55 @@ def _send_dm(recipient_id: str, message: str, secrets: dict):
 # ── Core jobs ──────────────────────────────────────────────────────────────────
 
 def post_scheduled_content(secrets: dict):
-    """Generate and post (or queue) one post on Mon/Wed/Fri."""
+    """Generate and queue one post for review on Mon/Wed/Fri. Never auto-posts live."""
     today = datetime.now(timezone.utc)
     if today.weekday() not in POST_DAYS:
         return
 
-    schedule   = _load_schedule()
-    date_key   = today.strftime("%Y-%m-%d")
+    schedule = _load_schedule()
+    date_key = today.strftime("%Y-%m-%d")
     if date_key in schedule["posted_dates"]:
-        return  # already done today
+        return  # already queued today
+
+    # Write the date guard immediately to prevent double-run on simultaneous wake
+    schedule["posted_dates"].append(date_key)
+    _save_schedule(schedule)
 
     idx   = schedule["theme_index"] % len(POST_THEMES)
     theme = POST_THEMES[idx]
-    post  = _claude(POST_PROMPT.format(theme=theme), secrets)
 
-    if _is_live(secrets):
-        post_id = _post_live(post, secrets)
-        print(f"  ✓ Facebook post published live (ID: {post_id})")
-    else:
-        _queue_post(post, theme)
-        print(f"  ✓ Facebook post queued (token not set — add FB_PAGE_ACCESS_TOKEN to go live)")
+    # Pull arc guidance from marketing bot to keep organic content aligned
+    arc_hint = ""
+    try:
+        from skills.marketing_bot import get_current_arc_guidance
+        arc = get_current_arc_guidance()
+        arc_hint = (f"\n\nARC ALIGNMENT (week {arc['week']}): This post should lean into "
+                    f"'{arc['theme']}' — {arc['description']}. "
+                    f"If relevant, these hooks are performing: {'; '.join(arc['hooks'][:2])}")
+    except Exception:
+        pass
 
-    schedule["posted_dates"].append(date_key)
+    # Inject Will's learnings (pivot notes, dismissals, send-backs) into prompt
+    learnings_hint = ""
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(VAULT_ROOT))
+        import scripts.db as _db
+        _learnings = _db.get_learnings(source="facebook_bot")
+        if _learnings:
+            lines = [f"- [{l['type']}] {l['text']}" + (f" ({l['context']})" if l.get('context') else "")
+                     for l in _learnings[-10:]]
+            learnings_hint = "\n\nWILL'S FEEDBACK (act on these):\n" + "\n".join(lines)
+    except Exception:
+        pass
+
+    post = _claude(POST_PROMPT.format(theme=theme) + arc_hint + learnings_hint, secrets)
+
+    # Generate image card — always goes to pending_review, approved via dashboard
+    image_path = _make_post_image(post, theme, secrets)
+    _queue_post(post, theme, image_path=image_path)
+    print(f"  ✓ Facebook post + image queued for review (pending approval in dashboard)")
+
     schedule["theme_index"] = idx + 1
     _save_schedule(schedule)
 
@@ -247,11 +350,17 @@ def reply_to_new_comments(secrets: dict):
     replied  = set(schedule.get("replied_comments", []))
     posts    = _get_recent_posts(secrets)
 
+    page_id = secrets.get("FB_PAGE_ID", "")
     for post in posts:
         post_topic = (post.get("message", "") or "")[:120]
         for comment in _get_comments(post["id"], secrets):
             cid = comment["id"]
             if cid in replied:
+                continue
+            # Skip comments made by the page itself (Will posting via BM)
+            commenter_id = comment.get("from", {}).get("id", "")
+            if commenter_id and commenter_id == page_id:
+                replied.add(cid)
                 continue
             reply = _claude(COMMENT_PROMPT.format(
                 post_topic=post_topic,
@@ -302,7 +411,7 @@ def handle_messenger_dms(secrets: dict):
 
 def _ig_post_image(image_url: str, caption: str, secrets: dict) -> str:
     """Post an image to Instagram. image_url must be publicly accessible. Returns media ID."""
-    token   = secrets.get("FB_PAGE_ACCESS_TOKEN", "")
+    token   = secrets.get("FB_SYSTEM_TOKEN") or secrets.get("FB_PAGE_ACCESS_TOKEN", "")
     ig_id   = secrets.get("IG_USER_ID", "")
     if not token or not ig_id:
         print("  ❌ IG_USER_ID or FB_PAGE_ACCESS_TOKEN not set")
@@ -379,6 +488,34 @@ def post_to_instagram(caption: str, secrets: dict, vault_root: Path = VAULT_ROOT
         return ""
 
     return _ig_post_image(image_url, caption, secrets)
+
+
+def cross_post_to_instagram(content: str, image_path: str | None, secrets: dict) -> str:
+    """
+    Cross-post a Facebook post to Instagram. Called automatically after FB publish.
+    Uses FB_SYSTEM_TOKEN + IG_USER_ID. Silently skips if not configured.
+    Returns IG media ID or "" on failure/skip.
+    """
+    ig_id = secrets.get("IG_USER_ID", "")
+    token = secrets.get("FB_SYSTEM_TOKEN") or secrets.get("FB_PAGE_ACCESS_TOKEN", "")
+    if not ig_id or not token:
+        print("  ℹ️  Instagram cross-post skipped — IG_USER_ID or FB_SYSTEM_TOKEN not set")
+        return ""
+
+    # Instagram captions: strip markdown bold (**text**) and trim to 2200 chars
+    import re as _re
+    caption = _re.sub(r'\*\*(.+?)\*\*', r'\1', content)[:2200]
+
+    if image_path and Path(image_path).exists():
+        image_url = _upload_photo_get_url(Path(image_path), secrets)
+        if not image_url:
+            print("  ⚠️  Instagram cross-post: could not get CDN URL for image")
+            return ""
+        return _ig_post_image(image_url, caption, secrets)
+    else:
+        # Text-only: Instagram doesn't support text-only posts — skip
+        print("  ℹ️  Instagram cross-post skipped — no image (IG requires a photo)")
+        return ""
 
 
 # ── Photo post ────────────────────────────────────────────────────────────────
@@ -812,11 +949,129 @@ METRICS_FILE = VAULT_ROOT / "clients" / "social_metrics.json"
 def _load_metrics() -> dict:
     if METRICS_FILE.exists():
         return json.loads(METRICS_FILE.read_text())
-    return {"posts": {}, "page": {}, "ig": {}}
+    return {"posts": {}, "page": {}, "ig": {}, "ads": {}}
 
 
 def _save_metrics(m: dict):
     METRICS_FILE.write_text(json.dumps(m, indent=2))
+
+
+def _get_post_reach_clicks(post_id: str, token: str) -> dict:
+    """
+    Pull reach + link clicks for a single post via Page Insights API.
+    Works with standard Page token — no ads_management needed.
+    """
+    r = requests.get(
+        f"{GRAPH}/{post_id}/insights",
+        params={
+            "metric": "post_impressions,post_impressions_unique,post_clicks_by_type",
+            "access_token": token,
+        },
+        timeout=15,
+    )
+    result = {"impressions": 0, "reach": 0, "link_clicks": 0}
+    if not r.ok:
+        return result
+    for item in r.json().get("data", []):
+        name = item.get("name")
+        val  = item.get("values", [{}])[-1].get("value", 0)
+        if name == "post_impressions":
+            result["impressions"] = val if isinstance(val, int) else 0
+        elif name == "post_impressions_unique":
+            result["reach"] = val if isinstance(val, int) else 0
+        elif name == "post_clicks_by_type" and isinstance(val, dict):
+            result["link_clicks"] = val.get("link clicks", 0)
+    return result
+
+
+def _get_ad_campaign_metrics(secrets: dict) -> dict | None:
+    """
+    Pull live campaign performance via ads_read user token.
+    Returns None if FB_USER_TOKEN not set (falls back to post insights).
+    """
+    user_token    = secrets.get("FB_USER_TOKEN") or secrets.get("fb_user_token")
+    ad_account_id = secrets.get("FB_AD_ACCOUNT_ID") or secrets.get("fb_ad_account_id")
+    if not user_token or not ad_account_id:
+        return None
+    try:
+        r = requests.get(
+            f"{GRAPH}/act_{ad_account_id}/ads",
+            params={
+                "fields": (
+                    "id,name,status,"
+                    "insights.date_preset(last_7d)"
+                    "{impressions,clicks,ctr,spend,actions}"
+                ),
+                "limit": 10,
+                "access_token": user_token,
+            },
+            timeout=20,
+        )
+        if not r.ok:
+            return None
+        ads = r.json().get("data", [])
+        totals = {"impressions": 0, "clicks": 0, "spend": 0.0, "results": 0, "ads": []}
+        for ad in ads:
+            ins_data = (ad.get("insights") or {}).get("data", [{}])
+            ins      = ins_data[0] if ins_data else {}
+            imps     = int(ins.get("impressions", 0))
+            clicks   = int(ins.get("clicks", 0))
+            spend    = float(ins.get("spend", 0))
+            results  = sum(
+                int(a.get("value", 0)) for a in ins.get("actions", [])
+                if a.get("action_type") in ("link_click", "offsite_conversion.fb_pixel_lead")
+            )
+            totals["impressions"] += imps
+            totals["clicks"]      += clicks
+            totals["spend"]       += spend
+            totals["results"]     += results
+            totals["ads"].append({
+                "name": ad["name"], "status": ad.get("status"),
+                "impressions": imps, "clicks": clicks,
+                "ctr": f"{float(ins.get('ctr', 0)):.2f}%",
+                "spend": spend,
+            })
+        return totals
+    except Exception as e:
+        print(f"  ⚠️  Ad metrics error: {e}")
+        return None
+
+
+def sync_funnel_metrics(secrets: dict, post_metrics: dict, ad_metrics: dict | None):
+    """
+    Push real FB performance data into marketing_strategy.json funnel.
+    Replaces the zeroed-out placeholder data with actuals.
+    """
+    strategy_file = VAULT_ROOT / "clients" / "marketing_strategy.json"
+    if not strategy_file.exists():
+        return
+    strategy = json.loads(strategy_file.read_text())
+
+    # Sum impressions across recent posts
+    total_impressions = sum(p.get("impressions", 0) for p in post_metrics.values())
+    total_clicks      = sum(p.get("link_clicks", 0) for p in post_metrics.values())
+
+    # Ad data overrides if available
+    if ad_metrics:
+        total_impressions = max(total_impressions, ad_metrics.get("impressions", 0))
+        total_clicks      = max(total_clicks, ad_metrics.get("clicks", 0))
+
+    funnel = strategy.setdefault("funnel", {})
+    funnel["impressions"] = total_impressions
+    funnel["clicks"]      = total_clicks
+    # quiz_starts and paid stay as actual pipeline counts — don't overwrite
+
+    if ad_metrics:
+        strategy["last_ad_metrics"] = {
+            "date":        datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "impressions": ad_metrics["impressions"],
+            "clicks":      ad_metrics["clicks"],
+            "spend":       round(ad_metrics["spend"], 2),
+            "results":     ad_metrics["results"],
+            "ads":         ad_metrics["ads"],
+        }
+
+    strategy_file.write_text(json.dumps(strategy, indent=2))
 
 
 def track_performance(secrets: dict):
@@ -843,24 +1098,30 @@ def track_performance(secrets: dict):
             "followers": data.get("followers_count", 0),
         }
 
-    # FB recent post engagement
+    # FB recent post engagement + reach/clicks via insights API
     r2 = requests.get(
         f"{GRAPH}/{page_id}/posts",
         params={"fields": "id,message,created_time,likes.summary(true),comments.summary(true),shares",
                 "limit": 10, "access_token": token},
         timeout=15,
     )
+    post_reach_data = {}
     if r2.ok:
         for post in r2.json().get("data", []):
-            pid = post["id"]
+            pid     = post["id"]
+            reach   = _get_post_reach_clicks(pid, token)
             metrics["posts"][pid] = {
-                "date":     post.get("created_time", "")[:10],
-                "preview":  (post.get("message") or "")[:80],
-                "likes":    post.get("likes", {}).get("summary", {}).get("total_count", 0),
-                "comments": post.get("comments", {}).get("summary", {}).get("total_count", 0),
-                "shares":   post.get("shares", {}).get("count", 0),
-                "tracked":  today,
+                "date":        post.get("created_time", "")[:10],
+                "preview":     (post.get("message") or "")[:80],
+                "likes":       post.get("likes", {}).get("summary", {}).get("total_count", 0),
+                "comments":    post.get("comments", {}).get("summary", {}).get("total_count", 0),
+                "shares":      post.get("shares", {}).get("count", 0),
+                "impressions": reach["impressions"],
+                "reach":       reach["reach"],
+                "link_clicks": reach["link_clicks"],
+                "tracked":     today,
             }
+            post_reach_data[pid] = reach
 
     # IG account metrics
     if ig_id:
@@ -872,8 +1133,128 @@ def track_performance(secrets: dict):
         if r3.ok:
             metrics["ig"][today] = r3.json()
 
+    # Ad campaign metrics (needs FB_USER_TOKEN — falls back gracefully)
+    ad_metrics = _get_ad_campaign_metrics(secrets)
+    if ad_metrics:
+        metrics["ads"][today] = {
+            "impressions": ad_metrics["impressions"],
+            "clicks":      ad_metrics["clicks"],
+            "spend":       round(ad_metrics["spend"], 2),
+            "results":     ad_metrics["results"],
+        }
+        print(f"  📊 Ad metrics: {ad_metrics['impressions']:,} impressions · "
+              f"£{ad_metrics['spend']:.2f} spent · {ad_metrics['results']} results")
+
+    # Feed real data back to marketing funnel
+    sync_funnel_metrics(secrets, post_reach_data, ad_metrics)
+
     _save_metrics(metrics)
     print(f"  ✅ Performance metrics tracked ({today})")
+
+    # Flag any posts that qualify for boosting
+    flag_boost_candidates(metrics, secrets)
+
+
+BOOST_REACH_THRESHOLD      = 50   # unique reach
+BOOST_ENGAGEMENT_THRESHOLD = 5    # likes + comments + shares
+
+
+def flag_boost_candidates(metrics: dict, secrets: dict):
+    """
+    After each performance sync, review recent posts.
+    Any post ≥3 days old that hits reach>50 OR engagement>5 gets flagged
+    for boosting via a reminder + written into social_metrics boost_candidates.
+    Deduplicates — won't re-flag a post that's already been recommended.
+    """
+    reminders_file = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
+    rem_data = json.loads(reminders_file.read_text()) if reminders_file.exists() else {"reminders": [], "pivot_notes": []}
+    existing_titles = {r.get("title", "") for r in rem_data.get("reminders", [])}
+
+    metrics_file = VAULT_ROOT / "clients" / "social_metrics.json"
+    met = json.loads(metrics_file.read_text()) if metrics_file.exists() else {}
+    boost_candidates = met.setdefault("boost_candidates", {})
+
+    today      = datetime.now(timezone.utc).date()
+    new_flags  = []
+
+    for pid, p in metrics.get("posts", {}).items():
+        post_date_str = p.get("date", "")
+        if not post_date_str:
+            continue
+        try:
+            post_date = datetime.strptime(post_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        age_days = (today - post_date).days
+        if age_days < 2:
+            continue  # too new — wait for data to settle
+
+        reach      = p.get("reach", 0)
+        engagement = p.get("likes", 0) + p.get("comments", 0) + p.get("shares", 0)
+        qualifies  = reach >= BOOST_REACH_THRESHOLD or engagement >= BOOST_ENGAGEMENT_THRESHOLD
+
+        if not qualifies:
+            continue
+        if pid in boost_candidates:
+            continue  # already flagged
+
+        preview    = p.get("preview", "")[:60]
+        spend_rec  = "£5/day for 3 days" if engagement >= 8 or reach >= 100 else "£3/day for 3 days"
+
+        boost_candidates[pid] = {
+            "flagged":     today.isoformat(),
+            "reach":       reach,
+            "engagement":  engagement,
+            "spend_rec":   spend_rec,
+            "preview":     preview,
+            "post_date":   post_date_str,
+            "status":      "recommended",
+        }
+
+        title = f"Boost candidate: \"{preview[:50]}…\""
+        if title not in existing_titles:
+            import uuid as _uuid
+            rem_data["reminders"].insert(0, {
+                "id":          "rem_" + _uuid.uuid4().hex[:8],
+                "added_by":    "facebook_bot",
+                "type":        "action",
+                "title":       title,
+                "description": (
+                    f"This post is performing above threshold:\n"
+                    f"  Reach: {reach} · Engagement: {engagement}\n"
+                    f"  Posted: {post_date_str} ({age_days} days ago)\n\n"
+                    f"Recommended boost: {spend_rec}.\n"
+                    f"Go to Facebook → Advertise → Boost post.\n"
+                    f"Target: men 35-55, UK, interests: fitness, health, weight loss."
+                ),
+                "priority":    "high",
+                "created_at":  today.isoformat(),
+                "status":      "pending",
+            })
+            new_flags.append(preview[:40])
+            print(f"  🚀 Boost candidate flagged: {preview[:50]} (reach={reach}, eng={engagement})")
+
+    if new_flags:
+        reminders_file.write_text(json.dumps(rem_data, indent=2))
+        metrics_file.write_text(json.dumps(met, indent=2))
+
+        # Telegram nudge
+        try:
+            token = secrets.get("TELEGRAM_BOT_TOKEN", "")
+            chat_id = secrets.get("TELEGRAM_CHAT_ID", "")
+            if token and chat_id:
+                msg = (
+                    "🚀 *Boost candidate spotted*\n\n"
+                    + "\n".join(f"• {t}" for t in new_flags)
+                    + f"\n\nRecommended: {spend_rec}. Check Action Items in /business."
+                )
+                requests.post(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"},
+                    timeout=10,
+                )
+        except Exception:
+            pass
 
 
 def send_brand_report(secrets: dict):
@@ -905,6 +1286,23 @@ def send_brand_report(secrets: dict):
     eng_state = _load_engagement_state()
     comments_posted = len(eng_state.get("commented_media_ids", []))
 
+    # Ad performance — latest day's data
+    ads_history = sorted(metrics.get("ads", {}).items())
+    latest_ads  = ads_history[-1][1] if ads_history else {}
+    ad_impressions = latest_ads.get("impressions", 0)
+    ad_spend       = latest_ads.get("spend", 0.0)
+    ad_results     = latest_ads.get("results", 0)
+
+    # Post reach totals this week
+    total_reach = sum(
+        p.get("reach", 0) for p in metrics.get("posts", {}).values()
+        if p.get("tracked", "") >= (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    )
+    total_link_clicks = sum(
+        p.get("link_clicks", 0) for p in metrics.get("posts", {}).values()
+        if p.get("tracked", "") >= (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    )
+
     delta_str  = f"+{follower_delta}" if follower_delta >= 0 else str(follower_delta)
     delta_color = "#2a7a2a" if follower_delta >= 0 else "#c41e3a"
 
@@ -912,13 +1310,15 @@ def send_brand_report(secrets: dict):
         f"Brand Report — {today}",
         f"Facebook: {followers_now} followers ({delta_str} this week)",
         f"Instagram: {ig_followers} followers",
+        f"Organic reach this week: {total_reach:,} · Link clicks: {total_link_clicks}",
+        f"Ad impressions: {ad_impressions:,} · Spend: £{ad_spend:.2f} · Results: {ad_results}",
         f"Comments posted (cumulative): {comments_posted}",
     ]
     if top_post:
         pid, pm = top_post
         plain_lines += [
             f"\nTop post: \"{pm.get('preview', '')}...\"",
-            f"  {pm.get('likes', 0)} likes · {pm.get('comments', 0)} comments · {pm.get('shares', 0)} shares",
+            f"  {pm.get('likes', 0)} likes · {pm.get('comments', 0)} comments · {pm.get('shares', 0)} shares · {pm.get('reach', 0):,} reach",
         ]
     if follower_delta < 0:
         plain_lines.append("\n⚠️  Follower count dropped — review recent content.")
@@ -939,7 +1339,9 @@ def send_brand_report(secrets: dict):
         '<tr>'
         + _stat("FB followers", followers_now, f"{delta_str} this week", follower_delta < 0)
         + _stat("IG followers", ig_followers)
-        + _stat("Comments posted", comments_posted)
+        + _stat("Organic reach", f"{total_reach:,}")
+        + _stat("Ad impressions", f"{ad_impressions:,}", f"£{ad_spend:.2f} spend")
+        + _stat("Results", str(ad_results))
         + '</tr></table>'
     )
 
@@ -952,7 +1354,9 @@ def send_brand_report(secrets: dict):
             f'<p style="margin:0;font-size:13px;color:#0a0a0a;">'
             f'<strong>{pm.get("likes", 0)}</strong> likes &nbsp;·&nbsp; '
             f'<strong>{pm.get("comments", 0)}</strong> comments &nbsp;·&nbsp; '
-            f'<strong>{pm.get("shares", 0)}</strong> shares</p>'
+            f'<strong>{pm.get("shares", 0)}</strong> shares &nbsp;·&nbsp; '
+            f'<strong>{pm.get("reach", 0):,}</strong> reach &nbsp;·&nbsp; '
+            f'<strong>{pm.get("link_clicks", 0)}</strong> link clicks</p>'
         )
         sections.append({"heading": "Top post this week", "body": top_html})
 
@@ -981,11 +1385,66 @@ def send_brand_report(secrets: dict):
     print("  ✅ Weekly brand report sent to will@battleship.me")
 
 
+REVISION_PROMPT = """You are the content writer for Battleship Reset — a 12-week fitness coaching programme for UK men 40-60.
+
+A post was sent back for revision with this feedback:
+"{comment}"
+
+Original post:
+---
+{original}
+---
+
+Rewrite the post addressing the feedback. Keep the same core topic and structure.
+Voice: Will Barratt — direct, honest, no bullshit. Real story, no corporate tone.
+Length: 150-250 words. Hook first line. End with soft CTA or question.
+2-3 hashtags at end only.
+
+Return only the revised post text, nothing else."""
+
+
+def revise_sent_back_posts(secrets: dict):
+    """
+    Process posts in marketing_review that have a send_back_comment.
+    Claude revises each one based on the feedback, then moves back to content_review.
+    """
+    import sys as _sys
+    _sys.path.insert(0, str(VAULT_ROOT))
+    import scripts.db as _db
+
+    posts = _db.get_posts(stage="marketing_review")
+    to_revise = [p for p in posts if p.get("send_back_comment")]
+    if not to_revise:
+        return
+
+    for post in to_revise:
+        comment  = post["send_back_comment"]
+        original = post["content"]
+        theme    = post.get("theme", "")
+        print(f"  ↩  Revising sent-back post: {theme[:60]}")
+        try:
+            revised = _claude(
+                REVISION_PROMPT.format(comment=comment, original=original),
+                secrets,
+                max_tokens=600,
+            )
+            _db.update_post(post["id"], {
+                "content":          revised,
+                "stage":            "content_review",
+                "send_back_comment": None,
+                "reviewed_at":      datetime.now(timezone.utc).isoformat(),
+            })
+            print(f"  ✅ Revised and returned to content review")
+        except Exception as e:
+            print(f"  ⚠️  Revision failed for {post['id']}: {e}")
+
+
 # ── Entry points ───────────────────────────────────────────────────────────────
 
 def run(secrets: dict, vault_root: Path = VAULT_ROOT):  # noqa: ARG001
     """Called from battleship_pipeline.py main()."""
     try:
+        revise_sent_back_posts(secrets)
         post_scheduled_content(secrets)
         reply_to_new_comments(secrets)
         handle_messenger_dms(secrets)
@@ -1078,6 +1537,7 @@ if __name__ == "__main__":
         print(f"--- GENERATED POST ---\n{post}\n---\n")
         if _is_live(secrets):
             post_id = _post_live(post, secrets)
+            _save_to_content_review(post, theme, status="posted", post_id=post_id)
             print(f"✓ Posted live (ID: {post_id})")
             schedule["posted_dates"].append(datetime.now(timezone.utc).strftime("%Y-%m-%d"))
         else:

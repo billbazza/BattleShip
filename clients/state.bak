@@ -1,0 +1,234 @@
+{
+  "processed_intake_ids": [
+    "hay9bved08x1zskpml9ghay9cz36tfsm",
+    "yamnrvyobhkvv4zt6cyamnh6w49ghqry",
+    "q2ql2k33ndm6f6izq2ql21m2aswhzejz",
+    "r0u2v34aav5x05i6p2it0gr0u2v3d2n3",
+    "g3lqus4djdhnj6d8nsg3lquik41zhdjx",
+    "evjf3u29qsw04ad7xz0kqdevjf3u2tgi",
+    "436s5kox4dc8mxz5eq4364o6yiidaqcy",
+    "ejgqqdz4m9ehcg0e0lejgqqd9s8c8365",
+    "zmaodc485gh4vc2nooj4zma8ww9g6tmj",
+    "u0b9rmva8apqjidzu0b9p0p6ee47vajc",
+    "test-001",
+    "RGXeG4K",
+    "Nq57qjb"
+  ],
+  "processed_checkin_ids": [
+    "gsheet-row-2"
+  ],
+  "clients": {
+    "BSR-2026-0008": {
+      "account_no": "BSR-2026-0008",
+      "folder": "BSR-2026-0008-kevin",
+      "name": "Kevin",
+      "email": "kevincorti@yahoo.co.uk",
+      "intake_date": "",
+      "status": "active",
+      "current_week": 1,
+      "enrolled_date": "2026-03-17",
+      "emails_sent": [
+        "diagnosis",
+        "onboarding",
+        "edu_sleep"
+      ],
+      "tags": {
+        "main_goal": "Break plateau, reach 90kg, improve body composition and hill fitness by summer",
+        "constraints": [
+          "Desk-based job 9\u20136",
+          "Two long commute days per week (no walkable element)",
+          "Detests gyms \u2014 home-only training",
+          "Bad back limits exercise selection",
+          "Late eating pattern (after 8pm)",
+          "Emotional/comfort eating under stress",
+          "Most reliable days are Saturday and Sunday"
+        ],
+        "risk_flags": {
+          "sleep": "not directly stated but late eating + stress level 7 suggests disrupted sleep likely",
+          "stress": "7/10 \u2014 elevated, driven by demanding desk job",
+          "injuries": [
+            "bad back \u2014 lumbar loading to be avoided"
+          ],
+          "bp": "not stated"
+        },
+        "equipment": [
+          "home gym",
+          "weights",
+          "standing desk weights"
+        ],
+        "sessions_per_week": 3,
+        "level": "restart",
+        "weight_lbs": 216,
+        "height_inches": 72,
+        "overweight_level": "moderate",
+        "success_metrics": [
+          {
+            "metric": "weight",
+            "how": "weekly, Saturday morning, post-toilet, before eating",
+            "unit": "kg"
+          },
+          {
+            "metric": "waist measurement",
+            "how": "every 2 weeks, tape measure at navel",
+            "unit": "cm"
+          },
+          {
+            "metric": "protein intake",
+            "how": "daily log for first 4 weeks, then spot-check weekly",
+            "unit": "grams per day"
+          },
+          {
+            "metric": "energy level",
+            "how": "self-rate each morning before coffee",
+            "unit": "1\u201310"
+          }
+        ]
+      },
+      "last_checkin_request": null,
+      "last_checkin_received": null,
+      "notion_page_id": null,
+      "notion_url": null,
+      "complimentary": true,
+      "goal": "Break plateau, reach 90kg, improve body composition and hill fitness by summer",
+      "success_metrics": [
+        {
+          "metric": "weight",
+          "how": "weekly, Saturday morning, post-toilet, before eating",
+          "unit": "kg"
+        },
+        {
+          "metric": "waist measurement",
+          "how": "every 2 weeks, tape measure at navel",
+          "unit": "cm"
+        },
+        {
+          "metric": "protein intake",
+          "how": "daily log for first 4 weeks, then spot-check weekly",
+          "unit": "grams per day"
+        },
+        {
+          "metric": "energy level",
+          "how": "self-rate each morning before coffee",
+          "unit": "1\u201310"
+        }
+      ],
+      "payment_amount": 0,
+      "payment_note": "Complimentary \u2014 Will's brother",
+      "test": true,
+      "test_note": "Will's brother \u2014 test client"
+    },
+    "BSR-2026-0004": {
+      "account_no": "BSR-2026-0004",
+      "folder": "BSR-2026-0004-tom",
+      "name": "Tom",
+      "email": "tom.barratt121@gmail.com",
+      "intake_date": "2026-03-11T17:27:01Z",
+      "status": "active",
+      "current_week": 1,
+      "enrolled_date": null,
+      "emails_sent": [],
+      "tags": {
+        "main_goal": "lose_belly_fat",
+        "constraints": [
+          "desk_job",
+          "lunch_only_availability",
+          "MWF_reliable",
+          "no_home_equipment",
+          "high_stress"
+        ],
+        "risk_flags": {
+          "sleep": "6\u20137 hours, waking tired \u2014 likely cortisol and alcohol-disrupted",
+          "stress": "self-reported 10/10",
+          "injuries": [
+            "none"
+          ],
+          "bp": "not_flagged",
+          "alcohol": "28+ units/week \u2014 significant metabolic and recovery impact, client unwilling to change"
+        },
+        "equipment": [
+          "none"
+        ],
+        "sessions_per_week": 3,
+        "level": "restart"
+      },
+      "last_checkin_request": null,
+      "last_checkin_received": null,
+      "notion_page_id": null,
+      "notion_url": null,
+      "_reconciled": true,
+      "_reconciled_at": "2026-03-18T08:58:12.032594+00:00",
+      "test": true,
+      "test_note": "Legacy test entry \u2014 reconciled from folder"
+    },
+    "BSR-2026-0007": {
+      "account_no": "BSR-2026-0007",
+      "folder": "BSR-2026-0007-newperson",
+      "name": "Newperson",
+      "email": "williamgbarratt@gmail.com",
+      "intake_date": "",
+      "status": "active",
+      "current_week": 1,
+      "enrolled_date": null,
+      "emails_sent": [],
+      "tags": {
+        "main_goal": "fat loss, improved sleep, improved energy",
+        "constraints": [
+          "less than 2 hours per week currently committed",
+          "variable schedule",
+          "no fixed exercise time",
+          "reliable days: Wednesday and Sunday only",
+          "not ready to address alcohol"
+        ],
+        "risk_flags": {
+          "sleep": "poor sleep flagged as primary frustration",
+          "stress": "5/10 - moderate, manageable",
+          "injuries": [
+            "none"
+          ],
+          "bp": "not flagged",
+          "alcohol": "15-21 units per week, most evenings, not ready to reduce - fat loss and sleep results will be limited until addressed"
+        },
+        "equipment": [
+          "none specified - bodyweight only to start"
+        ],
+        "sessions_per_week": 2,
+        "level": "restart",
+        "commitment_flag": "under 2 hours stated - Week 1 is walking and habit-building only, not full programme load. Client should be aware that sub-2hr commitment will limit rate of progress.",
+        "success_metrics": [
+          {
+            "metric": "weight",
+            "how": "weekly, same day, post-toilet, morning",
+            "unit": "kg"
+          },
+          {
+            "metric": "sleep quality",
+            "how": "self-rate each morning",
+            "unit": "1-10"
+          },
+          {
+            "metric": "energy level",
+            "how": "self-rate each morning",
+            "unit": "1-10"
+          },
+          {
+            "metric": "how clothes fit",
+            "how": "qualitative check every 2 weeks",
+            "unit": "subjective"
+          }
+        ]
+      },
+      "last_checkin_request": null,
+      "last_checkin_received": null,
+      "notion_page_id": null,
+      "notion_url": null,
+      "_reconciled": true,
+      "_reconciled_at": "2026-03-18T08:58:12.034073+00:00",
+      "test": true,
+      "test_note": "Legacy test entry \u2014 reconciled from folder"
+    }
+  },
+  "next_client_number": 9,
+  "sent_digests": [
+    "digest_2026-11"
+  ]
+}

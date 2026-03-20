@@ -312,10 +312,16 @@ def optimise(ad_account_id: str, token: str, dry_run: bool = False) -> list[str]
             log.append(f"  ⏳ {name}: {m['impressions']} impressions — waiting")
             continue
 
-        # Fetch current adset budget
-        asid    = ad["adset_id"]
-        as_data = _get(asid, {"fields": "daily_budget,name"}, token)
-        budget  = int(as_data.get("daily_budget", 700))  # pence
+        # Fetch current adset budget (may not exist for CBO campaigns)
+        asid   = ad["adset_id"]
+        budget = 700  # default pence fallback
+        is_cbo = False
+        try:
+            as_data = _get(asid, {"fields": "daily_budget,name"}, token)
+            budget  = int(as_data.get("daily_budget", 700))
+        except Exception:
+            # CBO campaign — budget lives at campaign level, not adset
+            is_cbo = True
 
         ctr_pct   = f"{m['ctr']:.1%}"
         spend_str = f"£{m['spend']:.2f}"
@@ -330,13 +336,19 @@ def optimise(ad_account_id: str, token: str, dry_run: bool = False) -> list[str]
             )
 
         elif m["ctr"] >= SCALE_CTR and (m["cpr"] is None or m["cpr"] <= SCALE_CPR):
-            new_budget = int(budget * BUDGET_SCALE)
-            if not dry_run:
-                update_adset_budget(asid, new_budget, token)
-            log.append(
-                f"  📈 SCALED: {name} — CTR {ctr_pct}, CPR {cpr_str} | "
-                f"budget £{budget/100:.0f} → £{new_budget/100:.0f}/day"
-            )
+            if is_cbo:
+                log.append(
+                    f"  📈 SCALE RECOMMENDED (CBO — adjust in Ads Manager): {name} — "
+                    f"CTR {ctr_pct}, CPR {cpr_str}"
+                )
+            else:
+                new_budget = int(budget * BUDGET_SCALE)
+                if not dry_run:
+                    update_adset_budget(asid, new_budget, token)
+                log.append(
+                    f"  📈 SCALED: {name} — CTR {ctr_pct}, CPR {cpr_str} | "
+                    f"budget £{budget/100:.0f} → £{new_budget/100:.0f}/day"
+                )
 
         else:
             log.append(

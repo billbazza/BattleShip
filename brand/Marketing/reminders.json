@@ -1,0 +1,156 @@
+{
+  "reminders": [
+    {
+      "id": "rem_fa3c3c7d",
+      "created": "2026-03-16T22:32:35.906814+00:00",
+      "title": "\ud83d\udd34 ADS PAUSED \u2014 Redesign intake form before restarting",
+      "message": "The Tally form (rjK752) is a conversion blocker. People click the ad and bounce at the form. Fix plan:\n1. Open Tally \u2192 edit rjK752\n2. Cut it to 3 questions max: Name / What's your goal in one sentence / Best email\n3. Remove all multi-step qualifying questions \u2014 move them to the onboarding email\n4. Add a strong CTA headline: 'Start your reset \u2014 takes 60 seconds'\n5. Test the form on mobile before restarting ads\nOnce fixed, restart the Link Clicks campaign (\u00a37/day).",
+      "type": "action",
+      "priority": "critical",
+      "status": "pending",
+      "source": "will",
+      "bot": "orchestrator",
+      "description": "The Tally form (rjK752) is a conversion blocker. People click the ad and bounce at the form. Fix plan:\n1. Open Tally \u2192 edit rjK752\n2. Cut it to 3 questions max: Name / What's your goal in one sentence / Best email\n3. Remove all multi-step qualifying questions \u2014 move them to the onboarding email\n4. Add a strong CTA headline: 'Start your reset \u2014 takes 60 seconds'\n5. Test the form on mobile before restarting ads\nOnce fixed, restart the Link Clicks campaign (\u00a37/day).",
+      "added_by": "will",
+      "created_at": "2026-03-16"
+    },
+    {
+      "id": "rem_ad96f3bc",
+      "created": "2026-03-16T22:32:35.906814+00:00",
+      "title": "Keep posting content while ads are paused",
+      "message": "Ads are paused but organic growth continues. Mon/Wed/Fri FB posts still go out. Focus: build page credibility and test which content resonates before ad spend resumes. High engagement posts (>50 reach or >5 likes) will be the ones to boost first.",
+      "type": "info",
+      "priority": "high",
+      "status": "done",
+      "source": "will",
+      "bot": "orchestrator",
+      "description": "Ads are paused but organic growth continues. Mon/Wed/Fri FB posts still go out. Focus: build page credibility and test which content resonates before ad spend resumes. High engagement posts (>50 reach or >5 likes) will be the ones to boost first.",
+      "added_by": "will",
+      "created_at": "2026-03-16",
+      "done_at": "2026-03-17 20:04"
+    },
+    {
+      "id": "rem_feb4991f",
+      "created": "2026-03-16T22:32:35.906814+00:00",
+      "title": "Review what the form should actually ask",
+      "message": "Before rebuilding the form, decide: what's the minimum info needed to qualify and onboard a lead?\nSuggested: Name + Email + 'What's your biggest obstacle right now?' (dropdown: time / motivation / knowledge / accountability)\nEverything else (equipment, schedule, health history) \u2192 captured in the Week 1 onboarding email questionnaire.\nThe form's only job is to get them to pay. Keep it that way.",
+      "type": "action",
+      "priority": "high",
+      "status": "pending",
+      "source": "will",
+      "bot": "orchestrator",
+      "description": "Before rebuilding the form, decide: what's the minimum info needed to qualify and onboard a lead?\nSuggested: Name + Email + 'What's your biggest obstacle right now?' (dropdown: time / motivation / knowledge / accountability)\nEverything else (equipment, schedule, health history) \u2192 captured in the Week 1 onboarding email questionnaire.\nThe form's only job is to get them to pay. Keep it that way.",
+      "added_by": "will",
+      "created_at": "2026-03-16"
+    },
+    {
+      "id": "rem_001",
+      "added_by": "seo_bot",
+      "type": "photo",
+      "title": "Upload 5 photos to Google Business Profile",
+      "description": "Needed: before/after transformation photo, outdoor walk photo, workout photo, website screenshot or logo card, and a testimonial quote card. Go to business.google.com \u2192 Photos. GBP setup checklist linked below.",
+      "priority": "high",
+      "created_at": "2026-03-15",
+      "status": "done",
+      "content_url": "/content/brand/Marketing/SEO/outputs/00_setup_checklist.md",
+      "done_at": "2026-03-15 17:38"
+    },
+    {
+      "id": "rem_002",
+      "added_by": "seo_bot",
+      "type": "tech",
+      "title": "Paste this week's GBP post into Google Business Profile",
+      "description": "Two posts drafted for this week and next \u2014 paste-ready. Open the link, hit Copy, paste into business.google.com \u2192 Posts \u2192 Add update.",
+      "priority": "medium",
+      "created_at": "2026-03-15",
+      "status": "done",
+      "done_at": "2026-03-15",
+      "content_url": "/content/brand/Marketing/SEO/outputs/gbp-post-week1.md"
+    },
+    {
+      "id": "rem_003",
+      "added_by": "orchestrator",
+      "type": "tech",
+      "title": "Apply for Meta Standard Access",
+      "description": "Full API campaign creation is blocked until Meta approves Standard Access for the Battleship-Reset app. Go to developers.facebook.com \u2192 Your App \u2192 App Review \u2192 Request Standard Access for ads_management. Requires business verification.",
+      "priority": "high",
+      "created_at": "2026-03-15",
+      "status": "pending",
+      "content_url": null
+    },
+    {
+      "id": "rem_0d77eae6",
+      "added_by": "ads_bot",
+      "type": "other",
+      "title": "Top up Meta ad account \u2014 ~\u00a310 remaining",
+      "description": "Ad account balance is approximately \u00a310. Tally quiz campaign is running at \u00a310/day. Top up via adsmanager.facebook.com \u2192 Billing \u2192 Add funds. Recommend \u00a350 minimum to keep campaigns running for 5+ days.",
+      "priority": "high",
+      "created_at": "2026-03-15",
+      "status": "done",
+      "done_at": "2026-03-15 13:37"
+    },
+    {
+      "id": "rem_bb9e15ec",
+      "added_by": "marketing_bot",
+      "type": "other",
+      "title": "Green light an idea from the ideas bank (3 waiting)",
+      "description": "Drafts: The Real Midlife Crisis, Life After Ozempic, The Simple Plan. Reply on Telegram or visit Business Manager.",
+      "priority": "medium",
+      "created_at": "2026-03-16",
+      "status": "done",
+      "done_at": "2026-03-16 22:42"
+    },
+    {
+      "id": "rem_a321dd31",
+      "added_by": "marketing_bot",
+      "type": "other",
+      "title": "Direction review needed \u2014 3 posts with zero engagement",
+      "description": "Recent posts are getting no traction. Consider: different hook, different time, different format, or pivot the arc phase. Discuss with Claude on Telegram.",
+      "priority": "high",
+      "created_at": "2026-03-16",
+      "status": "pending"
+    },
+    {
+      "id": "rem_20e95595",
+      "added_by": "bot",
+      "type": "creative",
+      "title": "Create statement graphic for: Life After Ozempic",
+      "description": "",
+      "priority": "medium",
+      "created_at": "2026-03-16",
+      "status": "done",
+      "done_at": "2026-03-16 22:43"
+    },
+    {
+      "id": "rem_1deb278f",
+      "added_by": "marketing_bot",
+      "type": "other",
+      "title": "Green light an idea from the ideas bank (1 waiting)",
+      "description": "Drafts: The Fitness Industry Lied To You About What Men Over 40 Actually Need. Reply on Telegram or visit Business Manager.",
+      "priority": "medium",
+      "created_at": "2026-03-17",
+      "status": "pending"
+    },
+    {
+      "id": "rem_f74c98c1",
+      "added_by": "bot",
+      "type": "creative",
+      "title": "Create statement graphic for: 2 stone gone. No diet plan. No PT. Just walking.",
+      "description": "The Marketing Bot needs an on-brand statement image (text on background) to accompany this idea. Suggested formats: bold quote on dark background, stat/headline card, or motivational statement. Drop the finished image into brand/random-snaps/ and green-light the idea again.",
+      "priority": "medium",
+      "created_at": "2026-03-17",
+      "status": "pending"
+    },
+    {
+      "id": "rem_0af431a9",
+      "added_by": "bot",
+      "type": "creative",
+      "title": "Create statement graphic for: Your Doctor Says You're 'Fine'. Your Body Is Lying to Both of You.",
+      "description": "The Marketing Bot needs an on-brand statement image (text on background) to accompany this idea. Suggested formats: bold quote on dark background, stat/headline card, or motivational statement. Drop the finished image into brand/random-snaps/ and green-light the idea again.",
+      "priority": "medium",
+      "created_at": "2026-03-18",
+      "status": "pending"
+    }
+  ],
+  "pivot_notes": []
+}

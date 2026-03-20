@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-03-19T07:00:05.218492",
+  "today": "2026-03-19",
+  "pulse": {
+    "mrr": 178.0,
+    "gap": 2822.0,
+    "spend": 28530.83,
+    "leads_week": 0,
+    "ad_spend_7d": 0.0
+  },
+  "agents": {
+    "brand": {
+      "summary": "30 FB followers (+0 vs yesterday), 1 IG. Reach: 0, clicks: 0.",
+      "next_action": "Post due Mon/Wed/Fri. Next content should be Phase: Problem Agitation"
+    },
+    "seo": {
+      "summary": "1/9 GBP tasks complete (11%).",
+      "next_action": "On track."
+    },
+    "tech": {
+      "summary": "8 active workaround(s), 0 blocked gap(s).",
+      "next_action": "No action needed \u2014 monitor at \u00a3999 MRR."
+    },
+    "ads": {
+      "summary": "7d: 0 impressions, 0 clicks, \u00a30.00 spend.",
+      "next_action": "Messages campaign ends 19 Mar \u2014 decide whether to renew."
+    },
+    "clients": {
+      "summary": "3 active, 0 diagnosed, 3 total. 0 lead(s) this week.",
+      "next_action": "Need 32 more paying clients to hit \u00a33k MRR."
+    }
+  },
+  "horizon": {
+    "today": "Review what the form should actually ask",
+    "five_days": "Publish 5 content pieces. Generate 0 leads. Arc: Problem Agitation.",
+    "thirty_days": "Target: 0 new client(s)/week. Close gap of \u00a32822 \u2192 need 32 paying clients."
+  },
+  "photo_candidates": [
+    {
+      "id": "photo_07713ab0",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0672. jpeg.JPG",
+      "filename": "IMG_0672. jpeg.JPG",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-19T07:00:05.218468",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_9e463477",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0673.jpeg",
+      "filename": "IMG_0673.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-19T07:00:05.218480",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_517dbd5f",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/IMG_0674.jpg",
+      "filename": "IMG_0674.jpg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-19T07:00:05.218488",
+      "reviewed_at": null,
+      "review_source": null
+    }
+  ],
+  "campaign_week": 1,
+  "phase_label": "Foundation"
+}

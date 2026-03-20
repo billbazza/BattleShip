@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Reset — Battleship</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #e8e4dc;
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #1a1a1a;
+  }
+
+  .page {
+    max-width: 780px;
+    margin: 0 auto;
+    background: #fff;
+    box-shadow: 0 4px 40px rgba(0,0,0,.18);
+  }
+
+  /* ── COVER ──────────────────────────────────────────────────── */
+  .cover {
+    background: #0a0a0a;
+    padding: 80px 64px 72px;
+    text-align: center;
+    color: #f4f1eb;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cover::before {
+    content: 'RESET';
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 200px;
+    font-weight: 900;
+    color: rgba(255,255,255,.03);
+    letter-spacing: -8px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .cover img {
+    width: 120px;
+    margin: 0 auto 36px;
+    display: block;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cover-label {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #c41e3a;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cover h1 {
+    font-size: 80px;
+    font-weight: normal;
+    letter-spacing: -3px;
+    line-height: 1;
+    margin-bottom: 28px;
+    color: #f4f1eb;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cover h1 span { color: #c41e3a; }
+
+  .cover-rule {
+    width: 48px;
+    height: 2px;
+    background: #c41e3a;
+    margin: 0 auto 28px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cover-sub {
+    font-size: 17px;
+    color: #888;
+    line-height: 1.6;
+    max-width: 440px;
+    margin: 0 auto;
+    font-style: italic;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── SECTION ────────────────────────────────────────────────── */
+  .section {
+    padding: 64px 68px;
+    border-bottom: 1px solid #efefef;
+    position: relative;
+  }
+
+  .section-alt {
+    background: #faf9f6;
+  }
+
+  .section-label {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 9px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #c41e3a;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e8e4dc;
+    max-width: 80px;
+  }
+
+  h2 {
+    font-size: 34px;
+    font-weight: normal;
+    line-height: 1.2;
+    margin-bottom: 28px;
+    color: #0a0a0a;
+    letter-spacing: -.5px;
+  }
+
+  p {
+    font-size: 16px;
+    color: #444;
+    margin-bottom: 20px;
+    line-height: 1.85;
+  }
+
+  .lead {
+    font-size: 20px;
+    color: #1a1a1a;
+    line-height: 1.6;
+    margin-bottom: 28px;
+    font-style: italic;
+    border-left: 3px solid #c41e3a;
+    padding-left: 20px;
+  }
+
+  /* ── PHASES ─────────────────────────────────────────────────── */
+  .phases {
+    display: flex;
+    gap: 0;
+    margin: 36px -68px;
+  }
+
+  .phase {
+    flex: 1;
+    background: #0a0a0a;
+    padding: 32px 28px;
+    position: relative;
+    border-right: 1px solid #1f1f1f;
+  }
+
+  .phase:last-child { border-right: none; }
+
+  .phase::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: #c41e3a;
+  }
+
+  .phase-weeks {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #c41e3a;
+    margin-bottom: 10px;
+  }
+
+  .phase h4 {
+    font-size: 18px;
+    font-weight: normal;
+    color: #f4f1eb;
+    margin-bottom: 12px;
+    font-family: Georgia, serif;
+  }
+
+  .phase p {
+    font-size: 13px;
+    color: #777;
+    margin: 0;
+    line-height: 1.65;
+  }
+
+  .phases-caption {
+    margin-top: 28px;
+    font-style: italic;
+    color: #666;
+    font-size: 15px;
+  }
+
+  /* ── PILLARS ────────────────────────────────────────────────── */
+  .pillar {
+    margin-bottom: 56px;
+    padding-bottom: 56px;
+    border-bottom: 1px solid #f0ece4;
+    position: relative;
+  }
+
+  .pillar:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .pillar-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 20px;
+  }
+
+  .pillar-number {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 100px;
+    font-weight: 900;
+    color: #f0ece4;
+    line-height: .85;
+    margin-right: 20px;
+    flex-shrink: 0;
+    letter-spacing: -4px;
+    user-select: none;
+  }
+
+  .pillar-title-wrap { padding-top: 12px; }
+
+  .pillar-tag {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #c41e3a;
+    margin-bottom: 6px;
+  }
+
+  .pillar h3 {
+    font-size: 26px;
+    font-weight: normal;
+    color: #0a0a0a;
+    letter-spacing: -.3px;
+    line-height: 1.2;
+  }
+
+  .callout {
+    background: #0a0a0a;
+    padding: 24px 28px;
+    margin: 24px 0;
+    position: relative;
+  }
+
+  .callout::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: #c41e3a;
+  }
+
+  .callout p {
+    color: #ccc;
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .callout strong { color: #f4f1eb; }
+
+  /* ── CTA ────────────────────────────────────────────────────── */
+  .cta-section {
+    background: #0a0a0a;
+    padding: 72px 68px;
+    text-align: center;
+    color: #f4f1eb;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta-section::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: #c41e3a;
+  }
+
+  .cta-section h2 {
+    color: #f4f1eb;
+    font-size: 40px;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+  }
+
+  .cta-section > p {
+    color: #888;
+    max-width: 460px;
+    margin: 0 auto 36px;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .cta-detail {
+    background: #111;
+    border: 1px solid #222;
+    border-left: 4px solid #c41e3a;
+    padding: 28px 32px;
+    margin: 0 auto 36px;
+    max-width: 520px;
+    text-align: left;
+  }
+
+  .cta-detail p {
+    color: #999;
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.7;
+  }
+
+  .cta-detail strong { color: #f4f1eb; }
+
+  .btn {
+    display: inline-block;
+    background: #c41e3a;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 20px 52px;
+  }
+
+  .btn:hover { background: #a01830; }
+
+  .btn-secondary {
+    display: inline-block;
+    background: transparent;
+    color: #555;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 14px 32px;
+    border: 1px solid #333;
+    margin-top: 16px;
+  }
+
+  /* ── QR block (print only) ──────────────────────────────────── */
+  .qr-block {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  .qr-img { width: 160px; height: 160px; display: block; }
+
+  .qr-label {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #c41e3a;
+    margin: 0;
+  }
+
+  .qr-url {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    color: #777;
+    margin: 0;
+  }
+
+  .screen-only { display: inline-block; }
+
+  .footer {
+    background: #050505;
+    padding: 24px 68px;
+    text-align: center;
+  }
+
+  .footer p {
+    color: #444;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: .5px;
+    margin: 0;
+  }
+
+  /* ── PRINT ──────────────────────────────────────────────────── */
+  @media print {
+    body { background: #fff; }
+    .page { max-width: 100%; box-shadow: none; }
+
+    .cover, .phase, .callout, .cta-section, .cta-detail, .footer {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .cover { background: #0a0a0a !important; }
+    .phase { background: #0a0a0a !important; }
+    .callout { background: #0a0a0a !important; }
+    .cta-section { background: #0a0a0a !important; }
+    .cta-detail { background: #111 !important; }
+    .footer { background: #050505 !important; }
+
+    .screen-only { display: none !important; }
+    .qr-block { display: flex !important; }
+    h2, h3 { page-break-after: avoid; }
+    .pillar, .phase { page-break-inside: avoid; }
+
+    @page { margin: 1.2cm 1.5cm; size: A4; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── COVER ──────────────────────────────────────────────────────── -->
+  <div class="cover">
+    <img src="/brand/Midlife-fitness-reset.jpg"
+         alt="Battleship Reset">
+    <p class="cover-label">Free Guide — Battleship Reset</p>
+    <h1>The <span>Reset</span></h1>
+    <div class="cover-rule"></div>
+    <p class="cover-sub">A 12-week system for men over 40 who are done making excuses and ready to actually change.</p>
+  </div>
+
+  <!-- ── INTRO ──────────────────────────────────────────────────────── -->
+  <div class="section">
+    <p class="section-label">Before we start</p>
+    <h2>This isn't a fitness programme. It's a reset.</h2>
+    <p class="lead">Most men over 40 already know what they should be doing. The problem isn't information — it's that nothing has ever been built around the specific version of their life.</p>
+    <p>This guide covers the four things that actually move the needle: how you eat, how you move, how you sleep, and what alcohol is quietly doing to your body. No fads. No five-AM routines. No gym required.</p>
+    <p>At the end, you'll find a short questionnaire. The more honest you are with it, the more specific your plan will be. That's the whole point — a plan built around you, not a template.</p>
+  </div>
+
+  <!-- ── THE 12-WEEK STRUCTURE ──────────────────────────────────────── -->
+  <div class="section section-alt">
+    <p class="section-label">The structure</p>
+    <h2>Twelve weeks to see real change. Then a lifetime of keeping it.</h2>
+    <p>The Reset works in three phases. Each builds on the last. By Week 12 you won't be finishing a programme — you'll have built the habits that make the rest of your life different.</p>
+
+    <div class="phases">
+      <div class="phase">
+        <p class="phase-weeks">Weeks 1–4</p>
+        <h4>Foundation</h4>
+        <p>Establish baselines. Build the habits that support everything else — sleep, walking, eating patterns. No dramatic changes yet, just consistency.</p>
+      </div>
+      <div class="phase">
+        <p class="phase-weeks">Weeks 5–8</p>
+        <h4>Momentum</h4>
+        <p>You'll feel it by now. Strength training introduced or progressed. Nutrition dialled in. Energy starts shifting. This is where visible change begins.</p>
+      </div>
+      <div class="phase">
+        <p class="phase-weeks">Weeks 9–12</p>
+        <h4>Mastery</h4>
+        <p>The habits are yours now. We push harder, measure what changed, and build the accountability structure that keeps it going beyond Week 12.</p>
+      </div>
+    </div>
+
+    <p class="phases-caption">After Week 12, clients move into an ongoing accountability phase — lighter check-ins, continued education, and the option to go deeper into strength or nutrition work. The programme ends. The reset doesn't.</p>
+  </div>
+
+  <!-- ── PILLAR 1: DIET ─────────────────────────────────────────────── -->
+  <div class="section">
+    <p class="section-label">The four pillars</p>
+    <h2>What actually makes the difference.</h2>
+
+    <div class="pillar">
+      <div class="pillar-header">
+        <div class="pillar-number">01</div>
+        <div class="pillar-title-wrap">
+          <p class="pillar-tag">Diet</p>
+          <h3>Understand it first,<br>control it second</h3>
+        </div>
+      </div>
+      <p>You don't need to count calories forever. But the most important thing you can do at the start is understand where the problems actually are. Most men are shocked when they see it clearly for the first time — not because they're eating badly, but because they don't know which meals are doing the damage.</p>
+      <p>The Reset uses a short tracking phase — not as a permanent habit, but as a diagnostic. Once you can see the pattern, you can fix the pattern. Then you move on.</p>
+
+      <div class="callout">
+        <p><strong>On intermittent fasting:</strong> For belly fat specifically, a simple eating window works well for most men over 40 — not because it's magic, but because it reduces unconscious snacking and late-night eating without requiring willpower at every meal. We'll build this in gradually, not overnight.</p>
+      </div>
+
+      <p>The goal isn't restriction. It's eating enough of the right things often enough that your body stops storing everything as fat. Protein is the biggest lever most men aren't pulling hard enough.</p>
+    </div>
+
+    <!-- ── PILLAR 2: MOVEMENT ──────────────────────────────────────── -->
+    <div class="pillar">
+      <div class="pillar-header">
+        <div class="pillar-number">02</div>
+        <div class="pillar-title-wrap">
+          <p class="pillar-tag">Movement</p>
+          <h3>Walking is not<br>a consolation prize</h3>
+        </div>
+      </div>
+      <p>Walking is the most underrated fat loss tool available. It's low-impact, sustainable, doesn't require recovery, and compounds over time in a way that gym sessions alone don't. A man who walks 8,000 steps a day consistently will outperform a man who does three intense gym sessions and sits the rest of the time.</p>
+      <p>Your starting point doesn't matter. We track your current daily average and build from there — using your phone or a wearable. No specific target until we know your baseline.</p>
+
+      <div class="callout">
+        <p><strong>Strength training comes second.</strong> Once movement is consistent, we add 2–3 structured sessions per week. These can be at home with minimal equipment, in a gym, or bodyweight only. The programme is built around what you actually have access to — not what a gym membership assumes you want.</p>
+      </div>
+    </div>
+
+    <!-- ── PILLAR 3: SLEEP ─────────────────────────────────────────── -->
+    <div class="pillar">
+      <div class="pillar-header">
+        <div class="pillar-number">03</div>
+        <div class="pillar-title-wrap">
+          <p class="pillar-tag">Sleep</p>
+          <h3>The invisible lever<br>most men ignore</h3>
+        </div>
+      </div>
+      <p>Poor sleep drives fat storage directly. When you're under-slept, cortisol rises, hunger hormones go up (ghrelin), and the hormone that tells you you're full (leptin) drops. You're fighting your own biology every time you try to eat well on six hours of sleep.</p>
+      <p>You don't need to become a sleep monk. But the basics matter: a consistent bedtime, a room that's actually dark and cool, and cutting the things that actively destroy sleep quality — late eating, screens, and alcohol (more on that below).</p>
+      <p>Men who fix their sleep first almost always find the other pillars easier. It's not a coincidence.</p>
+    </div>
+
+    <!-- ── PILLAR 4: ALCOHOL ───────────────────────────────────────── -->
+    <div class="pillar">
+      <div class="pillar-header">
+        <div class="pillar-number">04</div>
+        <div class="pillar-title-wrap">
+          <p class="pillar-tag">Alcohol</p>
+          <h3>The honest<br>conversation</h3>
+        </div>
+      </div>
+      <p>This isn't about moralising. Most men over 40 who are struggling with body composition are drinking more than they think, and alcohol is doing more damage than they realise.</p>
+      <p>Here's what it actually does: alcohol is metabolised before everything else, which means fat burning stops completely while your body processes it. It disrupts deep sleep even in small amounts. It's calorie-dense in a way that doesn't register as food. And it drives hunger the next day.</p>
+
+      <div class="callout">
+        <p><strong>You don't have to stop drinking.</strong> But you do need to understand the trade-off clearly. The Reset will be honest with you about what your current intake is costing you — and give you options, not ultimatums. Some men cut back significantly once they see the numbers. Others don't, and we build a plan that accounts for that.</p>
+      </div>
+
+      <p>The questionnaire asks about alcohol directly. It's confidential. The more honest you are, the more realistic your plan will be.</p>
+    </div>
+  </div>
+
+  <!-- ── WHY THE QUESTIONNAIRE MATTERS ─────────────────────────────── -->
+  <div class="section">
+    <p class="section-label">Your personalised plan</p>
+    <h2>Why the questionnaire isn't optional.</h2>
+    <p class="lead">The Reset isn't a template. Every plan is built specifically for the person filling in the form — and the quality of your plan depends entirely on the quality of your answers.</p>
+    <p>The questionnaire covers your lifestyle, constraints, history, goals, and the things that have stopped you before. An AI model reads everything you submit and builds a diagnosis specific to you — your schedule, your injuries, your stress levels, your relationship with food and alcohol.</p>
+    <p>A generic programme tells you to do the same thing as everyone else. A Battleship plan tells you what to do <em>given everything that's true about your life right now</em>.</p>
+    <p>The assessment takes around ten minutes. The plan you receive is built by AI directly from your answers — the more honest and specific you are, the more useful it will be. It's free, and you'll have your diagnosis the same day.</p>
+  </div>
+
+  <!-- ── CTA ────────────────────────────────────────────────────────── -->
+  <div class="cta-section">
+    <h2>Start your Reset.</h2>
+    <p>Fill in the free assessment and get your personalised diagnosis today — built by AI around your specific answers, delivered same day.</p>
+
+    <div class="cta-detail">
+      <p><strong>The more detail you give, the better your plan.</strong> The assessment covers your lifestyle, schedule, injuries, nutrition, and goals. Every answer shapes what you receive — this isn't a generic template, it's built around you.</p>
+    </div>
+
+    <div class="qr-block">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&bgcolor=0a0a0a&color=f4f1eb&qzone=2&data=https%3A%2F%2Fwebhook.battleshipreset.com%2Fassessment"
+           alt="QR code — Battleship Reset Assessment"
+           class="qr-img">
+      <p class="qr-label">Scan to start</p>
+      <p class="qr-url">webhook.battleshipreset.com/assessment</p>
+    </div>
+    <a href="https://tally.so/r/rjK752" class="btn screen-only">Take the Free Assessment</a>
+  </div>
+
+  <div class="footer">
+    <p>battleshipreset.com &nbsp;·&nbsp; coach@battleship.me &nbsp;·&nbsp; &copy; 2026 Battleship Reset</p>
+  </div>
+
+</div>
+</body>
+</html>

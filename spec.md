@@ -1,6 +1,6 @@
 # Battleship – Technical Specification
-**Last updated:** 2026-03-13
-**Status:** Live — intake form, pipeline, and webhook active. First real submission processed.
+**Last updated:** 2026-03-15
+**Status:** Live — pipeline, webhook, dashboard, growth bots, and Facebook feedback loop all active.
 
 ---
 
@@ -8,7 +8,9 @@
 
 An autonomous online coaching business targeting men aged 40–60 who want to lose weight, build fitness, and feel better without extreme approaches. The product is a 12-week structured programme (£199 one-time or 3×£75) with retention built on Phase 2 monthly coaching (£79/month) anchored around a personal confirmation challenge (Park Run → triathlon → London to Brighton, etc.).
 
-Everything from lead capture to weekly coaching to education delivery runs without manual intervention. The coach's job is to exist — the system does the operational work.
+Everything from lead capture to weekly coaching to education delivery to growth marketing runs without manual intervention. The coach's job is to exist — the system does the operational work.
+
+**Target:** £3,000/month MRR by Week 12 (June 2026).
 
 ---
 
@@ -63,22 +65,24 @@ Client replies "I'm in" → flagged in dashboard for Phase 2 setup
 
 | Component | Tool | Detail |
 |-----------|------|--------|
-| Website | Carrd Pro Standard | battleshipreset.com (live) |
-| Intake form | Tally (free) | tally.so/r/rjK752 — 35 questions, webhook-based |
+| Website | Carrd Pro Standard | https://battleshipreset.com (live) |
+| Intake form | Tally (free) | https://tally.so/r/rjK752 — 35 questions, webhook-based |
 | Webhook receiver | Flask `/tally-webhook` | Signature-verified, queues JSON to `clients/tally-queue/` |
-| Webhook tunnel | Cloudflare named tunnel | webhook.battleshipreset.com → localhost:5100 (permanent URL) |
-| Check-in form | Google Forms | forms.gle/TkBjLWd5aotBGTDAA |
+| Webhook tunnel | Cloudflare named tunnel | webhook.battleshipreset.com → localhost:5100 (permanent) |
+| Check-in form | Google Forms | https://forms.gle/TkBjLWd5aotBGTDAA |
 | Check-in data | Google Sheets | Sheet ID: `1sgPM9incm9xezRKXQTNITBmdILcy4olTcYXKzJPdcmk` |
-| AI | Anthropic Claude (`claude-sonnet-4-6`) | Diagnosis, plan, check-ins, challenge email, week 12 close, inbound replies |
+| AI | Anthropic Claude (`claude-sonnet-4-6`) | Diagnosis, plans, check-ins, challenge email, week 12 close, inbound replies, growth bot briefs |
 | Email out | iCloud SMTP (`smtp.mail.me.com:587`) | From: `wbarratt@me.com`, Reply-To: `coach@battleship.me` |
-| Email in | iCloud IMAP (`imap.mail.me.com:993`) | Routes coach@, support@, will@ — Claude auto-replies to first two |
-| Payments | Stripe Live | `buy.stripe.com/3cI6oG79qefgb1CdhwejK00` |
+| Email in | iCloud IMAP (`imap.mail.me.com:993`) | Routes coach@, support@, will@ — Claude auto-replies to first two; [COMMAND]/[TECH]/[ACCOUNTS] replies handled by bots |
+| Payments | Stripe Live | https://buy.stripe.com/3cI6oG79qefgb1CdhwejK00 |
 | Secrets | `~/.battleship.env` | chmod 600 — cron-compatible, no 1Password at runtime |
-| Google creds | `~/.battleship-gsheets.json` | Service account for Sheets read access |
+| Google creds | `~/.battleship-gsheets.json` | Service account: battleship-pipeline@battleship-489916.iam.gserviceaccount.com |
 | State | `clients/state.json` | All client records — gitignored |
 | Dashboard | Flask (`scripts/app.py`) | localhost:5100, auto-starts via LaunchAgent |
-| Cron | Every 2 hours | `0 */2 * * *` — battleship_pipeline.py |
-| Repo | github.com/billbazza/BattleShip | `clients/` and secrets gitignored |
+| Business Manager | Flask `/business` | KPIs, charts, arc timeline, SEO progress, tech backlog |
+| External snapshot | Flask `/snapshot?token=bsr2026` | Read-only view via Cloudflare tunnel |
+| Cron | Every 2 hours | `0 */2 * * *` — battleship_pipeline.py (includes orchestrator) |
+| Repo | github.com/billbazza/BattleShip | `clients/`, secrets, and images gitignored |
 
 ### Auto-start (macOS LaunchAgents)
 Both services start automatically on login and restart if they crash:
@@ -96,9 +100,10 @@ Single Python file. Runs the full pipeline on every cron execution.
 2. `check_stripe_payments()` — polls Stripe charges, auto-enrols paying clients
 3. `send_weekly_checkin_requests()` — Sundays only, sends check-in link (min 5 days since enrolment)
 4. `process_checkin_responses()` — reads Google Sheet, generates personalised coach replies
-5. `process_inbound_emails()` — IMAP poll: routes coach@/support@ to Claude, detects challenge replies and Phase 2 sign-ups
+5. `process_inbound_emails()` — IMAP poll: routes coach@/support@ to Claude, handles [COMMAND]/[TECH]/[ACCOUNTS] reply emails from Will
 6. `send_education_drips()` — sends scheduled lessons (Mon/Thu stagger), Week 8 Claude-generated challenge email
 7. `send_week12_close()` — personalised close referencing challenge goal + Phase 2 offer
+8. `run_orchestrator()` — daily growth bot coordination (daily gate, skips if already ran today)
 
 ### Client state record (in `state.json`)
 ```json
@@ -112,7 +117,7 @@ Single Python file. Runs the full pipeline on every cron execution.
     "current_week": 3,
     "enrolled_date": "2026-03-01",
     "emails_sent": ["diagnosis", "onboarding", "edu_sleep", "edu_zone2"],
-    "tags": { "age": "47", "weight": "14st 6lb", "goal": "lose fat", ... },
+    "tags": { "age": "47", "weight": "14st 6lb", "goal": "lose fat", "..." : "..." },
     "goal": "Lose fat / get leaner",
     "success_metrics": ["Weight (weekly)", "Waist measurement", "Energy 1-10"],
     "challenge_goal": "Sprint triathlon",
@@ -159,13 +164,21 @@ Single Python file. Runs the full pipeline on every cron execution.
 ### HTML templates (`scripts/templates/`)
 - `diagnosis_email.html` — dark header, 4 sections, red CTA (£199), 7-day guarantee
 - `onboarding_email.html` — welcome, Zone 2 science, baseline measurements
+- `internal_email.html` — used by growth bots for Command Report, SEO task emails, tech guide emails
 
 Templates use `%%placeholder%%` tokens (not f-strings) to avoid CSS brace conflicts.
+Logo served from: `https://webhook.battleshipreset.com/brand/Midlife-fitness-reset.jpg`
 
 ### Education and check-in emails
 Styled with inline HTML using the pipeline's `md_to_html()` renderer. Dark callout block for "This week" action sections.
 
 Reply-To on all outgoing emails: `coach@battleship.me`
+
+### Inbound email routing
+- `coach@battleship.me` — Claude auto-replies (coaching questions)
+- `support@battleship.me` — Claude auto-replies, flags cancellations
+- `will@battleship.me` — Will replies manually
+- Replies to `[COMMAND]`, `[TECH]`, `[ACCOUNTS]` subject-tagged emails — handled by `_handle_will_bot_reply()`, Claude answers and replies to will@
 
 ---
 
@@ -216,9 +229,12 @@ Runs at `http://localhost:5100`. Auto-starts via LaunchAgent.
 |-------|----------|
 | `/` | Dashboard — system status panel + all clients |
 | `/client/<acct>` | Client detail — meta, actions, tracker, plan, diagnosis, event log |
+| `/business` | Business Manager — KPIs, revenue chart, funnel, arc timeline, SEO, tech backlog |
+| `/snapshot?token=bsr2026` | Read-only external snapshot (via Cloudflare tunnel) |
 | `/run` | Run pipeline manually, see output |
 | `/api/status` | JSON health check for all services |
 | `/tally-webhook` | Receives Tally form submissions (POST, signature-verified) |
+| `/brand/<path>` | Serves brand assets (logo, before/after images) |
 | `/action/<acct>/enrol` | Enrol client (paid) |
 | `/action/<acct>/enrol_free` | Enrol client (complimentary) |
 | `/action/<acct>/advance` | Advance current week by 1 |
@@ -229,9 +245,60 @@ Runs at `http://localhost:5100`. Auto-starts via LaunchAgent.
 ### System status panel
 Homepage shows live health checks for: Flask, Cloudflare tunnel, webhook DNS, cron schedule, Claude API, Stripe, SMTP, IMAP, Google Sheets, pipeline last run, queued submissions.
 
+### Business Manager
+`/business` shows: MRR vs target KPI cards, Chart.js revenue/spend line chart, funnel bar chart, marketing arc timeline, Facebook organic + ads cards, SEO task progress (0–8), tech backlog table, weekly targets. Historical data stored in `clients/business_metrics_history.json`.
+
 ---
 
-## 9. Secrets (`~/.battleship.env`)
+## 9. Growth Bot Ecosystem
+
+All bots live in `skills/`. Orchestrated daily by `skills/orchestrator.py` (called as step 8 of the pipeline). Daily gate prevents multiple runs — one Command Report email per day.
+
+### Orchestrator (`skills/orchestrator.py`)
+- Coordinates all growth bots in sequence
+- Generates brand PM brief (sets weekly targets based on week number and MRR gap)
+- Sends `[COMMAND] Week N · MRR £X · Gap £X` email to will@battleship.me
+- State: `brand/Marketing/orchestrator_state.json`
+
+### SEO Bot (`skills/seo_bot.py`)
+- Progresses through 9 GBP tasks (0–8), one per week
+- Each task generates output content saved to `brand/Marketing/SEO/outputs/`
+- Task 0: GBP setup checklist. Tasks 1–8: category audit, Q&A, reviews, posts, services, description, photos, citation building
+- Will confirms task completion with `--confirm <n>` after making the GBP change
+- State: `brand/Marketing/SEO/seo_state.json`
+
+### Tech Bot (`skills/tech_bot.py`)
+- Tracks technology gaps with workarounds and revenue-unlock thresholds
+- Any bot can call `flag_gap()` to add a new gap
+- Generates tiered reports: free wins, unlocked (MRR threshold met), locked
+- State: `brand/Marketing/tech_backlog.json`
+
+**Current key gaps:**
+| Gap | Workaround | Unlock at |
+|-----|-----------|-----------|
+| GBP automated posting | Manual weekly post via SEO bot output | £1,000 MRR |
+| Instagram scheduling | Manual post from brand bot output | £750 MRR |
+| CRM | `clients/state.json` + dashboard | £1,000 MRR |
+| Accounting (Zoho Books UK) | Manual tracking in finances.md | £300 MRR |
+| Broadcast email (Brevo) | Not yet needed (no list) | First 50 leads |
+| Active ad campaign | Facebook campaign live (boosted post) | — |
+
+### Facebook Bot (`skills/facebook_bot.py`)
+- Tracks organic post performance via Facebook Page Insights API (page token only)
+- Tracks ad campaign metrics via Facebook Ads API (requires `FB_USER_TOKEN` with ads_read)
+- `sync_funnel_metrics()` writes real impression/click data into `marketing_strategy.json`
+- Brand report email shows organic reach, ad impressions, spend, results
+- State: `brand/Marketing/social_metrics.json`
+
+### Brand Manager (`skills/brand_manager.py`)
+- Manages before/after composite images with text overlay hooks
+- 12 hook variants: comedy, specific/credible, provocative angles
+- `_generate_ai_hooks()` — Claude generates arc-aligned hooks on demand
+- Outputs: `brand/output/before_after_hook_01.jpg` through `_12.jpg`
+
+---
+
+## 10. Secrets (`~/.battleship.env`)
 
 ```
 ANTHROPIC_KEY=sk-ant-...
@@ -245,11 +312,15 @@ STRIPE_KEY=sk_live_...
 GSHEETS_ID=1sgPM9incm9xezRKXQTNITBmdILcy4olTcYXKzJPdcmk
 GSHEETS_CREDS=~/.battleship-gsheets.json
 TALLY_WEBHOOK_SECRET=       # from Tally → Integrations → Webhooks
+FB_PAGE_TOKEN=              # Facebook Page token (page insights, organic posts)
+FB_USER_TOKEN=              # Facebook User token with ads_read + ads_management (ad campaigns)
+FB_PAGE_ID=                 # Facebook Page ID
+FB_AD_ACCOUNT_ID=act_...    # from Meta Business Manager
 ```
 
 ---
 
-## 10. Coaching Philosophy (`coaching-philosophy.md`)
+## 11. Coaching Philosophy (`coaching-philosophy.md`)
 
 Loaded into the diagnosis prompt at runtime. Defines:
 - Edge case handling: low commitment, heavy drinkers, health flags (BP, heart, injuries)
@@ -261,13 +332,42 @@ Loaded into the diagnosis prompt at runtime. Defines:
 
 ---
 
-## 11. Known Limitations / Outstanding
+## 12. Key Files Reference
 
-| Item | Status | Notes |
-|------|--------|-------|
-| Tally webhook signing secret | Not yet set | Add to ~/.battleship.env once Tally shows it |
-| webhook.battleshipreset.com DNS | Propagating | NS change from GoDaddy → Cloudflare in progress |
-| Social content (Instagram/Facebook) | Not started | Main sales engine — priority once first clients active |
-| Facebook ads | Not started | Budget TBD |
-| Phase 2 Stripe product | Not created | £79/month recurring — create when first Phase 2 client ready |
-| Legacy clients (john, will, fred) | In state | Pre-BSR format, work fine, won't get account numbers |
+| File / Folder | Purpose |
+|---------------|---------|
+| `scripts/battleship_pipeline.py` | Main pipeline — all client delivery logic |
+| `scripts/app.py` | Flask dashboard + webhook receiver |
+| `scripts/templates/` | HTML email templates |
+| `scripts/COMMANDS.md` | CLI reference with quick links |
+| `skills/orchestrator.py` | Daily growth coordinator |
+| `skills/seo_bot.py` | GBP SEO task progression |
+| `skills/tech_bot.py` | Technology gap tracking |
+| `skills/facebook_bot.py` | Facebook organic + ad metrics |
+| `skills/brand_manager.py` | Before/after composites, hook variants |
+| `brand/Marketing/marketing_strategy.json` | Arc guidance, funnel metrics (real FB data) |
+| `brand/Marketing/social_metrics.json` | Post performance history |
+| `brand/Marketing/tech_backlog.json` | Tech gap state |
+| `brand/Marketing/SEO/seo_state.json` | GBP task completion state |
+| `brand/Marketing/orchestrator_state.json` | Daily gate, last run timestamp |
+| `clients/state.json` | All client records (gitignored) |
+| `clients/business_metrics_history.json` | Rolling daily snapshots for charts |
+| `coaching-philosophy.md` | Loaded into diagnosis prompt at runtime |
+| `finances.md` | Manual expense/revenue log — total line drives dashboard |
+| `education-lessons/` | 20+ lesson markdown files |
+
+---
+
+## 13. Outstanding / To Do
+
+| Item | Priority | Notes |
+|------|----------|-------|
+| Get `FB_USER_TOKEN` into `~/.battleship.env` | High | developers.facebook.com → Graph API Explorer → ads_read + ads_management + business_management |
+| Submit Meta Standard Access app review | Medium | Unlocks `ads_management` for campaign creation automation |
+| Instagram username → battleshipreset | High | Change in Instagram app; then add bio + battleshipreset.com link |
+| Run `python3 skills/seo_bot.py --confirm 0` | High | After claiming Google Business Profile at business.google.com |
+| Phase 2 Stripe product (£79/month) | Medium | Create when first Phase 2 client ready |
+| Founding member £199 Stripe link | Medium | For early-bird positioning |
+| Register as sole trader with HMRC | High | gov.uk — free, 10 mins |
+| Dashboard external auth | Low | `/business` and `/snapshot` currently unprotected — token on snapshot is minimal. Flagged in tech backlog. |
+| Tally webhook signing secret | Low | Add to `~/.battleship.env` once visible in Tally → Integrations → Webhooks |

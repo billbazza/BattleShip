@@ -21,15 +21,13 @@
 
 | Date | Item | Cost | Currency | Category | Notes |
 |------|------|------|----------|----------|-------|
-| 11 Mar 2026 | GoDaddy — battleshipreset.com .COM registration (2yr) | £25.98 | GBP | Infrastructure | Auto-renews 11/03/2028 @ £37.68 |
-| 11 Mar 2026 | GoDaddy — Full Domain Protection (2yr) | £15.98 | GBP | Infrastructure | Auto-renews 11/03/2028 @ £10.99 |
-| 11 Mar 2026 | GoDaddy — VAT | £8.39 | GBP | Tax | 20% on above |
-| 11 Mar 2026 | Anthropic — Claude API credit (Receipt #2615-4616-6001) | $10.00 + $2.00 VAT | USD | Tools | $12.00 total inc. 20% UK VAT |
-| 13 Mar 2026 | Carrd — Pro Standard plan (annual, ends 13/03/2027) | $19.00 | USD | Infrastructure | Upgraded Lite→Standard same day; $9 credited |
-| ~~TBD~~ | ~~Typeform — annual plan~~ | ~~£220.00~~ | ~~GBP~~ | ~~Tools~~ | AVOIDED — migrated to Tally (free, unlimited, webhook-based) |
-| TBD | Meta/Facebook Ads | TBD | GBP | Advertising | Budget TBD — start small, test copy |
-
-**Total Spend to date: £50.35 GBP + $31.00 USD (~£75 combined)**
+| 2026-03-11 | GoDaddy — battleshipreset.com .COM + Full Domain Protection (2yr) | £50.35 | GBP | Infrastructure | Auto-renews 11/03/2028. Paid via PayPal. Includes £8.39 VAT. |
+| 2026-03-11 | Anthropic — Claude API credit | £12.00 | GBP | Tools | Receipt #2615-4616-6001. Inc. 20% UK VAT (£2.00). |
+| 2026-03-13 | Carrd — Pro Lite plan (credit applied to Standard) | USD 9.00 (~£7.11) | USD | Infrastructure | Order #4518177340054514. Credit used same day toward Standard upgrade. |
+| 2026-03-13 | Carrd — Pro Standard plan (annual, ends 13/03/2027) | USD 19.00 (~£15.01) | USD | Infrastructure | Order #6828177340065915. $9 from balance, $10 new charge. |
+| 2026-03-14 | Meta Ads — Facebook ad spend (funds added) | £35.00 | GBP | Advertising | Transaction ID: 26011846625167481. Account: 869755968629816. |
+| 2026-03-15 | Meta Ads — Facebook ad spend | £14.50 | GBP | Advertising | Transaction ID: 26033440609674747-26122887960730014. Account ID: 869755968629816. Date range: 14–15 Mar 2026. Two campaigns: Tally form (£12.34, 4649 impressions), Battleship Reset (£2.16, 291 impressions). |
+**Total Spend to date: £133.97**
 **Committed upcoming: £0 (Typeform £220 avoided — using Tally free tier)**
 **Projected Month 1 costs: ~£300 confirmed/committed + ads TBD**
 

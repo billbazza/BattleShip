@@ -29,7 +29,7 @@ RUN AS CRON (every 2 hours):
   op://Private/GoogleSheets/creds-path — path to service account JSON e.g. ~/.battleship-gsheets.json (optional)
 """
 
-import subprocess, requests, json, smtplib, sys, os, re, imaplib, email
+import subprocess, requests, json, smtplib, sys, os, re, imaplib, email, shutil
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -51,7 +51,10 @@ LOGS_DIR     = VAULT_ROOT / "logs"
 STATE_FILE   = CLIENTS_DIR / "state.json"
 
 INTAKE_FORM_ID    = "wbD9VYUa"
+SHORT_FORM_ID     = "5B2p5Q"     # 5-question gateway form — routes to process_short_intake
+FULL_FORM_ID      = "rjK752"     # Full 33-question intake form
 CHECKIN_FORM_ID   = ""           # Legacy Typeform check-in — replaced by Google Sheets
+FULL_ASSESSMENT_URL = "https://webhook.battleshipreset.com/full-assessment"
 CHECKIN_GFORM_URL = "https://forms.gle/TkBjLWd5aotBGTDAA"
 
 COACH_NAME  = "William George BattleShip Barratt"
@@ -92,12 +95,12 @@ EDUCATION_DRIPS = {
     # Dropped lessons (key-to-success, balanced-plate, closing-the-gap, hacking-consistency,
     # whole-foods-reference, gym-terminology, workout-prep, how-much-weight) remain in the vault
     # for Claude to reference in check-in responses or diagnosis emails.
-    1:  [("edu_sleep",       "Week 1 bonus: sleep — the easiest win in the programme",        "education-lessons/sleep/sleep-for-fat-loss.md")],
-    2:  [("edu_zone2",       "Why slow walking beats hard running — the science",              "education-lessons/exercises/zone2-walking.md")],
-    3:  [("edu_8020",        "The 80/20 rule of nutrition",                                    "education-lessons/nutrition/80-20-rule.md")],
-    4:  [("edu_fatloss_1",   "How to actually lose fat: getting started",                      "education-lessons/fat-loss/getting-started.md")],
-    5:  [("edu_fatloss_2",   "How to actually lose fat: awareness",                            "education-lessons/fat-loss/awareness.md"),
+    1:  [("edu_sleep",       "Week 1: sleep — the easiest win in the programme",               "education-lessons/sleep/sleep-for-fat-loss.md")],
+    2:  [("edu_fatloss_1",  "How to actually lose fat: getting started",                       "education-lessons/fat-loss/getting-started.md"),
          ("edu_mfp",        "Your calorie tracking tool: MyFitnessPal — simple setup guide",  "education-lessons/Myfitnesspal/myfitnesspal-guide.md")],
+    3:  [("edu_zone2",      "Why slow walking beats hard running — the science",               "education-lessons/exercises/zone2-walking.md")],
+    4:  [("edu_8020",       "The 80/20 rule of nutrition",                                     "education-lessons/nutrition/80-20-rule.md")],
+    5:  [("edu_fatloss_2",  "How to actually lose fat: awareness",                             "education-lessons/fat-loss/awareness.md")],
     6:  [("edu_training_1",  "Time to add weights — here's what your training looks like",     "education-lessons/training/workout-overview.md")],
     7:  [("edu_gymtim",      "Gymtimidation — and why it ends at session three",               "education-lessons/training/gymtimidation.md")],
     # Week 8: warmup drip + AI-generated challenge email (challenge sent separately)
@@ -194,15 +197,59 @@ UPGRADE_SIGNALS: dict[str, tuple[list[str], str]] = {
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
+def _warn_orphaned_folders(state: dict):
+    """Warn if BSR-* folders exist that have no entry in state.json clients."""
+    known = {cs.get("folder", "") for cs in state.get("clients", {}).values()}
+    pattern = re.compile(r"^BSR-\d{4}-\d{4}-")
+    orphans = sorted(d.name for d in CLIENTS_DIR.iterdir()
+                     if d.is_dir() and pattern.match(d.name) and d.name not in known)
+    if orphans:
+        print(f"\n⚠️  ORPHANED CLIENT FOLDERS (filesystem but NOT in state.json):")
+        for o in orphans:
+            print(f"   • {o}")
+        print(f"   Run: python3 scripts/battleship_pipeline.py --reconcile\n")
+
 def load_state() -> dict:
     CLIENTS_DIR.mkdir(parents=True, exist_ok=True)
+    bak = STATE_FILE.with_suffix(".bak")
+    _empty = {"next_client_number": 1, "processed_intake_ids": [],
+              "processed_checkin_ids": [], "clients": {}}
+
+    def _try_load(path: Path) -> dict | None:
+        try:
+            data = json.loads(path.read_text())
+            if isinstance(data, dict) and "clients" in data:
+                return data
+        except Exception:
+            pass
+        return None
+
     if STATE_FILE.exists():
-        return json.loads(STATE_FILE.read_text())
-    return {"next_client_number": 1, "processed_intake_ids": [],
-            "processed_checkin_ids": [], "clients": {}}
+        state = _try_load(STATE_FILE)
+        if state is not None:
+            _warn_orphaned_folders(state)
+            return state
+        print(f"⚠️  state.json is corrupt — attempting restore from backup...")
+
+    if bak.exists():
+        state = _try_load(bak)
+        if state is not None:
+            print(f"✅ Restored state.json from state.json.bak ({len(state.get('clients', {}))} client(s))")
+            save_state(state)  # Re-write clean main file
+            _warn_orphaned_folders(state)
+            return state
+        print(f"❌ state.json.bak is also corrupt.")
+
+    print(f"⚠️  Starting with empty state.")
+    return _empty
 
 def save_state(state: dict):
-    STATE_FILE.write_text(json.dumps(state, indent=2, default=str))
+    """Atomic save: write to .tmp then rename, keep .bak of previous good state."""
+    tmp = STATE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2, default=str))
+    if STATE_FILE.exists():
+        shutil.copy2(STATE_FILE, STATE_FILE.with_suffix(".bak"))
+    tmp.rename(STATE_FILE)
 
 def next_account_number(state: dict) -> str:
     """Generate next sequential account number e.g. BSR-2026-0001."""
@@ -294,7 +341,8 @@ def load_secrets() -> dict:
 
 # ── Tally ─────────────────────────────────────────────────────────────────────
 
-TALLY_QUEUE = CLIENTS_DIR / "tally-queue"
+TALLY_QUEUE       = CLIENTS_DIR / "tally-queue"
+EMAIL_QUEUE_FILE  = CLIENTS_DIR / "email_queue.json"
 
 def tally_parse_submission(payload: dict) -> dict:
     """Parse a Tally webhook payload into the same format as tf_parse_response."""
@@ -324,6 +372,9 @@ def tally_parse_submission(payload: dict) -> dict:
                   ("email" in k.lower() and "@" in v)), "")
     raw_text = "\n".join(f"**{q}**\n{a}" for q, a in qa.items() if a)
 
+    # Detect which form this submission came from
+    form_id = data.get("formId", "")
+
     return {
         "response_id":  data.get("responseId", "tally-" + data.get("submittedAt", "")),
         "submitted_at": data.get("submittedAt", ""),
@@ -331,6 +382,8 @@ def tally_parse_submission(payload: dict) -> dict:
         "email":        email,
         "qa":           qa,
         "raw_text":     raw_text,
+        "form_id":      form_id,
+        "short_form":   SHORT_FORM_ID in form_id,
     }
 
 
@@ -350,8 +403,11 @@ def process_tally_queue(secrets: dict, state: dict):
                 print(f"  ↩️  Already processed: {f.name}")
                 f.unlink()
                 continue
-            print(f"  📥 Processing Tally submission: {parsed['name']} ({parsed['email']})")
-            process_new_intake(parsed, secrets, state)
+            print(f"  📥 Processing Tally submission: {parsed['name']} ({parsed['email']}) [{'short' if parsed.get('short_form') else 'full'} form]")
+            if parsed.get("short_form"):
+                process_short_intake(parsed, secrets, state)
+            else:
+                process_new_intake(parsed, secrets, state)
             f.unlink()
         except Exception as e:
             print(f"  ❌ Error processing {f.name}: {e}")
@@ -470,6 +526,43 @@ Notes for AGENT_TAGS_JSON:
 - weight_lbs: their current weight in lbs (convert from kg/stone if needed). 0 if not stated.
 - height_inches: their height in inches (convert from cm/ft if needed). 0 if not stated.
 - overweight_level: "significant" if they have a lot to lose (visibly overweight, 2+ stone, BMI likely 30+) or "moderate" if they just want to lose a bit or tone up."""
+
+SHORT_DIAGNOSIS_PROMPT = """\
+You are the Intake Agent for Battleship – Midlife Fitness Reset.
+A British fitness coaching programme for men 40–60 who've tried and failed before.
+Tone: warm, direct, non-shaming. Like a knowledgeable mate who tells it straight.
+
+A man has filled in a short 5-question form. You don't have full detail yet — no weight,
+injuries, schedule, or history. Write a diagnosis that feels personal and insightful based
+on what you do know, but is honest that the full picture will make the plan significantly better.
+
+CLIENT ANSWERS:
+{intake_text}
+
+Output EXACTLY this structure (no preamble, no sign-off):
+
+# Your Battleship Diagnosis — {name}
+
+## Why It Hasn't Worked Before
+[2 paragraphs. Speak directly to their answer about what stopped them. Name the pattern —
+don't just repeat their words. If they said "life gets in the way", explain WHY generic
+programmes fail busy men and what's different about building around your actual life.
+Make them feel understood, not judged.]
+
+## What The Reset Does Differently
+[2 paragraphs. Based on their goal and biggest problem, explain the Battleship approach:
+walking as a foundation, progressive strength, honest nutrition tracking, sleep, alcohol.
+Be specific to what they said their goal is. End with one confident sentence.]
+
+## Your First Move
+[2 bullet points only. The two simplest things they can do this week based on what they've told us.
+No equipment assumptions. No schedule assumptions. Ultra-simple starting points that anyone can do.]
+
+## One More Thing
+[3–4 sentences. Acknowledge that this is a starting point — their full plan needs more detail.
+Be direct: the full assessment takes 10 minutes and covers schedule, injuries, nutrition, alcohol,
+and training history. The more specific their answers, the more specific the plan.
+End with: "Complete the full assessment here: {full_assessment_url}"]"""
 
 PLAN_PROMPT = """\
 You are the Program Agent for Battleship – Midlife Fitness Reset.
@@ -1145,19 +1238,23 @@ def parse_diagnosis_sections(md: str) -> dict:
     return {k: "\n".join(v).strip() for k, v in sections.items()}
 
 def send_email(secrets: dict, to: str, subject: str, plain_body: str, html_body: str = None):
+    # Accept both lowercase (pipeline) and uppercase (standalone bots) key names
+    smtp_host = secrets.get("smtp_host") or secrets.get("SMTP_HOST", "")
+    smtp_user = secrets.get("smtp_user") or secrets.get("SMTP_USER", "")
+    smtp_pass = secrets.get("smtp_pass") or secrets.get("SMTP_PASS", "")
     msg = MIMEMultipart("alternative")
     msg["Subject"]  = subject
-    msg["From"]     = f"Will @ Battleship <{secrets['smtp_user']}>"
+    msg["From"]     = f"Will @ Battleship <{smtp_user}>"
     msg["To"]       = to
     msg["Reply-To"] = COACH_EMAIL
     msg.attach(MIMEText(plain_body, "plain"))
     if html_body:
         msg.attach(MIMEText(html_body, "html"))
-    with smtplib.SMTP(secrets["smtp_host"], SMTP_PORT) as s:
+    with smtplib.SMTP(smtp_host, SMTP_PORT) as s:
         s.ehlo()
         s.starttls()
-        s.login(secrets["smtp_user"], secrets["smtp_pass"])
-        s.sendmail(secrets["smtp_user"], to, msg.as_string())
+        s.login(smtp_user, smtp_pass)
+        s.sendmail(smtp_user, to, msg.as_string())
     print(f"    📧 '{subject[:55]}' → {to}")
 
 
@@ -1183,13 +1280,15 @@ def email_diagnosis(name: str, diagnosis: str,
     return subj, plain, html
 
 
-def email_onboarding(name: str, notion_url: str = None, tracker_url: str = None) -> tuple[str, str, str]:
+def email_onboarding(name: str, notion_url: str = None, tracker_url: str = None,
+                     calorie_target: str = None) -> tuple[str, str, str]:
     subj = f"You're in — welcome to Battleship, {name}"
 
     # Plain text fallback
     portal = f"\n→ Your programme page: {notion_url}\n" if notion_url else ""
     tracker_line = f"\n→ Your workout tracker: {tracker_url}\n" if tracker_url else ""
-    plain = f"Hi {name},\n\nWelcome aboard.{portal}{tracker_line}\n\nOne thing to do today: a 30-minute walk. That's Week 1.\n\nReply with: weight, waist, energy score, steps yesterday.\n\n— {COACH_NAME}"
+    cal_line = f"\n\nYour daily calorie target: {calorie_target}\nStart logging in MyFitnessPal from Week 2 — use this number as your guide." if calorie_target else ""
+    plain = f"Hi {name},\n\nWelcome aboard.{portal}{tracker_line}\n\nWeek 1 — one job: a 30-minute walk every day. That's it.{cal_line}\n\nReply with: weight, waist, energy score, steps yesterday.\n\n— {COACH_NAME}"
 
     # Portal section (optional)
     if notion_url:
@@ -1270,6 +1369,126 @@ def log_event(folder: str, event: str):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     with open(log_file, "a") as f:
         f.write(f"- {ts}: {event}\n")
+
+
+# ── Email Approval Queue ──────────────────────────────────────────────────────
+
+def stage_email(to: str, subject: str, body: str,
+                client_name: str = "", reason: str = "") -> str:
+    """Stage an ad-hoc email for Will's approval in the portal before sending.
+    Use this for any email sent outside the normal pipeline flow.
+    Returns the queue ID.
+    """
+    import uuid as _uuid
+    queue = json.loads(EMAIL_QUEUE_FILE.read_text()) if EMAIL_QUEUE_FILE.exists() else {"emails": []}
+    qid = "eq_" + _uuid.uuid4().hex[:8]
+    queue["emails"].append({
+        "id":           qid,
+        "to":           to,
+        "subject":      subject,
+        "body":         body,
+        "client_name":  client_name,
+        "reason":       reason,
+        "created_at":   datetime.now(timezone.utc).isoformat(),
+        "status":       "pending",
+    })
+    EMAIL_QUEUE_FILE.write_text(json.dumps(queue, indent=2))
+    print(f"  📬 Email queued for approval: '{subject}' → {to}")
+    return qid
+
+
+# ── Tester Feedback ───────────────────────────────────────────────────────────
+
+def send_tester_feedback_requests(state: dict, secrets: dict):
+    """Every Sunday, ask test clients for direct programme feedback."""
+    if datetime.now(timezone.utc).weekday() != 6:
+        return
+    for slug, cs in state["clients"].items():
+        if not cs.get("test") or not cs.get("email") or cs.get("status") != "active":
+            continue
+        last = cs.get("last_tester_feedback")
+        if last:
+            days_since = (datetime.now(timezone.utc).date() -
+                          datetime.fromisoformat(last[:10]).date()).days
+            if days_since < 6:
+                continue
+        name  = cs["name"].split()[0]
+        week  = cs.get("current_week", 1)
+        plain = (
+            f"Hi {name},\n\n"
+            f"Week {week} tester check-in — three questions, be brutal:\n\n"
+            f"1. What's working so far?\n"
+            f"2. What's confusing, missing, or doesn't make sense?\n"
+            f"3. Did you receive anything unexpected, or not receive something you expected?\n\n"
+            f"This is how we fix it before real clients come through.\n\n"
+            f"— Will"
+        )
+        send_email(secrets, cs["email"],
+                   f"Tester feedback — Week {week} check-in", plain)
+        cs["last_tester_feedback"] = datetime.now(timezone.utc).isoformat()
+        log_event(cs["folder"], f"Tester feedback request sent (Week {week})")
+        print(f"  🧪 Tester feedback → {name} ({cs['email']})")
+    save_state(state)
+
+
+# ── Pipeline: Short Form → Teaser Diagnosis ───────────────────────────────────
+
+def process_short_intake(client: dict, secrets: dict, state: dict):
+    """Handle 5-question gateway form — generate teaser diagnosis, CTA to full form."""
+    existing = next(
+        (acct for acct, cs in state["clients"].items()
+         if cs.get("email") == client["email"] and cs.get("status") != "error"),
+        None
+    )
+    if existing:
+        # Already in system from full form — skip silently
+        state["processed_intake_ids"].append(client["response_id"])
+        print(f"\n  ⏭  Short form duplicate (already in system): {client['name']} ({existing})")
+        return
+
+    account_no = next_account_number(state)
+    folder     = client_folder_name(account_no, client["name"])
+    print(f"\n  🆕 Short form intake: {client['name']} → {account_no}")
+
+    save_client_file(folder, "intake.md",
+        f"# Intake — {client['name']}\nAccount: {account_no}\nSubmitted: {client['submitted_at']}\nSource: short-form\n\n{client['raw_text']}"
+    )
+
+    print("     🧠 Generating short diagnosis...")
+    prompt = SHORT_DIAGNOSIS_PROMPT.format(
+        intake_text=client["raw_text"],
+        name=client["name"],
+        full_assessment_url=FULL_ASSESSMENT_URL,
+    )
+    diagnosis_text = call_claude(secrets["anthropic"], prompt, max_tokens=1000)
+    save_client_file(folder, "diagnosis.md", diagnosis_text)
+    log_event(folder, "Short-form teaser diagnosis generated")
+
+    if client["email"]:
+        subj, plain, html = email_diagnosis(client["name"], diagnosis_text)
+        send_email(secrets, client["email"], subj, plain, html)
+        log_event(folder, "Short-form diagnosis email sent")
+
+    state["clients"][account_no] = {
+        "account_no":            account_no,
+        "folder":                folder,
+        "name":                  client["name"],
+        "email":                 client["email"],
+        "intake_date":           client["submitted_at"][:10] if client["submitted_at"] else "",
+        "status":                "diagnosed",
+        "current_week":          0,
+        "enrolled_date":         None,
+        "emails_sent":           ["diagnosis"],
+        "tags":                  {},
+        "short_form":            True,
+        "last_checkin_request":  None,
+        "last_checkin_received": None,
+        "notion_page_id":        None,
+        "notion_url":            None,
+    }
+    state["processed_intake_ids"].append(client["response_id"])
+    save_state(state)
+    print(f"     ✅ {account_no} — {client['name']} → short diagnosis sent")
 
 
 # ── Pipeline: Intake → Diagnosis ──────────────────────────────────────────────
@@ -1392,8 +1611,9 @@ def enrol_client(account_no: str, cs: dict, secrets: dict):
     cs["notion_url"]     = notion_url
 
     if cs["email"]:
-        tracker_url = f"https://webhook.battleshipreset.com/tracker/{account_no}"
-        subj5, plain5, html5 = email_onboarding(cs["name"], notion_url, tracker_url)
+        tracker_url    = f"https://webhook.battleshipreset.com/tracker/{account_no}"
+        calorie_target = _calorie_target(cs)
+        subj5, plain5, html5 = email_onboarding(cs["name"], notion_url, tracker_url, calorie_target)
         send_email(secrets, cs["email"], subj5, plain5, html5)
         log_event(folder, "Onboarding email sent")
 
@@ -2102,9 +2322,11 @@ def _calorie_target(cs: dict) -> str:
     """Return a personalised calorie target based on body composition.
 
     Rule (Will's formula):
-      - Significantly overweight / lot to lose → weight_lbs × 12
-      - Moderate / not really overweight       → weight_lbs × 15
+      - Significantly overweight / lot to lose → weight_lbs × 10
+      - Moderate / not really overweight       → weight_lbs × 12
+      - Hard cap: 2,500 calories regardless
     """
+    MAX_CALORIES = 2500
     tags = cs.get("tags", {})
     weight_raw = tags.get("weight_lbs", "") or tags.get("weight", "")
 
@@ -2115,21 +2337,20 @@ def _calorie_target(cs: dict) -> str:
 
         # Try BMI first if height available
         height_raw = tags.get("height_inches", "") or tags.get("height", "")
-        multiplier = 12  # default: assume significant if unsure
+        multiplier = 10  # default: assume significant if unsure
         try:
             inches = float(str(height_raw).replace("in", "").replace('"', "").strip())
             if inches > 0:
                 bmi = (lbs / (inches ** 2)) * 703
-                multiplier = 12 if bmi >= 30 else 15
+                multiplier = 10 if bmi >= 30 else 12
         except (ValueError, TypeError):
-            # Fall back to Claude's overweight_level tag
             level = tags.get("overweight_level", "significant").lower()
-            multiplier = 12 if level == "significant" else 15
+            multiplier = 10 if level == "significant" else 12
 
-        target = int(lbs * multiplier)
-        return f"**Your target: {target} calories/day** (your weight × {multiplier})"
+        target = min(int(lbs * multiplier), MAX_CALORIES)
+        return f"**Your target: {target:,} calories/day** (your weight × {multiplier}, capped at 2,500)"
     except (ValueError, TypeError):
-        return "**Your target:** use the formula in the lesson — your weight in lbs × 12 if you have a significant amount to lose, or × 15 if you're closer to your goal weight"
+        return "**Your target:** your weight in lbs × 10 if you have a significant amount to lose, or × 12 if you're closer to your goal weight — maximum 2,500 calories"
 
 
 def _decode_header(value: str) -> str:
@@ -2189,6 +2410,93 @@ Their message:
 Reply only with the email body — no subject line, no preamble."""
 
 
+def _handle_pivot_reply(subject: str, body: str):
+    """Store a pivot note from Will's email reply into reminders.json."""
+    reminders_file = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
+    try:
+        data = json.loads(reminders_file.read_text()) if reminders_file.exists() else {"reminders": [], "pivot_notes": []}
+        data.setdefault("pivot_notes", []).append({
+            "reminder_id": "email",
+            "note": body[:1000].strip(),
+            "subject": subject,
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
+        })
+        reminders_file.write_text(json.dumps(data, indent=2))
+        print(f"  💾 Pivot note saved from Will's email reply")
+    except Exception as e:
+        print(f"  ⚠️  Could not save pivot note: {e}")
+
+
+def _handle_will_bot_reply(subject: str, body: str, secrets: dict):
+    """
+    Will replied to a [COMMAND], [TECH], or [ACCOUNTS] bot email with a question
+    or instruction. Claude reads it, answers/acts, and replies to will@.
+    """
+    print(f"  💬 Will replied to bot email: {subject[:60]}")
+    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")
+    if not api_key:
+        print("  ⚠️  No API key — cannot handle bot reply")
+        return
+
+    # Determine context from subject tag
+    # Handle [PIVOT] replies — store to reminders.json and acknowledge
+    if "[PIVOT]" in subject or subject.lower().startswith("pivot"):
+        _handle_pivot_reply(subject, body)
+        send_email(
+            secrets, to="will@battleship.me",
+            subject=f"Re: {subject}",
+            plain_body=f"Pivot noted and saved. The bot will adjust accordingly.\n\n— Battleship Bot",
+            html_body="<p>Pivot noted and saved. The bot will adjust accordingly.</p><p>— Battleship Bot</p>",
+        )
+        return
+
+    context_map = {
+        "[COMMAND]": "You are the Battleship Reset growth orchestrator. Will has replied to the daily Command Report.",
+        "[TECH]":    "You are the Battleship Reset tech bot. Will has replied to the tech free-wins guide email.",
+        "[ACCOUNTS]": "You are the Battleship Reset accounts bot. Will has replied to the P&L report.",
+        "[REMINDER]": "You are the Battleship Reset assistant. Will has replied about a reminder or action item.",
+    }
+    context = next((v for k, v in context_map.items() if k in subject), "You are the Battleship Reset assistant.")
+
+    prompt = f"""{context}
+
+Business: Battleship Reset — midlife fitness coaching for men 40-60, UK.
+Goal: £3,000/month MRR within 90 days.
+Website: battleshipreset.com. Owner: Will Barratt, 47.
+
+Will has replied to an automated report email with a question or instruction.
+His message:
+---
+{body[:2000]}
+---
+
+Respond helpfully. If it's a question, answer it clearly and concisely.
+If it's an instruction (e.g. "skip the SEO for this week"), acknowledge it and explain what will happen.
+If it's a setup question (e.g. "how do I find my GBP URL"), give step-by-step instructions.
+Keep it short. Will is on his phone. No fluff. Sign off as "— Battleship Bot"."""
+
+    client   = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=600,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    reply_body = response.content[0].text.strip()
+
+    # Reply tag for the subject
+    reply_subject = f"Re: {subject}" if not subject.startswith("Re:") else subject
+
+    send_email(
+        secrets,
+        to="will@battleship.me",
+        subject=reply_subject,
+        plain_body=reply_body,
+        html_body=f'<p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#333;">'
+                  + reply_body.replace("\n", "<br>") + "</p>",
+    )
+    print(f"  ✅ Replied to Will's bot question → will@battleship.me")
+
+
 def process_inbound_emails(state: dict, secrets: dict):
     """Poll coach@ and support@ inboxes, auto-reply to client emails via Claude."""
     if not secrets.get("imap_host") or not secrets.get("imap_user") or not secrets.get("imap_pass"):
@@ -2235,7 +2543,7 @@ def process_inbound_emails(state: dict, secrets: dict):
         if "<" in from_addr and ">" in from_addr:
             sender_email = from_addr.split("<")[1].rstrip(">").strip().lower()
 
-        # Route: will@ — check for comment approvals, otherwise flag
+        # Route: will@ — check for comment approvals, command replies, otherwise flag
         if WILL_EMAIL in to_addr:
             if "[COMMENTS]" in subject and sender_email == WILL_EMAIL:
                 # Will replied to a comment approval email
@@ -2245,6 +2553,10 @@ def process_inbound_emails(state: dict, secrets: dict):
                     print(f"  ✅ Comment approval processed")
                 except Exception as e:
                     print(f"  ⚠️  Comment approval failed: {e}")
+                mail.store(uid, "+FLAGS", "\\Seen")
+            elif any(tag in subject for tag in ("[COMMAND]", "[TECH]", "[ACCOUNTS]", "[PIVOT]", "[REMINDER]")) and sender_email == WILL_EMAIL:
+                # Will is replying to one of the bot reports with a question or instruction
+                _handle_will_bot_reply(subject, body, secrets)
                 mail.store(uid, "+FLAGS", "\\Seen")
             else:
                 print(f"  👤 Email to will@ from {sender_email} — needs your personal reply")
@@ -2372,6 +2684,42 @@ def process_inbound_emails(state: dict, secrets: dict):
         print(f"  ✅ Replied to {cs['name']}")
 
     mail.logout()
+
+
+def send_day3_nudge(state: dict, secrets: dict):
+    """Send a Day 3 nudge to clients who enrolled 2–4 days ago and haven't had one yet."""
+    today = datetime.now(timezone.utc).date()
+    for slug, cs in state["clients"].items():
+        if cs.get("status") != "active" or not cs.get("enrolled_date"):
+            continue
+        if not cs.get("email"):
+            continue
+        if "day3_nudge" in cs.get("emails_sent", []):
+            continue
+        enrolled = datetime.fromisoformat(cs["enrolled_date"]).date()
+        days_in  = (today - enrolled).days
+        if days_in < 2 or days_in > 4:
+            continue
+
+        name  = cs["name"].split()[0]
+        goal  = cs.get("tags", {}).get("main_goal", "")
+        plain = (
+            f"Hi {name},\n\n"
+            f"Just checking in — you're three days into Week 1.\n\n"
+            f"This week's only job is the walk. Thirty minutes, every day. "
+            f"That's it. No weights, no meal plan, no complexity. Just the walk.\n\n"
+            f"It sounds simple because it is. But simple done consistently is what "
+            f"everything else gets built on. Most people skip the foundation and wonder "
+            f"why the house falls down.\n\n"
+            f"How's it going? Hit reply — even just one line.\n\n"
+            f"— Will"
+        )
+        subj = f"Day 3 — how's the walking going, {name}?"
+        send_email(secrets, cs["email"], subj, plain)
+        cs.setdefault("emails_sent", []).append("day3_nudge")
+        log_event(cs["folder"], "Day 3 nudge sent")
+        print(f"  👟 Day 3 nudge → {name} ({cs['email']})")
+    save_state(state)
 
 
 def send_education_drips(state: dict, secrets: dict):
@@ -2609,6 +2957,95 @@ def cmd_find(query: str, state: dict):
         print(f"         Folder: clients/{cs['folder']}/")
         print(f"         Enrolled: {cs.get('enrolled_date') or 'not yet'}")
         print()
+
+
+def _parse_intake_for_reconcile(folder_path: Path) -> dict | None:
+    """Extract name, account, email, submitted from intake.md."""
+    intake = folder_path / "intake.md"
+    if not intake.exists():
+        return None
+    name = account = email = submitted = None
+    lines = intake.read_text().splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("# Intake —"):
+            name = line.replace("# Intake —", "").strip().title()
+        elif line.startswith("Account:"):
+            account = line.split(":", 1)[1].strip()
+        elif line.startswith("Submitted:"):
+            submitted = line.split(":", 1)[1].strip()
+        elif "email" in line.lower() and i + 1 < len(lines):
+            candidate = lines[i + 1].strip()
+            if "@" in candidate and not candidate.startswith("**"):
+                email = candidate
+    return {"name": name, "account": account, "email": email, "submitted": submitted}
+
+
+def cmd_reconcile(state: dict):
+    """--reconcile — scan client folders and rebuild any state.json entries that are missing."""
+    folder_pattern = re.compile(r"^(BSR-\d{4}-\d{4})-")
+    known_folders  = {cs.get("folder", "") for cs in state.get("clients", {}).values()}
+    known_accounts = set(state.get("clients", {}).keys())
+
+    added = 0
+    for d in sorted(CLIENTS_DIR.iterdir()):
+        if not d.is_dir():
+            continue
+        m = folder_pattern.match(d.name)
+        if not m:
+            continue
+        if d.name in known_folders:
+            continue
+        account_no = m.group(1)
+        if account_no in known_accounts:
+            continue
+
+        parsed = _parse_intake_for_reconcile(d)
+        if not parsed or not parsed.get("name"):
+            print(f"  ⚠️  {d.name}: cannot parse intake.md — skipping")
+            continue
+
+        tags = {}
+        tags_file = d / "tags.json"
+        if tags_file.exists():
+            try:
+                tags = json.loads(tags_file.read_text())
+            except Exception:
+                pass
+
+        has_tracker = (d / "progress-tracker.md").exists()
+        has_diag    = (d / "diagnosis.md").exists()
+        status = "active" if has_tracker else ("diagnosed" if has_diag else "error")
+
+        entry = {
+            "account_no":            account_no,
+            "folder":                d.name,
+            "name":                  parsed["name"],
+            "email":                 parsed.get("email") or "",
+            "intake_date":           parsed.get("submitted", ""),
+            "status":                status,
+            "current_week":          1,
+            "enrolled_date":         None,
+            "emails_sent":           [],
+            "tags":                  tags,
+            "last_checkin_request":  None,
+            "last_checkin_received": None,
+            "notion_page_id":        None,
+            "notion_url":            None,
+            "_reconciled":           True,
+            "_reconciled_at":        datetime.now(timezone.utc).isoformat(),
+        }
+        state["clients"][account_no] = entry
+        num = int(account_no.split("-")[-1])
+        if num >= state.get("next_client_number", 1):
+            state["next_client_number"] = num + 1
+        print(f"  ✅ Reconciled: {account_no} — {parsed['name']} ({status})")
+        added += 1
+
+    if added:
+        save_state(state)
+        print(f"\n✅ Reconcile complete — {added} client(s) restored to state.json")
+    else:
+        print(f"\n✅ Nothing to reconcile — all folders are already in state.json")
 
 
 def cmd_status(query: str, state: dict):
@@ -2864,6 +3301,10 @@ def main():
         manual_enrol(query, state, secrets, free=free)
         return
 
+    if "--reconcile" in sys.argv:
+        cmd_reconcile(load_state())
+        return
+
     if any(a.startswith("--find=") for a in sys.argv):
         query = next(a.split("=", 1)[1] for a in sys.argv if a.startswith("--find="))
         cmd_find(query, load_state())
@@ -2899,6 +3340,7 @@ def main():
         return
 
     state = load_state()
+    cmd_reconcile(state)
 
     print("\n🔐 Loading secrets from 1Password...")
     secrets = load_secrets()
@@ -2924,7 +3366,15 @@ def main():
     print("\n📬 Processing inbound emails...")
     process_inbound_emails(state, secrets)
 
-    # 6. Education drips
+    # 6. Day 3 nudge — check in with clients 2–4 days after enrolment
+    print("\n👟 Day 3 nudge check...")
+    send_day3_nudge(state, secrets)
+
+    # 6a. Tester feedback — Sundays only
+    print("\n🧪 Tester feedback requests (Sundays)...")
+    send_tester_feedback_requests(state, secrets)
+
+    # 7. Education drips
     print("\n📚 Education drip schedule...")
     send_education_drips(state, secrets)
 
@@ -2956,6 +3406,92 @@ def main():
         run_ads(secrets, VAULT_ROOT)
     except Exception as e:
         print(f"  ⚠️  Ads bot skipped: {e}")
+
+    # 12. Meta metrics sync (page fans, IG followers, ad spend/impressions)
+    print("\n📊 Meta metrics sync...")
+    try:
+        from scripts.fetch_meta_metrics import run as run_meta_sync
+        run_meta_sync()
+    except Exception as e:
+        try:
+            import importlib.util as _ilu
+            spec = _ilu.spec_from_file_location("fetch_meta", VAULT_ROOT / "scripts" / "fetch_meta_metrics.py")
+            mod  = _ilu.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            mod.run()
+        except Exception as e2:
+            print(f"  ⚠️  Meta sync skipped: {e2}")
+
+    # 13. Accounts bot — scan receipts, update finances.md, P&L report
+    print("\n🧾 Accounts bot...")
+    try:
+        from skills.accounts_bot import run as run_accounts
+        run_accounts(secrets, state, VAULT_ROOT)
+    except Exception as e:
+        print(f"  ⚠️  Accounts bot skipped: {e}")
+
+    # 13. Marketing bot — daily review, weekly strategy, funnel tracking
+    print("\n📣 Marketing bot...")
+    try:
+        from skills.marketing_bot import run as run_marketing
+        run_marketing(secrets, state, VAULT_ROOT)
+    except Exception as e:
+        print(f"  ⚠️  Marketing bot skipped: {e}")
+
+    # 14. Orchestrator — growth coordination (SEO + brand PM + tech backlog)
+    print("\n🎯 Orchestrator (growth)...")
+    try:
+        from skills.orchestrator import run as run_orchestrator
+        run_orchestrator(secrets, state)
+    except Exception as e:
+        print(f"  ⚠️  Orchestrator skipped: {e}")
+
+    # 15. Telegram callback polling — process photo approvals/rejections from Telegram buttons
+    print("\n📱 Telegram callback polling...")
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location("telegram_notify", VAULT_ROOT / "scripts" / "telegram_notify.py")
+        _tg   = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_tg)
+        callbacks = _tg.poll_callbacks()
+        if callbacks:
+            photo_review_file = CLIENTS_DIR / "photo_review_state.json"
+            if photo_review_file.exists():
+                pr_data = json.loads(photo_review_file.read_text())
+            else:
+                pr_data = {"candidates": []}
+            queue_dir = CLIENTS_DIR / "facebook_queue"
+            for cb in callbacks:
+                data_str = cb.get("data", "")
+                if data_str.startswith("photo_approve_"):
+                    photo_id = data_str[len("photo_approve_"):]
+                    for c in pr_data.get("candidates", []):
+                        if c["id"] == photo_id and c.get("status") == "pending":
+                            c["status"] = "approved"
+                            c["reviewed_at"] = datetime.now().isoformat()
+                            c["review_source"] = "telegram"
+                            # Queue for Facebook posting
+                            if c.get("path") and Path(c["path"]).exists():
+                                queue_dir.mkdir(parents=True, exist_ok=True)
+                                import uuid as _uuid
+                                q = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": c["path"],
+                                     "caption": c.get("caption_hint", ""), "source": "telegram_review",
+                                     "queued_at": datetime.now().isoformat(), "status": "pending"}
+                                (queue_dir / f"photo_{photo_id}.json").write_text(json.dumps(q, indent=2))
+                            print(f"  ✅ Photo approved via Telegram: {c.get('filename')}")
+                elif data_str.startswith("photo_reject_"):
+                    photo_id = data_str[len("photo_reject_"):]
+                    for c in pr_data.get("candidates", []):
+                        if c["id"] == photo_id and c.get("status") == "pending":
+                            c["status"] = "rejected"
+                            c["reviewed_at"] = datetime.now().isoformat()
+                            c["review_source"] = "telegram"
+                            print(f"  ❌ Photo rejected via Telegram: {c.get('filename')}")
+            photo_review_file.write_text(json.dumps(pr_data, indent=2))
+        else:
+            print("  ✅ No pending Telegram callbacks")
+    except Exception as e:
+        print(f"  ⚠️  Telegram polling skipped: {e}")
 
     # Save state
     save_state(state)
