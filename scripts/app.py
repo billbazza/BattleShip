@@ -157,6 +157,28 @@ def get_system_status() -> dict:
     queued = len(list(TALLY_QUEUE.glob("submission-*.json"))) if TALLY_QUEUE.exists() else 0
     stat["queue"] = _ok(f"{queued} queued") if queued == 0 else _warn(f"{queued} waiting")
 
+    # FB Post Queue
+    try:
+        qs = db.get_queue_settings()
+        if qs.get("paused"):
+            stat["fb_queue"] = _err("⏸ Paused")
+        else:
+            stat["fb_queue"] = _ok("Active · Mon/Wed/Fri")
+    except Exception:
+        stat["fb_queue"] = _warn("Unknown")
+
+    # FB Ads (manual flag stored in bot_state — set via dashboard toggle)
+    try:
+        ads_flag = db.get_bot_state("fb_ads_paused")
+        if ads_flag == "1":
+            stat["fb_ads"] = _err("⏸ Paused")
+        elif ads_flag == "0":
+            stat["fb_ads"] = _ok("Active")
+        else:
+            stat["fb_ads"] = _warn("Not set")
+    except Exception:
+        stat["fb_ads"] = _warn("Unknown")
+
     return stat
 
 # ── Business Manager Helpers ──────────────────────────────────────────────────
@@ -413,13 +435,91 @@ BASE = """<!DOCTYPE html>
 DASHBOARD = BASE.replace("{% block content %}{% endblock %}", """
 {% block content %}
 
+<!-- KPI Row -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px">
+  <div style="background:#1a1a1a;border:1px solid #252525;border-radius:4px;padding:14px 16px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:6px">MRR</div>
+    <div style="font-size:26px;font-weight:700;color:#fff">£{{ "%.0f"|format(mrr) }}</div>
+  </div>
+  <div style="background:#1a1a1a;border:1px solid #252525;border-radius:4px;padding:14px 16px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:6px">Gap to £3k</div>
+    <div style="font-size:26px;font-weight:700;color:{% if gap > 0 %}#c41e3a{% else %}#2a9d4e{% endif %}">£{{ "%.0f"|format(gap) }}</div>
+  </div>
+  <div style="background:#1a1a1a;border:1px solid #252525;border-radius:4px;padding:14px 16px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:6px">Net P&amp;L</div>
+    <div style="font-size:26px;font-weight:700;color:{% if net >= 0 %}#2a9d4e{% else %}#c41e3a{% endif %}">{% if net >= 0 %}+{% endif %}£{{ "%.0f"|format(net) }}</div>
+  </div>
+  <div style="background:#1a1a1a;border:1px solid #252525;border-radius:4px;padding:14px 16px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:6px">Total Spend</div>
+    <div style="font-size:26px;font-weight:700;color:#e8a020">£{{ "%.0f"|format(spend) }}</div>
+  </div>
+  <div style="background:#1a1a1a;border:1px solid #252525;border-radius:4px;padding:14px 16px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:6px">Paying Clients</div>
+    <div style="font-size:26px;font-weight:700;color:#fff">{{ active_count }}</div>
+  </div>
+</div>
+
+<!-- Pipeline Summary Row -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:20px">
+  <div style="background:#111;border:1px solid #1e1e1e;border-radius:4px;padding:10px 12px;text-align:center">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">Ideas</div>
+    <div style="font-size:20px;font-weight:700;color:#e8a020">{{ pipeline.ideas }}</div>
+  </div>
+  <div style="background:#111;border:{% if pipeline.content_review %}1px solid #5a0a1a{% else %}1px solid #1e1e1e{% endif %};border-radius:4px;padding:10px 12px;text-align:center">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">To Review</div>
+    <div style="font-size:20px;font-weight:700;color:{% if pipeline.content_review %}#c41e3a{% else %}#444{% endif %}">{{ pipeline.content_review }}</div>
+  </div>
+  <div style="background:#111;border:1px solid #1e1e1e;border-radius:4px;padding:10px 12px;text-align:center">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">FB Queue</div>
+    <div style="font-size:20px;font-weight:700;color:#ccc">{{ pipeline.fb_queue }}</div>
+  </div>
+  <div style="background:#111;border:1px solid #1e1e1e;border-radius:4px;padding:10px 12px;text-align:center">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">Posted</div>
+    <div style="font-size:20px;font-weight:700;color:#2a9d4e">{{ pipeline.posted }}</div>
+  </div>
+  <div style="background:#111;border:{% if pipeline.pending_emails %}1px solid #3a2000{% else %}1px solid #1e1e1e{% endif %};border-radius:4px;padding:10px 12px;text-align:center">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">Emails</div>
+    <div style="font-size:20px;font-weight:700;color:{% if pipeline.pending_emails %}#e8a020{% else %}#444{% endif %}">{{ pipeline.pending_emails }}</div>
+  </div>
+  <div style="background:#111;border:{% if pipeline.pending_photos %}1px solid #2a2a00{% else %}1px solid #1e1e1e{% endif %};border-radius:4px;padding:10px 12px;text-align:center">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">Photos</div>
+    <div style="font-size:20px;font-weight:700;color:{% if pipeline.pending_photos %}#e8a020{% else %}#444{% endif %}">{{ pipeline.pending_photos }}</div>
+  </div>
+</div>
+
 <div class="status-panel">
   <div class="status-panel-header">
     <span class="status-panel-title">System Status</span>
     <span class="status-refresh" onclick="location.reload()">↻ Refresh</span>
   </div>
+  <!-- FB state toggles — prominent at top -->
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px;background:{% if queue_settings.paused %}#2a0000{% else %}#001a0a{% endif %};border:1px solid {% if queue_settings.paused %}#c41e3a{% else %}#2a9d4e{% endif %};border-radius:4px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:2px">FB Post Queue</div>
+        <div style="font-size:13px;font-weight:600;color:{% if queue_settings.paused %}#c41e3a{% else %}#2a9d4e{% endif %}">{% if queue_settings.paused %}⏸ Paused{% else %}▶ Active · Mon/Wed/Fri{% endif %}</div>
+      </div>
+      {% if queue_settings.paused %}
+      <button onclick="fetch('/api/fb-queue/resume',{method:'POST'}).then(()=>location.reload())" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer;white-space:nowrap">▶ Resume</button>
+      {% else %}
+      <button onclick="fetch('/api/fb-queue/pause',{method:'POST'}).then(()=>location.reload())" style="background:none;border:1px solid #333;color:#555;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer;white-space:nowrap">⏸ Pause</button>
+      {% endif %}
+    </div>
+    <div style="flex:1;min-width:200px;background:{% if status.fb_ads.status == 'ok' %}#001a0a{% elif status.fb_ads.status == 'err' %}#2a0000{% else %}#1a1500{% endif %};border:1px solid {% if status.fb_ads.status == 'ok' %}#2a9d4e{% elif status.fb_ads.status == 'err' %}#c41e3a{% else %}#666{% endif %};border-radius:4px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:2px">FB Ad Campaign</div>
+        <div style="font-size:13px;font-weight:600;color:{% if status.fb_ads.status == 'ok' %}#2a9d4e{% elif status.fb_ads.status == 'err' %}#c41e3a{% else %}#e8a020{% endif %}">{{ status.fb_ads.label }}</div>
+      </div>
+      {% if status.fb_ads.status == 'err' %}
+      <button onclick="fetch('/api/fb-ads/resume',{method:'POST'}).then(()=>location.reload())" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer;white-space:nowrap">▶ Resume</button>
+      {% else %}
+      <button onclick="fetch('/api/fb-ads/pause',{method:'POST'}).then(()=>location.reload())" style="background:none;border:1px solid #333;color:#555;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer;white-space:nowrap">⏸ Pause</button>
+      {% endif %}
+    </div>
+  </div>
   <div class="status-grid">
     {% for key, item in status.items() %}
+    {% if key not in ('fb_queue', 'fb_ads') %}
     <div class="status-item">
       <div class="status-item-name">{{ key }}</div>
       <div class="status-item-val">
@@ -427,22 +527,114 @@ DASHBOARD = BASE.replace("{% block content %}{% endblock %}", """
         <span class="status-item-label" title="{{ item.label }}">{{ item.label }}</span>
       </div>
     </div>
+    {% endif %}
     {% endfor %}
   </div>
   <hr class="status-divider">
   <div class="status-meta">
-    <span class="status-meta-item">Active clients: <strong>{{ active_count }}</strong></span>
     <span class="status-meta-item">Diagnosed: <strong>{{ diagnosed_count }}</strong></span>
     <span class="status-meta-item">Pipeline: <strong>{{ status.pipeline.label }}</strong></span>
     <span class="status-meta-item">Queued: <strong>{{ status.queue.label }}</strong></span>
     <span class="status-meta-item" style="margin-left:auto;display:flex;gap:14px;align-items:center">
       <a href="https://battleshipreset.com" target="_blank" style="color:#888;font-size:11px">🌐 Website ↗</a>
-      <a href="https://tally.so/r/rjK752" target="_blank" style="color:#888;font-size:11px">📋 Quiz ↗</a>
+      <a href="https://tally.so/r/5B2p5Q" target="_blank" style="color:#888;font-size:11px">📋 Quiz ↗</a>
       <a href="https://www.facebook.com/people/Battleship-Reset/61574337936271/" target="_blank" style="color:#888;font-size:11px">📘 Facebook ↗</a>
       <a href="https://www.instagram.com/battleshipreset/" target="_blank" style="color:#888;font-size:11px">📸 Instagram ↗</a>
       <a href="https://buy.stripe.com/3cI6oG79qefgb1CdhwejK00" target="_blank" style="color:#888;font-size:11px">💳 Stripe ↗</a>
       <a href="https://business.google.com" target="_blank" style="color:#888;font-size:11px">📍 GBP ↗</a>
     </span>
+  </div>
+</div>
+
+<!-- Trends -->
+<div style="margin-bottom:24px">
+  <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+    <span>Content Trends</span>
+    <span style="color:#333;font-size:10px;letter-spacing:0;text-transform:none">this week vs last week</span>
+  </div>
+  <!-- Week comparison row -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:14px">
+    <div style="background:#111;border:1px solid #1e1e1e;border-radius:4px;padding:12px 14px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">Posts Published</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font-size:22px;font-weight:700;color:#2a9d4e">{{ trends.posts_this_week }}</span>
+        <span style="font-size:12px;color:#444">this wk</span>
+        <span style="font-size:12px;color:#333">/ {{ trends.posts_last_week }} last</span>
+      </div>
+    </div>
+    <div style="background:#111;border:1px solid #1e1e1e;border-radius:4px;padding:12px 14px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">Ideas Generated</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font-size:22px;font-weight:700;color:#e8a020">{{ trends.ideas_this_week }}</span>
+        <span style="font-size:12px;color:#444">this wk</span>
+        <span style="font-size:12px;color:#333">/ {{ trends.ideas_last_week }} last</span>
+      </div>
+    </div>
+    <div style="background:#111;border:1px solid #1e1e1e;border-radius:4px;padding:12px 14px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">Total Posted</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font-size:22px;font-weight:700;color:#ccc">{{ trends.total_posted }}</span>
+        <span style="font-size:12px;color:#444">all time</span>
+      </div>
+    </div>
+    <div style="background:#111;border:1px solid #1e1e1e;border-radius:4px;padding:12px 14px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:4px">Diagnosed</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font-size:22px;font-weight:700;color:#c084fc">{{ diagnosed_count }}</span>
+        <span style="font-size:12px;color:#444">leads</span>
+      </div>
+    </div>
+  </div>
+  <!-- Pipeline funnel -->
+  <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#444;margin-bottom:8px">Pipeline Funnel</div>
+  {% set funnel_max = [trends.funnel_ideas, trends.funnel_review, trends.funnel_queue, trends.funnel_posted] | max %}
+  {% set funnel_max = funnel_max if funnel_max > 0 else 1 %}
+  {% for label, val, colour in [
+    ('Ideas', trends.funnel_ideas, '#e8a020'),
+    ('Content Review', trends.funnel_review, '#c41e3a'),
+    ('FB Queue', trends.funnel_queue, '#4a9eff'),
+    ('Posted', trends.funnel_posted, '#2a9d4e')
+  ] %}
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
+    <div style="width:110px;font-size:10px;color:#555;text-align:right;flex-shrink:0">{{ label }}</div>
+    <div style="flex:1;background:#111;border-radius:2px;height:18px;overflow:hidden">
+      <div style="width:{{ (val / funnel_max * 100) | int }}%;background:{{ colour }};height:100%;opacity:0.7;min-width:{% if val > 0 %}4px{% else %}0{% endif %}"></div>
+    </div>
+    <div style="width:28px;font-size:11px;font-weight:700;color:{{ colour }}">{{ val }}</div>
+  </div>
+  {% endfor %}
+  <!-- Recent posts -->
+  {% if trends.recent_posts %}
+  <div style="margin-top:12px">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#444;margin-bottom:6px">Recent Posts</div>
+    {% for p in trends.recent_posts %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #1a1a1a;font-size:12px">
+      <span style="color:#888;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:12px">{{ p.content[:80] }}{% if p.content|length > 80 %}…{% endif %}</span>
+      <span style="color:#444;font-size:10px;flex-shrink:0">{{ p.posted_at[:10] if p.posted_at else '—' }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Weekly Targets -->
+<div style="margin-bottom:24px">
+  <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:12px">
+    Weekly Targets
+    <span style="color:#333;font-size:10px;letter-spacing:0;text-transform:none;margin-left:8px">Mon → Sun</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+  {% for t in weekly_targets %}
+  <div style="background:#111;border:1px solid #1e1e1e;border-radius:4px;padding:14px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:12px;color:#666">{{ t.label }}</span>
+      <span style="font-size:12px;font-weight:700;color:{% if t.current >= t.target %}#2a9d4e{% elif t.current > 0 %}#e8a020{% else %}#444{% endif %}">{{ t.current }} / {{ t.target }}</span>
+    </div>
+    <div style="background:#1a1a1a;border-radius:2px;height:6px;overflow:hidden">
+      <div style="width:{{ [((t.current / t.target * 100) if t.target else 0), 100] | min | int }}%;background:{% if t.current >= t.target %}#2a9d4e{% else %}#c41e3a{% endif %};height:100%"></div>
+    </div>
+  </div>
+  {% endfor %}
   </div>
 </div>
 
@@ -625,25 +817,37 @@ RUN_PAGE = BASE.replace("{% block content %}{% endblock %}", """
 
 # ── Pipeline Simulator ────────────────────────────────────────────────────────
 
-# Mirrors EDUCATION_DRIPS in battleship_pipeline.py + day_offset within the week
-# (day 0 = Monday, day 3 = Thursday) — matches the idx==1 stagger logic in the pipeline
-_SIM_DRIPS = {
-    # One lesson per week. Day offset: 0=Monday. Week 8 keeps challenge (AI email, separate trigger).
-    1:  [("edu_sleep",       "Week 1 bonus: sleep — the easiest win in the programme",          "education-lessons/sleep/sleep-for-fat-loss.md",                          0)],
-    2:  [("edu_zone2",       "Why slow walking beats hard running — the science",               "education-lessons/exercises/zone2-walking.md",                           0)],
-    3:  [("edu_8020",        "The 80/20 rule of nutrition",                                     "education-lessons/nutrition/80-20-rule.md",                              0)],
-    4:  [("edu_fatloss_1",   "How to actually lose fat: getting started",                       "education-lessons/fat-loss/getting-started.md",                          0)],
-    5:  [("edu_fatloss_2",   "How to actually lose fat: awareness",                             "education-lessons/fat-loss/awareness.md",                                0),
-         ("edu_mfp",        "Your calorie tracking tool: MyFitnessPal — simple setup guide",   "education-lessons/Myfitnesspal/myfitnesspal-guide.md",                   3)],
-    6:  [("edu_training_1",  "Time to add weights — here's what your training looks like",      "education-lessons/training/workout-overview.md",                         0)],
-    7:  [("edu_gymtim",      "Gymtimidation — and why it ends at session three",                "education-lessons/training/gymtimidation.md",                            0)],
-    8:  [("edu_warmup",      "The warm-up you should never skip (especially over 40)",          "education-lessons/training/warm-ups.md",                                 0),
-         ("edu_challenge",   "Week 8: What's your challenge?",                                  "education-lessons/training/confirmation-challenge.md",                   0)],
-    9:  [("edu_fasting",     "Why fasting is the fastest way to burn dangerous belly fat",      "education-lessons/fasting/jamnadas-fasting-visceral-fat.md",             0)],
-    10: [("edu_fatloss_t",   "Why lifting beats cardio for body composition",                   "education-lessons/training/training-for-fat-loss.md",                   0)],
-    11: [("edu_bws",         "The Battleship training method — and why boring works",           "education-lessons/training/bws-method.md",                              0)],
-    12: [("edu_arms",        "What about arms? Why the basics come first",                      "education-lessons/training/arms-and-basics.md",                         0)],
-}
+# Derived at runtime from EDUCATION_DRIPS in battleship_pipeline.py — single source of truth.
+# day_offset: lesson idx 0 → Monday (0), idx 1 → Thursday (3), matching pipeline stagger logic.
+def _build_sim_drips() -> dict:
+    try:
+        from scripts.battleship_pipeline import EDUCATION_DRIPS
+        result = {}
+        for week, lessons in EDUCATION_DRIPS.items():
+            result[week] = []
+            for idx, item in enumerate(lessons):
+                key, subject, filepath = item[0], item[1], item[2]
+                result[week].append((key, subject, filepath, 3 if idx == 1 else 0))
+        return result
+    except Exception as e:
+        print(f"  ⚠️  Could not load EDUCATION_DRIPS from pipeline: {e}")
+        return {}
+
+_SIM_DRIPS = _build_sim_drips()
+
+
+def _build_gantt_education_cells() -> dict:
+    """Return {week: 1} for every week that has at least one education drip."""
+    return {w: 1 for w in _SIM_DRIPS}
+
+
+def _build_gantt_challenge_cells() -> dict:
+    """Return {week: 1} for every week that has a challenge drip."""
+    cells = {}
+    for week, lessons in _SIM_DRIPS.items():
+        if any("challenge" in key for (key, *_) in lessons):
+            cells[week] = 1
+    return cells
 
 # ── Programme track constants + parser (mirrors battleship_pipeline.py) ───────
 
@@ -961,6 +1165,115 @@ SIMULATOR_PAGE = BASE.replace("{% block content %}{% endblock %}", """
   <strong style="color:#0a0a0a">Nothing is sent. No state is changed.</strong> Virtual client only.
 </p>
 
+<!-- ═══ PRODUCT CONFIDENCE STUDY ═══════════════════════════════════════════ -->
+<div class="card" style="padding:0;margin-bottom:20px;border-color:#d0ccc5;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none"
+       onclick="toggleConfidence()" id="confidence-header">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:15px">📊</span>
+      <span style="font-weight:700;font-size:14px;color:#0a0a0a">Product Confidence Study</span>
+      <span style="font-size:11px;color:#888;font-weight:400">cadence · value for money · brand review</span>
+    </div>
+    <span id="confidence-chevron" style="color:#aaa;font-size:12px;transition:transform 0.2s">▼</span>
+  </div>
+
+  <div id="confidence-body" style="display:none;border-top:1px solid #e8e4dc">
+
+    <!-- Gantt chart -->
+    <div style="padding:18px 20px 12px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#999;margin-bottom:14px">12-Week delivery Gantt</div>
+      <div style="overflow-x:auto">
+        <table id="gantt-table" style="width:100%;border-collapse:collapse;min-width:700px">
+          <thead>
+            <tr>
+              <td style="width:130px;padding:4px 8px;font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1px"></td>
+              <td style="padding:4px 4px;font-size:10px;color:#aaa;text-align:center;font-weight:700">Intake</td>
+              {% for w in range(1,13) %}
+              <td style="padding:4px 4px;font-size:10px;color:#aaa;text-align:center">{{ w }}</td>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody id="gantt-rows"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666"><span style="width:12px;height:12px;border-radius:2px;background:#c41e3a;display:inline-block"></span>Triggered</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666"><span style="width:12px;height:12px;border-radius:2px;background:#2a6496;display:inline-block"></span>Recurring</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666"><span style="width:12px;height:12px;border-radius:2px;background:#3a7a4a;display:inline-block"></span>Education</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666"><span style="width:12px;height:12px;border-radius:2px;background:#6a3a7a;display:inline-block"></span>Milestone</div>
+      </div>
+    </div>
+
+    <!-- Value scorecard -->
+    <div style="padding:14px 20px 18px;border-top:1px solid #f0ece4">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#999;margin-bottom:14px">Value for money — £97 one-off intro · full price £199/month after first cohort</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px">
+        <div style="background:#f8f6f1;border-radius:4px;padding:14px 16px">
+          <div style="font-size:22px;font-weight:700;color:#c41e3a;margin-bottom:2px">36</div>
+          <div style="font-size:12px;color:#666">personalised sessions<br><span style="font-size:11px;color:#aaa">Mon / Wed / Fri, Weeks 1–12</span></div>
+        </div>
+        <div style="background:#f8f6f1;border-radius:4px;padding:14px 16px">
+          <div style="font-size:22px;font-weight:700;color:#2a6496;margin-bottom:2px">12</div>
+          <div style="font-size:12px;color:#666">AI coach responses<br><span style="font-size:11px;color:#aaa">Weekly check-in → personal reply</span></div>
+        </div>
+        <div style="background:#f8f6f1;border-radius:4px;padding:14px 16px">
+          <div style="font-size:22px;font-weight:700;color:#3a7a4a;margin-bottom:2px">6</div>
+          <div style="font-size:12px;color:#666">education drops<br><span style="font-size:11px;color:#aaa">Wks 2,3,4 + challenge + close + phase 2</span></div>
+        </div>
+        <div style="background:#f8f6f1;border-radius:4px;padding:14px 16px">
+          <div style="font-size:22px;font-weight:700;color:#6a3a7a;margin-bottom:2px">8</div>
+          <div style="font-size:12px;color:#666">programme tracks<br><span style="font-size:11px;color:#aaa">auto-selected by equipment</span></div>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:#888;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Market comparison</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+        <div style="border:1px solid #e0dbd2;border-radius:4px;padding:12px 14px">
+          <div style="font-size:12px;font-weight:700;color:#0a0a0a;margin-bottom:4px">PT (gym, 3×/week)</div>
+          <div style="font-size:20px;font-weight:700;color:#c41e3a">£1,440–£2,160</div>
+          <div style="font-size:11px;color:#aaa">@ £40–60/session × 36 sessions</div>
+        </div>
+        <div style="border:1px solid #e0dbd2;border-radius:4px;padding:12px 14px">
+          <div style="font-size:12px;font-weight:700;color:#0a0a0a;margin-bottom:4px">Online coach (human)</div>
+          <div style="font-size:20px;font-weight:700;color:#c41e3a">£450–£900</div>
+          <div style="font-size:11px;color:#aaa">@ £150–300/month × 3 months</div>
+        </div>
+        <div style="border:1px solid #e0dbd2;border-radius:4px;padding:12px 14px">
+          <div style="font-size:12px;font-weight:700;color:#0a0a0a;margin-bottom:4px">App subscription</div>
+          <div style="font-size:20px;font-weight:700;color:#666">£30–45</div>
+          <div style="font-size:11px;color:#aaa">@ £10–15/month × 3 — no personalisation</div>
+        </div>
+        <div style="border:2px solid #c41e3a;border-radius:4px;padding:12px 14px;background:#fff8f8">
+          <div style="font-size:12px;font-weight:700;color:#c41e3a;margin-bottom:4px">Battleship Reset ✦</div>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <div style="font-size:20px;font-weight:700;color:#0a0a0a">£97</div>
+            <div style="font-size:12px;color:#aaa;text-decoration:line-through">£199/mo</div>
+            <div style="font-size:10px;color:#3a7a4a;font-weight:700">INTRO OFFER</div>
+          </div>
+          <div style="font-size:11px;color:#888;margin-top:2px">Full 12-week programme + AI coach + challenge milestones + auto-adjusted tracks</div>
+          <div style="font-size:11px;color:#aaa;margin-top:3px">One-off payment · full price £199/month after first cohort</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Brand review panel -->
+    <div style="padding:14px 20px 18px;border-top:1px solid #f0ece4">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#999">Brand Bot Review</div>
+        <button onclick="runBrandReview()" id="brand-review-btn"
+                class="btn btn-ghost" style="font-size:11px;padding:5px 14px">
+          Run Brand Review
+        </button>
+      </div>
+      <div id="brand-review-output" style="font-size:13px;color:#666;line-height:1.7;min-height:40px">
+        <em style="color:#bbb">Click "Run Brand Review" to get a Brand Bot assessment of cadence, value proposition, and product-market fit.</em>
+      </div>
+    </div>
+
+  </div>
+</div>
+<!-- ═══ END PRODUCT CONFIDENCE STUDY ════════════════════════════════════════ -->
+
 <div class="card" style="padding:18px 20px;margin-bottom:12px">
   <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#999;margin-bottom:10px">Programme track</div>
   <div style="display:flex;flex-direction:column;gap:8px">
@@ -1180,6 +1493,86 @@ function toggleEv(id, e) {
 
 // Auto-load intake on page load
 selectWeek(0);
+
+// ── Product Confidence Study ──────────────────────────────────────────────────
+
+function toggleConfidence() {
+  const body = document.getElementById('confidence-body');
+  const chev = document.getElementById('confidence-chevron');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  chev.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+  if (!open) buildGantt();
+}
+
+const GANTT_ROWS = [
+  { label:'System emails',    color:'#c41e3a',
+    cells: {0:1, 1:1, 12:1, 13:1} },
+  { label:'AI coach reply',   color:'#2a6496',
+    cells: {1:1,2:1,3:1,4:1,5:1,6:1,7:1,8:1,9:1,10:1,11:1,12:1} },
+  { label:'Sessions (×3/wk)', color:'#2a6496',
+    cells: {1:1,2:1,3:1,4:1,5:1,6:1,7:1,8:1,9:1,10:1,11:1,12:1} },
+  { label:'Education drips',  color:'#3a7a4a',
+    cells: {{ gantt_edu_cells }} },
+  { label:'Challenge email',  color:'#6a3a7a',
+    cells: {{ gantt_challenge_cells }} },
+  { label:'Phase 2 pitch',    color:'#6a3a7a',
+    cells: {12:1} },
+];
+
+function buildGantt() {
+  const tbody = document.getElementById('gantt-rows');
+  if (!tbody || tbody.innerHTML) return; // already built
+  let html = '';
+  GANTT_ROWS.forEach(row => {
+    html += '<tr>';
+    html += `<td style="padding:5px 8px;font-size:11px;color:#555;white-space:nowrap;border-right:1px solid #f0ece4">${row.label}</td>`;
+    for (let w = 0; w <= 12; w++) {
+      const active = row.cells[w];
+      html += `<td style="padding:4px 3px;text-align:center">`;
+      if (active) {
+        html += `<span style="display:inline-block;width:18px;height:18px;border-radius:3px;background:${row.color};opacity:0.85"></span>`;
+      } else {
+        html += `<span style="display:inline-block;width:18px;height:18px;border-radius:3px;background:#f0ece4"></span>`;
+      }
+      html += '</td>';
+    }
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function runBrandReview() {
+  const btn = document.getElementById('brand-review-btn');
+  const out = document.getElementById('brand-review-output');
+  btn.disabled = true;
+  btn.textContent = 'Reviewing…';
+  out.innerHTML = '<em style="color:#bbb">Brand Bot is assessing the programme…</em>';
+  fetch('/api/brand-confidence-review', {method:'POST'})
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        out.innerHTML = `<span style="color:#c41e3a">Error: ${data.error}</span>`;
+      } else {
+        const score = data.score || '—';
+        const verdict = data.verdict || '';
+        const scoreColor = score >= 8 ? '#3a7a4a' : score >= 6 ? '#e8a020' : '#c41e3a';
+        out.innerHTML = `
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+            <div style="font-size:36px;font-weight:700;color:${scoreColor}">${score}<span style="font-size:16px;color:#aaa">/10</span></div>
+            <div style="font-size:14px;font-weight:600;color:#0a0a0a">${verdict}</div>
+          </div>
+          <div style="font-size:13px;color:#444;line-height:1.8;white-space:pre-wrap">${data.review || ''}</div>`;
+      }
+      btn.disabled = false;
+      btn.textContent = 'Re-run Review';
+    })
+    .catch(e => {
+      out.innerHTML = `<span style="color:#c41e3a">Request failed: ${e}</span>`;
+      btn.disabled = false;
+      btn.textContent = 'Run Brand Review';
+    });
+}
 </script>
 {% endblock %}""")
 
@@ -1190,7 +1583,6 @@ BUSINESS_PAGE = """<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Battleship — Business Manager</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
@@ -1271,18 +1663,6 @@ BUSINESS_PAGE = """<!DOCTYPE html>
                   letter-spacing: 1px; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; }
     .back-link { font-size: 13px; color: #555; }
     .back-link:hover { color: #aaa; text-decoration: none; }
-
-    /* ── KPI cards ── */
-    .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 32px; }
-    @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 560px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
-    .kpi-card { background: #1a1a1a; border: 1px solid #252525; border-radius: 4px;
-                padding: 18px 16px; }
-    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
-                 color: #444; margin-bottom: 8px; }
-    .kpi-value { font-size: 22px; font-weight: 700; color: #e0e0e0; }
-    .kpi-value.red  { color: #c41e3a; }
-    .kpi-value.green { color: #2a9d4e; }
 
     /* ── Charts ── */
     .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
@@ -1457,98 +1837,103 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     <span class="page-title">Business Manager</span>
     <div class="page-meta">
       <span class="page-date">{{ today }}</span>
-      <span class="week-badge">Week {{ campaign_week }} / 12</span>
+      <span class="week-badge">Week {{ campaign_week }}</span>
     </div>
   </div>
 
-  <!-- B. KPI cards -->
-  <div class="section-label">Key Metrics</div>
-  <div class="kpi-row">
-    <div class="kpi-card">
-      <div class="kpi-label">MRR</div>
-      <div class="kpi-value">&#163;{{ "%.0f"|format(mrr) }}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Gap to &#163;3k</div>
-      <div class="kpi-value{% if gap > 0 %} red{% endif %}">&#163;{{ "%.0f"|format(gap) }}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Total Spend</div>
-      <div class="kpi-value">&#163;{{ "%.2f"|format(spend) }}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Net P&amp;L</div>
-      <div class="kpi-value{% if net >= 0 %} green{% else %} red{% endif %}">
-        {% if net >= 0 %}+{% endif %}&#163;{{ "%.2f"|format(net) }}
-      </div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Active Clients</div>
-      <div class="kpi-value">{{ active_clients }}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Week</div>
-      <div class="kpi-value">{{ campaign_week }} <span style="font-size:14px;color:#888;font-weight:400">/ 12</span></div>
-    </div>
+  <!-- Quick Actions -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+    {% if pending_content %}
+    <a href="#content-pipeline-section" style="background:#3a0010;border:1px solid #c41e3a;color:#c41e3a;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">&#9888; {{ pending_content|length }} post{{ 's' if pending_content|length != 1 }} to review</a>
+    {% endif %}
+    {% if pending_emails %}
+    <a href="#email-queue-section" style="background:#1a0030;border:1px solid #c084fc;color:#c084fc;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">&#9993; {{ pending_emails|length }} email{{ 's' if pending_emails|length != 1 }} to approve</a>
+    {% endif %}
+    {% if pending_photos %}
+    <a href="#photo-review-section" style="background:#2a1800;border:1px solid #e8a020;color:#e8a020;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">&#128248; {{ pending_photos|length }} photo{{ 's' if pending_photos|length != 1 }} to review</a>
+    {% endif %}
+    {% if pending_reminders %}
+    <a href="#reminders-section" style="background:#1a1a2a;border:1px solid #555;color:#888;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">&#128204; {{ pending_reminders|length }} action item{{ 's' if pending_reminders|length != 1 }}</a>
+    {% endif %}
+    {% if pivot_notes %}
+    <a href="#pivot-notes-section" style="background:#1a1500;border:1px solid #6b5a00;color:#c8a800;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:600;text-decoration:none">&#8635; {{ pivot_notes|length }} pivot note{{ 's' if pivot_notes|length != 1 }}</a>
+    {% endif %}
+    {% if not pending_content and not pending_emails and not pending_photos and not pending_reminders and not pivot_notes %}
+    <div style="background:#001a0a;border:1px solid #2a9d4e;color:#2a9d4e;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:600">&#10003; All clear &#8212; nothing needs attention</div>
+    {% endif %}
   </div>
 
-  <!-- B2. Morning Briefing -->
-  {% if briefing %}
+  <!-- B2. Morning Briefing — all stats live from DB / route context -->
   <div class="section-label" id="briefing-section">
     Morning Briefing
-    <span style="font-size:10px;color:#888;font-weight:400;margin-left:8px;text-transform:none;letter-spacing:0">{{ briefing.get('today','') }}</span>
-    <button onclick="toggleBriefing()" id="briefing-toggle" style="float:right;background:none;border:1px solid #333;color:#666;font-size:10px;padding:2px 10px;border-radius:3px;cursor:pointer;text-transform:uppercase;letter-spacing:1px">Collapse</button>
+    <span style="font-size:10px;color:#888;font-weight:400;margin-left:8px;text-transform:none;letter-spacing:0">{{ today }}</span>
+    <button onclick="toggleBriefing()" id="briefing-toggle" style="float:right;background:none;border:1px solid #333;color:#666;font-size:10px;padding:2px 10px;border-radius:3px;cursor:pointer;text-transform:uppercase;letter-spacing:1px">Expand</button>
   </div>
-  <div id="briefing-body" style="display:block">
-    <!-- Pulse row -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
-      {% set pulse = briefing.get('pulse',{}) %}
+  <div id="briefing-body" style="display:none">
+    <!-- Pulse — live from DB + state.json -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
       <div style="background:#111;border-radius:4px;padding:14px;text-align:center">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">MRR</div>
-        <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">£{{ pulse.get('mrr',0)|int }}</div>
-        <div style="font-size:11px;color:#555">/ £3,000</div>
+        <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">£{{ mrr|int }}</div>
+        <div style="font-size:11px;color:#555">/ £3,000 target</div>
       </div>
       <div style="background:#111;border-radius:4px;padding:14px;text-align:center">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Leads 7d</div>
-        <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">{{ pulse.get('leads_week',0) }}</div>
-        <div style="font-size:11px;color:#555">this week</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Paying Clients</div>
+        <div style="font-size:22px;font-weight:700;color:#c084fc;margin-top:4px">{{ active_clients }}</div>
+        <div style="font-size:11px;color:#555">active</div>
+      </div>
+      <div style="background:#111;border-radius:4px;padding:14px;text-align:center">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Leads This Week</div>
+        <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">{{ leads_week }}</div>
+        <div style="font-size:11px;color:#555">new intakes</div>
       </div>
       <div style="background:#111;border-radius:4px;padding:14px;text-align:center">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Ad Spend</div>
-        <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">£{{ "%.2f"|format(pulse.get('ad_spend_7d',0)) }}</div>
+        <div style="font-size:22px;font-weight:700;color:#e8a020;margin-top:4px">£{{ "%.2f"|format(ad_spend) }}</div>
         <div style="font-size:11px;color:#555">7 days</div>
       </div>
     </div>
-    <!-- Agent briefs -->
-    {% set agents = briefing.get('agents',{}) %}
-    {% for key, icon, label in [('clients','👥','Clients'),('ads','📣','Ads'),('brand','📊','Brand'),('seo','🔍','SEO'),('tech','⚙️','Tech')] %}
-    {% if key in agents %}
-    <div style="background:#111;border-radius:4px;padding:10px 14px;margin-bottom:6px;display:flex;gap:12px;align-items:flex-start">
-      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;min-width:70px;padding-top:2px">{{ icon }} {{ label }}</span>
-      <div>
-        <span style="color:#ccc;font-size:13px">{{ agents[key].get('summary','') }}</span>
-        <span style="color:#666;font-size:12px;font-style:italic"> → {{ agents[key].get('next_action','') }}</span>
+    <!-- Content pipeline — from DB -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+      <div style="background:#111;border-radius:4px;padding:10px;text-align:center">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555">To Review</div>
+        <div style="font-size:18px;font-weight:700;color:{% if pipeline_counts.content_review %}#c41e3a{% else %}#444{% endif %};margin-top:2px">{{ pipeline_counts.content_review }}</div>
+      </div>
+      <div style="background:#111;border-radius:4px;padding:10px;text-align:center">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555">FB Queue</div>
+        <div style="font-size:18px;font-weight:700;color:#4a9eff;margin-top:2px">{{ pipeline_counts.fb_queue }}</div>
+      </div>
+      <div style="background:#111;border-radius:4px;padding:10px;text-align:center">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Posted</div>
+        <div style="font-size:18px;font-weight:700;color:#2a9d4e;margin-top:2px">{{ pipeline_counts.posted }}</div>
+      </div>
+      <div style="background:#111;border-radius:4px;padding:10px;text-align:center">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Pending Emails</div>
+        <div style="font-size:18px;font-weight:700;color:{% if pipeline_counts.pending_emails %}#e8a020{% else %}#444{% endif %};margin-top:2px">{{ pipeline_counts.pending_emails }}</div>
       </div>
     </div>
-    {% endif %}
-    {% endfor %}
-    <!-- Horizon -->
-    {% set horizon = briefing.get('horizon',{}) %}
-    <div style="border-left:3px solid #c41e3a;padding:10px 14px;background:#1a0a04;border-radius:0 4px 4px 0;margin-top:10px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#c41e3a">Today</div>
-      <div style="color:#e8d5b0;font-size:14px;font-weight:600;margin-top:4px">{{ horizon.get('today','') }}</div>
+    <!-- Agent briefs — all live from DB/context -->
+    <div style="background:#111;border-radius:4px;padding:8px 12px;margin-bottom:5px;display:flex;gap:10px;align-items:center">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;width:60px;flex-shrink:0">👥 Clients</span>
+      <span style="color:#bbb;font-size:12px">{{ active_clients }} paying · {{ leads_week }} lead(s) this week · MRR £{{ mrr | int }} · gap £{{ gap | int }}</span>
     </div>
-    <div style="background:#111;border-radius:4px;padding:10px 14px;margin-top:6px">
-      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">5 Days: </span>
-      <span style="color:#ccc;font-size:13px">{{ horizon.get('five_days','') }}</span>
+    <div style="background:#111;border-radius:4px;padding:8px 12px;margin-bottom:5px;display:flex;gap:10px;align-items:center">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;width:60px;flex-shrink:0">📣 Ads</span>
+      {% if has_ad_data %}
+      <span style="color:#bbb;font-size:12px">{{ ad_impressions | int }} impressions · £{{ "%.2f" | format(ad_spend) }} spend (7d)</span>
+      {% else %}
+      <span style="color:#555;font-size:12px">No ad data yet</span>
+      {% endif %}
     </div>
-    <div style="background:#111;border-radius:4px;padding:10px 14px;margin-top:6px;margin-bottom:4px">
-      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">30 Days: </span>
-      <span style="color:#ccc;font-size:13px">{{ horizon.get('thirty_days','') }}</span>
+    <div style="background:#111;border-radius:4px;padding:8px 12px;margin-bottom:5px;display:flex;gap:10px;align-items:center">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;width:60px;flex-shrink:0">📊 Brand</span>
+      <span style="color:#bbb;font-size:12px">{{ fb_followers }} FB · {{ ig_followers }} IG · {{ organic_reach_week }} reach · {{ pipeline_counts.posted }} posts live</span>
     </div>
-    <div style="font-size:11px;color:#777;padding:6px 0">Generated {{ briefing.get('generated_at','')[:16] }}</div>
+    <div style="background:#111;border-radius:4px;padding:8px 12px;margin-bottom:5px;display:flex;gap:10px;align-items:center">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;width:60px;flex-shrink:0">🔍 SEO</span>
+      <span style="color:#bbb;font-size:12px">{{ seo_complete }}/9 GBP tasks complete ({{ seo_pct }}%)</span>
+    </div>
   </div>
-  {% endif %}
 
   <!-- B3. Content Pipeline -->
   <div class="section-label" id="content-pipeline-section" style="margin-top:32px">
@@ -1581,82 +1966,121 @@ BUSINESS_PAGE = """<!DOCTYPE html>
   <!-- Pipeline kanban -->
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px">
 
-    <!-- Col 1: Ideas Bank -->
+    <!-- Col 1: Ideas (draft + needs_graphic merged) -->
+    {% set all_pipeline_ideas = (ideas_drafts + (all_ideas | selectattr('status','equalto','needs_graphic') | list)) | sort(attribute='created_at', reverse=True) %}
     <div style="background:#141414;border:1px solid #222;border-radius:4px;padding:12px">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
-        <span>Ideas Bank</span>
-        <span style="background:#2a1800;color:#e8a020;padding:1px 7px;border-radius:10px">{{ ideas_drafts|length }}</span>
+        <span>Ideas</span>
+        {% if all_pipeline_ideas %}<span style="background:#2a1800;color:#e8a020;padding:1px 7px;border-radius:10px">{{ all_pipeline_ideas|length }}</span>{% endif %}
       </div>
-      {% for idea in ideas_drafts %}
-      <div id="idea-{{ idea.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:7px">
-        <div style="color:#ccc;font-size:12px;font-weight:600;line-height:1.4;margin-bottom:5px">{{ idea.title }}</div>
-        <div style="color:#555;font-size:11px;line-height:1.4;margin-bottom:7px">{{ idea.angle[:80] }}{% if idea.angle|length > 80 %}…{% endif %}</div>
-        {% if idea.copy %}
-        <div style="font-size:10px;color:#2a9d4e;margin-bottom:5px">✍ Copy ready</div>
-        {% endif %}
-        <div style="display:flex;gap:5px">
-          <button onclick="greenLightIdea('{{ idea.id }}')" style="flex:1;background:#2a9d4e;color:#fff;border:none;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">✓ Green light</button>
-          <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:4px 8px;border-radius:3px;font-size:10px;cursor:pointer">✗</button>
+      {% for idea in all_pipeline_ideas %}
+      <div id="idea-{{ idea.id }}" style="background:#111;border:1px solid {% if idea.status == 'needs_graphic' %}#3a2800{% else %}#1e1e1e{% endif %};border-radius:3px;margin-bottom:7px;overflow:hidden">
+        <!-- Collapsed header (always visible) -->
+        <div onclick="toggleCard('idea-{{ idea.id }}')" style="padding:9px;cursor:pointer">
+          {% if idea.status == 'needs_graphic' %}
+          <div style="font-size:9px;color:#e8a020;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">⏱ Needs graphic</div>
+          {% endif %}
+          <div style="color:#ccc;font-size:12px;font-weight:600;line-height:1.4">{{ idea.title }}</div>
+          <div style="color:#444;font-size:10px;margin-top:3px">{{ idea.angle[:60] }}{% if idea.angle|length > 60 %}…{% endif %}</div>
+        </div>
+        <!-- Expanded body -->
+        <div class="card-expand" id="expand-idea-{{ idea.id }}" style="display:none;border-top:1px solid #1e1e1e;padding:9px">
+          {% if idea.photo_id %}
+          <img src="/brand/{{ idea.photo_id }}" style="width:100%;max-height:120px;object-fit:cover;border-radius:3px;border:1px solid #2a6f00;margin-bottom:8px" onerror="this.style.display='none'">
+          <div style="font-size:9px;color:#2a9d4e;margin-bottom:6px">✓ Photo auto-selected — change in picker if needed</div>
+          {% else %}
+          <div style="background:#1a0a00;border-left:2px solid #e8a020;padding:6px 8px;margin-bottom:8px;font-size:10px;color:#e8a020;border-radius:0 3px 3px 0">📸 No photo in catalogue yet — drop an image into <b>brand/random-snaps/</b> and reload, or request a graphic below</div>
+          {% endif %}
+          {% if idea.angle %}
+          <div style="font-size:11px;color:#666;margin-bottom:5px;line-height:1.5">{{ idea.angle }}</div>
+          {% endif %}
+          {% if idea.copy %}
+          <div style="font-size:11px;color:#888;white-space:pre-wrap;background:#0a0a0a;padding:7px;border-radius:3px;margin-bottom:7px;max-height:100px;overflow-y:auto">{{ idea.copy }}</div>
+          {% endif %}
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <button onclick="greenLightIdea('{{ idea.id }}')" style="width:100%;background:#2a9d4e;color:#fff;border:none;padding:5px 0;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">{% if idea.photo_id %}✓ Green light with this photo{% else %}✓ Green light (pick photo){% endif %}</button>
+            {% if not idea.photo_id %}
+            <button onclick="requestGraphicForIdea('{{ idea.id }}')" style="width:100%;background:#2a1800;border:1px solid #e8a020;color:#e8a020;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">📸 Request graphic</button>
+            {% else %}
+            <button onclick="greenLightIdea('{{ idea.id }}')" style="width:100%;background:none;border:1px solid #333;color:#666;padding:3px 0;border-radius:3px;font-size:10px;cursor:pointer">🔄 Change photo</button>
+            {% endif %}
+            <button onclick="archiveIdea('{{ idea.id }}')" style="width:100%;background:none;border:1px solid #3a1010;color:#553333;padding:3px 0;border-radius:3px;font-size:10px;cursor:pointer">✗ Archive</button>
+          </div>
         </div>
       </div>
       {% endfor %}
-      {% if not ideas_drafts %}<div style="color:#333;font-size:11px;font-style:italic">No ideas waiting</div>{% endif %}
+      {% if not all_pipeline_ideas %}<div style="color:#333;font-size:11px;font-style:italic">No ideas waiting</div>{% endif %}
     </div>
 
-    <!-- Col 2: Awaiting Graphic -->
-    {% set awaiting_graphic = all_content | selectattr('stage','equalto','awaiting_graphic') | list %}
+    <!-- Col 2: Awaiting Graphic (posts only — ideas are in Col 1) -->
+    {% set awaiting_graphic_posts = all_content | selectattr('stage','equalto','awaiting_graphic') | list %}
     <div style="background:#141414;border:1px solid #222;border-radius:4px;padding:12px">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
-        <span>⏱ Awaiting Graphic</span>
-        {% if awaiting_graphic %}<span style="background:#2a1800;color:#e8a020;padding:1px 7px;border-radius:10px">{{ awaiting_graphic|length }}</span>{% endif %}
+        <span>⏱ Needs Graphic</span>
+        {% if awaiting_graphic_posts %}<span style="background:#2a1800;color:#e8a020;padding:1px 7px;border-radius:10px">{{ awaiting_graphic_posts|length }}</span>{% endif %}
       </div>
-      {% for post in awaiting_graphic %}
-      <div style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:7px">
-        <div style="color:#e8a020;font-size:10px;margin-bottom:4px">Drop image into brand/random-snaps/</div>
-        <div style="color:#ccc;font-size:12px;font-weight:600;margin-bottom:6px">{{ post.theme[:50] }}</div>
-        <div style="font-size:10px;color:#555">Requested: {{ post.graphic_requested_at[:10] if post.graphic_requested_at else '—' }}</div>
-        <button onclick="markGraphicReady('{{ post.id }}')" style="margin-top:7px;width:100%;background:none;border:1px solid #e8a020;color:#e8a020;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">✓ Graphic added</button>
+      {% for post in awaiting_graphic_posts %}
+      <div id="pc-ag-{{ post.id }}" style="background:#111;border:1px solid #2a1800;border-radius:3px;margin-bottom:7px;overflow:hidden">
+        <div onclick="toggleCard('pc-ag-{{ post.id }}')" style="padding:9px;cursor:pointer">
+          <div style="color:#e8a020;font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Post — awaiting graphic</div>
+          <div style="color:#ccc;font-size:12px;font-weight:600">{{ post.theme[:50] }}</div>
+        </div>
+        <div class="card-expand" id="expand-pc-ag-{{ post.id }}" style="display:none;border-top:1px solid #2a1800;padding:9px">
+          <div style="font-size:11px;color:#888;white-space:pre-wrap;background:#0a0a0a;padding:7px;border-radius:3px;margin-bottom:8px;max-height:120px;overflow-y:auto">{{ post.content }}</div>
+          <div style="background:#1a0a00;border-left:2px solid #e8a020;padding:6px 8px;margin-bottom:8px;font-size:10px;color:#e8a020;border-radius:0 3px 3px 0">Drop image into <b>brand/random-snaps/</b> — page will auto-advance on reload</div>
+          <button onclick="pickGraphicForPost('{{ post.id }}')" style="width:100%;background:#2a1800;border:1px solid #e8a020;color:#e8a020;padding:5px 0;border-radius:3px;font-size:10px;cursor:pointer;font-weight:600">🖼 Pick photo now</button>
+        </div>
       </div>
       {% endfor %}
-      {% if not awaiting_graphic %}<div style="color:#333;font-size:11px;font-style:italic">None waiting</div>{% endif %}
+      {% if not awaiting_graphic_posts %}<div style="color:#333;font-size:11px;font-style:italic">None waiting</div>{% endif %}
     </div>
 
     <!-- Col 3: Content Review -->
-    <div style="background:#141414;border:1px solid #c41e3a;border-radius:4px;padding:12px">
+    <div id="content-review-col" style="background:#141414;border:1px solid #c41e3a;border-radius:4px;padding:12px">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
         <span style="color:#c41e3a">Content Review</span>
         {% if pending_content %}<span style="background:#1a0008;color:#c41e3a;padding:1px 7px;border-radius:10px">{{ pending_content|length }}</span>{% endif %}
       </div>
       {% for post in pending_content %}
-      <div id="cr-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:7px">
-        {% if post.image_path and post.image_path != '' %}
-        {% set brand_prefix = vault_brand_prefix if vault_brand_prefix is defined else '' %}
-        <div style="margin-bottom:6px">
-          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:80px;object-fit:cover;border-radius:3px;border:1px solid #222" onerror="this.style.display='none'">
+      <div id="pc-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:7px;overflow:hidden">
+        <!-- Always-visible collapsed header -->
+        <div onclick="toggleCard('pc-{{ post.id }}')" style="padding:9px;cursor:pointer;display:flex;gap:8px;align-items:center">
+          {% if post.image_path and post.image_path != '' %}
+          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:48px;height:48px;object-fit:cover;border-radius:3px;flex-shrink:0;border:1px solid #222" onerror="this.style.display='none'">
+          {% else %}
+          <div style="width:48px;height:48px;background:#1a0a00;border:1px solid #c41e3a;border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px">⚠</div>
+          {% endif %}
+          <div style="flex:1;min-width:0">
+            <div style="color:#ccc;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ post.theme[:45] }}{% if post.send_back_comment %} <span style="color:#e8a020;font-size:9px">↩ SENT BACK</span>{% endif %}</div>
+            <div style="color:#444;font-size:10px;margin-top:2px">{{ post.content[:55] }}…</div>
+          </div>
         </div>
-        {% endif %}
-        <div style="color:#ccc;font-size:12px;font-weight:600;margin-bottom:4px">{{ post.theme[:50] }}</div>
-        {% if post.send_back_comment %}
-        <div style="background:#1a1000;border-left:2px solid #e8a020;padding:4px 8px;margin-bottom:5px;font-size:10px;color:#e8a020">↩ {{ post.send_back_comment[:80] }}</div>
-        {% endif %}
-        <details style="margin-bottom:8px">
-          <summary style="font-size:11px;color:#666;cursor:pointer">Read full post</summary>
-          <div style="margin-top:6px;font-size:11px;color:#888;white-space:pre-wrap;max-height:150px;overflow-y:auto;background:#0a0a0a;padding:8px;border-radius:3px">{{ post.content }}</div>
-          <button onclick="swapPhoto('{{ post.id }}')" style="margin-top:5px;background:none;border:1px solid #333;color:#666;padding:3px 8px;border-radius:3px;font-size:10px;cursor:pointer">⇄ Swap photo</button>
-        </details>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          <div style="display:flex;gap:5px">
-            <button onclick="approveToQueue('{{ post.id }}')" style="flex:1;background:#2a9d4e;color:#fff;border:none;padding:5px 0;border-radius:3px;font-size:10px;cursor:pointer;font-weight:600">✓ Queue it</button>
-            <button onclick="postNow('{{ post.id }}')" style="flex:1;background:#1a4a2a;color:#2a9d4e;border:1px solid #2a9d4e;padding:5px 0;border-radius:3px;font-size:10px;cursor:pointer">▶ Post now</button>
-          </div>
-          <div style="display:flex;gap:5px">
-            <button onclick="requestGraphic('{{ post.id }}')" style="flex:1;background:none;border:1px solid #e8a020;color:#e8a020;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">⏱ Need graphic</button>
-            <button onclick="showSendBack('{{ post.id }}')" style="flex:1;background:none;border:1px solid #555;color:#888;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">↩ Send back</button>
-            <button onclick="archivePost('{{ post.id }}')" style="background:none;border:1px solid #333;color:#555;padding:4px 8px;border-radius:3px;font-size:10px;cursor:pointer">✗</button>
-          </div>
-          <div id="sendback-{{ post.id }}" style="display:none">
-            <textarea id="sendback-txt-{{ post.id }}" placeholder="Comment for the bot…" style="width:100%;background:#0a0a0a;border:1px solid #333;color:#aaa;padding:6px;font-size:11px;border-radius:3px;box-sizing:border-box;resize:vertical;min-height:60px"></textarea>
-            <button onclick="submitSendBack('{{ post.id }}')" style="margin-top:4px;width:100%;background:#c41e3a;color:#fff;border:none;padding:4px;border-radius:3px;font-size:10px;cursor:pointer">Send back</button>
+        <!-- Expanded body -->
+        <div class="card-expand" id="expand-pc-{{ post.id }}" style="display:{% if post.send_back_comment %}block{% else %}none{% endif %};border-top:1px solid #1e1e1e;padding:9px">
+          {% if post.image_path and post.image_path != '' %}
+          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:160px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
+          {% else %}
+          <div style="background:#1a0a00;border-left:2px solid #c41e3a;padding:6px 8px;margin-bottom:8px;font-size:10px;color:#c41e3a;border-radius:0 3px 3px 0">⚠ No photo — use Swap photo below</div>
+          {% endif %}
+          {% if post.send_back_comment %}
+          <div style="background:#1a1000;border-left:2px solid #e8a020;padding:5px 8px;margin-bottom:8px;font-size:10px;color:#e8a020;border-radius:0 3px 3px 0">↩ {{ post.send_back_comment }}</div>
+          {% endif %}
+          <div style="font-size:12px;color:#aaa;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:8px;max-height:180px;overflow-y:auto;line-height:1.6">{{ post.content }}</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="display:flex;gap:5px">
+              <button onclick="approveToQueue('{{ post.id }}')" style="flex:1;background:#2a9d4e;color:#fff;border:none;padding:6px 0;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">✓ Queue it</button>
+              <button onclick="postNow('{{ post.id }}')" style="flex:1;background:#1a4a2a;color:#2a9d4e;border:1px solid #2a9d4e;padding:6px 0;border-radius:3px;font-size:11px;cursor:pointer">▶ Post now</button>
+            </div>
+            <button onclick="swapPhoto('{{ post.id }}')" style="width:100%;background:none;border:1px solid #333;color:#666;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">⇄ Swap photo</button>
+            <button onclick="showSendBack('{{ post.id }}')" style="width:100%;background:none;border:1px solid #555;color:#888;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">↩ Send back with comment</button>
+            <div id="sendback-{{ post.id }}" style="display:none">
+              <textarea id="sendback-txt-{{ post.id }}" placeholder="Comment for the bot…" style="width:100%;background:#0a0a0a;border:1px solid #333;color:#aaa;padding:6px;font-size:11px;border-radius:3px;box-sizing:border-box;resize:vertical;min-height:60px"></textarea>
+              <div style="display:flex;gap:5px;margin-top:4px">
+                <button onclick="submitSendBack('{{ post.id }}')" style="flex:1;background:#c41e3a;color:#fff;border:none;padding:4px;border-radius:3px;font-size:10px;cursor:pointer">↩ Confirm send back</button>
+                <button onclick="document.getElementById('sendback-{{ post.id }}').style.display='none'" style="background:none;border:1px solid #333;color:#555;padding:4px 10px;border-radius:3px;font-size:10px;cursor:pointer">Cancel</button>
+              </div>
+            </div>
+            <button onclick="archivePost('{{ post.id }}')" style="width:100%;background:none;border:1px solid #3a1010;color:#553333;padding:3px 0;border-radius:3px;font-size:10px;cursor:pointer">✗ Archive</button>
           </div>
         </div>
       </div>
@@ -1671,13 +2095,23 @@ BUSINESS_PAGE = """<!DOCTYPE html>
         {% if fb_queued_posts %}<span style="background:#001a0a;color:#2a9d4e;padding:1px 7px;border-radius:10px">{{ fb_queued_posts|length }}</span>{% endif %}
       </div>
       {% for post in fb_queued_posts %}
-      <div style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:7px">
-        <div style="color:#2a9d4e;font-size:10px;font-weight:600;margin-bottom:3px">{{ post.scheduled_for or '—' }}</div>
-        <div style="color:#ccc;font-size:12px;margin-bottom:5px">{{ post.theme[:50] }}</div>
-        {% if post.image_path %}
-        <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:50px;object-fit:cover;border-radius:2px;border:1px solid #222;margin-bottom:5px" onerror="this.style.display='none'">
-        {% endif %}
-        <button onclick="unqueuePost('{{ post.id }}')" style="width:100%;background:none;border:1px solid #333;color:#555;padding:3px 0;border-radius:3px;font-size:10px;cursor:pointer">← Return to review</button>
+      <div id="pq-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:7px;overflow:hidden">
+        <div onclick="toggleCard('pq-{{ post.id }}')" style="padding:9px;cursor:pointer;display:flex;gap:8px;align-items:center">
+          {% if post.image_path %}
+          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:36px;height:36px;object-fit:cover;border-radius:2px;flex-shrink:0;border:1px solid #222" onerror="this.style.display='none'">
+          {% endif %}
+          <div style="flex:1;min-width:0">
+            <div style="color:#2a9d4e;font-size:10px;font-weight:600">{{ post.scheduled_for or '—' }}</div>
+            <div style="color:#ccc;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ post.theme[:40] }}</div>
+          </div>
+        </div>
+        <div class="card-expand" id="expand-pq-{{ post.id }}" style="display:none;border-top:1px solid #1e1e1e;padding:9px">
+          {% if post.image_path %}
+          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:140px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
+          {% endif %}
+          <div style="font-size:12px;color:#aaa;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:8px;max-height:160px;overflow-y:auto;line-height:1.6">{{ post.content }}</div>
+          <button onclick="unqueuePost('{{ post.id }}')" style="width:100%;background:none;border:1px solid #333;color:#555;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">← Return to review</button>
+        </div>
       </div>
       {% endfor %}
       {% if not fb_queued_posts %}<div style="color:#333;font-size:11px;font-style:italic">Queue empty</div>{% endif %}
@@ -1690,13 +2124,26 @@ BUSINESS_PAGE = """<!DOCTYPE html>
         <span>Posted</span>
         {% if posted_posts %}<span style="background:#1e1e1e;color:#555;padding:1px 7px;border-radius:10px">{{ posted_posts|length }}</span>{% endif %}
       </div>
-      {% for post in posted_posts[:8] %}
-      <div style="background:#111;border:1px solid #1e1e1e;border-radius:3px;padding:9px;margin-bottom:5px;opacity:0.8">
-        <div style="color:#555;font-size:10px;margin-bottom:2px">{{ post.posted_at[:10] if post.posted_at else (post.created_at[:10] if post.created_at else '—') }}</div>
-        <div style="color:#888;font-size:11px">{{ post.theme[:45] }}</div>
-        {% if post.fb_post_id %}
-        <a href="https://facebook.com/{{ post.fb_post_id }}" target="_blank" style="font-size:10px;color:#555;text-decoration:none">View ↗</a>
-        {% endif %}
+      {% for post in posted_posts[:10] %}
+      <div id="pp-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:5px;overflow:hidden;opacity:0.85">
+        <div onclick="toggleCard('pp-{{ post.id }}')" style="padding:8px 9px;cursor:pointer;display:flex;gap:8px;align-items:center">
+          {% if post.image_path %}
+          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:32px;height:32px;object-fit:cover;border-radius:2px;flex-shrink:0;border:1px solid #222" onerror="this.style.display='none'">
+          {% endif %}
+          <div style="flex:1;min-width:0">
+            <div style="color:#444;font-size:10px">{{ post.posted_at[:10] if post.posted_at else (post.created_at[:10] if post.created_at else '—') }}</div>
+            <div style="color:#777;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ post.theme[:38] }}</div>
+          </div>
+        </div>
+        <div class="card-expand" id="expand-pp-{{ post.id }}" style="display:none;border-top:1px solid #1a1a1a;padding:9px">
+          {% if post.image_path %}
+          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:120px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
+          {% endif %}
+          <div style="font-size:12px;color:#888;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:6px;max-height:150px;overflow-y:auto;line-height:1.6">{{ post.content }}</div>
+          {% if post.fb_post_id %}
+          <a href="https://facebook.com/{{ post.fb_post_id }}" target="_blank" style="font-size:10px;color:#555;text-decoration:none">View on Facebook ↗</a>
+          {% endif %}
+        </div>
       </div>
       {% endfor %}
       {% if not posted_posts %}<div style="color:#333;font-size:11px;font-style:italic">Nothing posted yet</div>{% endif %}
@@ -1707,192 +2154,6 @@ BUSINESS_PAGE = """<!DOCTYPE html>
   <!-- B4. Bot Activity -->
   <div class="section-label" style="margin-top:32px">Bot Activity</div>
 
-  <!-- Marketing Bot (Ideas arc + management only — posting moved to pipeline above) -->
-  <div class="bot-section">
-    <div class="bot-header" onclick="toggleBot('mkt')">
-      <div class="bot-title">
-        <span class="bot-icon">📣</span>
-        <div>
-          <div class="bot-name">Marketing Bot</div>
-          <div class="bot-last-run">Ideas bank · content arc · direction check</div>
-        </div>
-      </div>
-      <div class="bot-badges">
-        {% set green_lit = all_ideas | selectattr('status','equalto','green_lit') | list %}
-        {% set drafts    = all_ideas | selectattr('status','equalto','draft') | list %}
-        {% if green_lit %}<span class="bot-badge bb-ok">{{ green_lit|length }} green lit</span>{% endif %}
-        {% if drafts    %}<span class="bot-badge bb-warn">{{ drafts|length }} draft{% if drafts|length != 1 %}s{% endif %}</span>{% endif %}
-      </div>
-      <span class="bot-chevron" id="chev-mkt">&#9660;</span>
-    </div>
-    <div class="bot-body" id="body-mkt">
-      <!-- Arc position -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">Content Arc</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">
-        {% for phase in arc_phases %}
-        <div style="padding:6px 12px;border-radius:20px;font-size:11px;{% if loop.index0 == arc_phase_index %}background:#c41e3a;color:#fff;font-weight:700{% else %}background:#1e1e1e;color:#555{% endif %}">{{ phase }}</div>
-        {% endfor %}
-      </div>
-      <!-- Ideas bank full list -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">All Ideas</div>
-      {% if all_ideas %}
-      {% for idea in all_ideas %}
-      <div style="background:#111;border-radius:4px;padding:10px 12px;margin-bottom:6px;border-left:3px solid {% if idea.status == 'green_lit' %}#2a9d4e{% elif idea.status == 'archived' %}#333{% else %}#e8a020{% endif %}" id="idea-mkt-{{ idea.id }}">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-          <div style="flex:1">
-            <div style="color:#fff;font-size:13px;font-weight:600">{{ idea.title }}
-              <span style="font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;{% if idea.status == 'green_lit' %}background:#001a0a;color:#2a9d4e{% elif idea.status == 'archived' %}background:#1e1e1e;color:#444{% else %}background:#2a1800;color:#e8a020{% endif %}">{{ idea.status.replace('_',' ') }}</span>
-            </div>
-            <div style="color:#777;font-size:12px;margin-top:4px;line-height:1.5">{{ idea.angle }}</div>
-          </div>
-          {% if idea.status == 'draft' %}
-          <div style="display:flex;gap:6px;flex-shrink:0">
-            <button onclick="greenLightIdea('{{ idea.id }}')" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer">Green light</button>
-            <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer">Archive</button>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-      {% endfor %}
-      {% else %}
-      <div style="color:#444;font-size:13px;font-style:italic">No ideas yet.</div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Facebook Bot (legacy accordion kept for comment/DM management) -->
-  <div class="bot-section">
-    <div class="bot-header" onclick="toggleBot('fb')">
-      <div class="bot-title">
-        <span class="bot-icon">📘</span>
-        <div>
-          <div class="bot-name">Facebook Bot</div>
-          <div class="bot-last-run">Comments · DMs · engagement</div>
-        </div>
-      </div>
-      <div class="bot-badges">
-        {% set fb_posted = all_content | selectattr('stage','equalto','posted') | list %}
-        {% if fb_posted %}<span class="bot-badge bb-ok">{{ fb_posted|length }} posted</span>{% endif %}
-      </div>
-      <span class="bot-chevron" id="chev-fb">&#9660;</span>
-    </div>
-    <div class="bot-body" id="body-fb">
-      <!-- Post schedule calendar -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:10px">Upcoming Schedule</div>
-      <div class="schedule-row">
-        {% for slot in fb_schedule %}
-        {% set day_posts = posted_by_date.get(slot.date, []) %}
-        <div class="schedule-slot {% if day_posts %}has-post{% endif %}">
-          <div class="schedule-day">{{ slot.day }}</div>
-          <div class="schedule-date">{{ slot.date }}</div>
-          {% if day_posts %}
-          <div class="schedule-theme">{{ day_posts[0].get('theme','—') }}</div>
-          {% else %}
-          <div class="schedule-theme" style="color:#777;font-style:italic">No post assigned</div>
-          {% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <!-- Content queue -->
-      {% if all_content %}
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:10px;margin-top:6px">Content Queue</div>
-      {% for post in all_content | sort(attribute='created', reverse=True) | list %}
-      {% set has_img = post.get('image_path','') %}
-      {% set img_name = post.get('image_path','').split('/')[-1] if has_img else '' %}
-      <div class="post-card" id="pc-{{ post.id }}">
-        <div class="post-card-header" onclick="togglePost('{{ post.id }}')">
-          {% if has_img %}
-          <img src="/brand/output/{{ img_name }}" style="width:54px;height:54px;object-fit:cover;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">
-          {% else %}
-          <div class="post-thumb-placeholder">&#128444;</div>
-          {% endif %}
-          <div class="post-meta">
-            <div class="post-theme">{{ post.get('theme','—') }}</div>
-            <div class="post-preview">{{ post.get('content','')[:90] }}{% if post.get('content','')|length > 90 %}…{% endif %}</div>
-            <div style="font-size:10px;color:#555;margin-top:2px">{{ post.get('created','')[:10] }} · {{ post.get('source','—') }}</div>
-          </div>
-          <span class="post-status ps-{{ post.get('status','pending_review') }}">{{ post.get('status','—').replace('_',' ') }}</span>
-        </div>
-        <div class="post-body" id="pb-{{ post.id }}">
-          {% if has_img %}
-          <img src="/brand/output/{{ img_name }}" style="width:100%;max-height:280px;object-fit:cover;border-radius:4px;margin-bottom:12px" onerror="this.style.display='none'">
-          {% endif %}
-          <div class="post-full-text" style="white-space:pre-wrap">{{ post.get('content','') }}</div>
-          {% if post.get('status') == 'pending_review' %}
-          <div class="post-actions">
-            <button onclick="approveContent('{{ post.id }}')" class="rem-btn done">&#10003; Approve &amp; post</button>
-            <button onclick="toggleEditContent('{{ post.id }}')" id="edit-btn-{{ post.id }}" class="rem-btn" style="border-color:#9b59b6;color:#9b59b6">&#9998; Edit</button>
-            <button onclick="saveEditContent('{{ post.id }}')" id="save-btn-{{ post.id }}" class="rem-btn" style="display:none;border-color:#2a9d4e;color:#2a9d4e">Save</button>
-            <button onclick="rejectContent('{{ post.id }}')" class="rem-btn" style="border-color:#c41e3a;color:#c41e3a">&#10005; Reject</button>
-          </div>
-          <div class="post-edit-area" id="cr-edit-wrap-{{ post.id }}">
-            <textarea id="cr-edit-{{ post.id }}">{{ post.get('content','') }}</textarea>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-      {% endfor %}
-      {% else %}
-      <div style="color:#444;font-size:13px;font-style:italic">No content in queue. Facebook Bot drafts posts Mon/Wed/Fri.</div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Marketing Bot -->
-  <div class="bot-section">
-    <div class="bot-header" onclick="toggleBot('mkt')">
-      <div class="bot-title">
-        <span class="bot-icon">📣</span>
-        <div>
-          <div class="bot-name">Marketing Bot</div>
-          <div class="bot-last-run">Ideas bank · content arc · direction check</div>
-        </div>
-      </div>
-      <div class="bot-badges">
-        {% set green_lit = all_ideas | selectattr('status','equalto','green_lit') | list %}
-        {% set developed = all_ideas | selectattr('status','equalto','developed') | list %}
-        {% set drafts    = all_ideas | selectattr('status','equalto','draft') | list %}
-        {% if green_lit %}<span class="bot-badge bb-ok">{{ green_lit|length }} green lit</span>{% endif %}
-        {% if drafts    %}<span class="bot-badge bb-warn">{{ drafts|length }} draft{% if drafts|length != 1 %}s{% endif %}</span>{% endif %}
-        {% if developed %}<span class="bot-badge bb-info">{{ developed|length }} developed</span>{% endif %}
-      </div>
-      <span class="bot-chevron" id="chev-mkt">&#9660;</span>
-    </div>
-    <div class="bot-body" id="body-mkt">
-      <!-- Arc position -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">Content Arc</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">
-        {% for phase in arc_phases %}
-        <div style="padding:6px 12px;border-radius:20px;font-size:11px;{% if loop.index0 == arc_phase_index %}background:#c41e3a;color:#fff;font-weight:700{% else %}background:#1e1e1e;color:#555{% endif %}">{{ phase }}</div>
-        {% endfor %}
-      </div>
-      <!-- Ideas bank -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">Ideas Bank</div>
-      {% if all_ideas %}
-      {% for idea in all_ideas %}
-      <div style="background:#111;border-radius:4px;padding:12px 14px;margin-bottom:8px;border-left:3px solid {% if idea.status == 'green_lit' %}#2a9d4e{% elif idea.status == 'developed' %}#4a9fd4{% elif idea.status == 'archived' %}#333{% else %}#e8a020{% endif %}" id="idea-mkt-{{ idea.id }}">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-          <div style="flex:1">
-            <div style="color:#fff;font-size:13px;font-weight:600">{{ idea.title }}
-              <span style="font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;{% if idea.status == 'green_lit' %}background:#001a0a;color:#2a9d4e{% elif idea.status == 'developed' %}background:#001a2a;color:#4a9fd4{% elif idea.status == 'archived' %}background:#1e1e1e;color:#444{% else %}background:#2a1800;color:#e8a020{% endif %}">{{ idea.status.replace('_',' ') }}</span>
-            </div>
-            <div style="color:#777;font-size:12px;margin-top:4px;line-height:1.5">{{ idea.angle }}</div>
-          {% if idea.status == 'draft' %}
-          <div style="display:flex;gap:6px;flex-shrink:0;margin-top:6px">
-            <button onclick="greenLightIdea('{{ idea.id }}')" style="background:#2a9d4e;color:#fff;border:none;padding:5px 12px;border-radius:3px;font-size:11px;cursor:pointer">Green light</button>
-            <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:5px 10px;border-radius:3px;font-size:11px;cursor:pointer">Archive</button>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-      </div>
-      {% endfor %}
-      {% else %}
-      <div style="color:#444;font-size:13px;font-style:italic">No ideas yet.</div>
-      {% endif %}
-    </div>
-  </div>
-
   <!-- Brand Manager -->
   <div class="bot-section">
     <div class="bot-header" onclick="toggleBot('brand')">
@@ -1900,7 +2161,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
         <span class="bot-icon">🖼</span>
         <div>
           <div class="bot-name">Brand Manager</div>
-          <div class="bot-last-run">Photo catalogue · review queue</div>
+          <div class="bot-last-run">Photo library · review queue · image assets</div>
         </div>
       </div>
       <div class="bot-badges">
@@ -1924,9 +2185,43 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           <div style="font-size:24px;font-weight:700;color:#e8a020;margin-top:4px">{{ catalogue_stats.good }}</div>
         </div>
       </div>
+      {% if brand_guidelines %}
+      <div style="margin-bottom:14px">
+        <div class="section-label" style="margin-top:0;margin-bottom:8px">Content Guidelines <span style="font-size:10px;color:#555;font-weight:400;text-transform:none;letter-spacing:0">(from send-back comments)</span></div>
+        {% for g in brand_guidelines | reverse %}
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 10px;background:#111;border-radius:3px;margin-bottom:4px;border-left:2px solid #e8a020">
+          <span style="font-size:12px;color:#ccc;flex:1;margin-right:10px">{{ g.comment }}</span>
+          <span style="font-size:10px;color:#444;flex-shrink:0">{{ g.added_at[:10] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if catalogue_photos %}
+      <div style="margin-bottom:14px">
+        <div class="section-label" style="margin-top:0;margin-bottom:8px">Photo Library <span style="font-size:10px;color:#555;font-weight:400;text-transform:none;letter-spacing:0">({{ catalogue_photos|length }} catalogued · unused best-quality first)</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px">
+          {% for photo in catalogue_photos[:40] %}
+          <div style="position:relative;border-radius:3px;overflow:hidden;border:1px solid {% if photo.quality == 'best' %}#1a4a1a{% elif photo.quality == 'good' %}#2a2800{% else %}#1e1e1e{% endif %}">
+            <img src="{{ photo.url }}" style="width:100%;height:70px;object-fit:cover;display:block" onerror="this.parentElement.style.display='none'">
+            {% if photo.use_count > 0 %}
+            <div style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.75);color:#888;font-size:8px;padding:1px 4px;border-radius:2px">used</div>
+            {% else %}
+            <div style="position:absolute;top:2px;left:2px;width:6px;height:6px;border-radius:50%;background:{% if photo.quality == 'best' %}#2a9d4e{% elif photo.quality == 'good' %}#e8a020{% else %}#555{% endif %}"></div>
+            {% endif %}
+            {% if 'face' in photo.tags %}
+            <div style="position:absolute;bottom:2px;left:2px;background:rgba(0,0,0,0.75);color:#888;font-size:8px;padding:1px 4px;border-radius:2px">face</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if catalogue_photos|length > 40 %}
+        <div style="color:#444;font-size:11px;margin-top:6px">+{{ catalogue_photos|length - 40 }} more in catalogue</div>
+        {% endif %}
+      </div>
+      {% endif %}
       {% if pending_photos %}
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:8px">Pending Photo Review</div>
-      {% for photo in pending_photos %}
+      <div id="photo-review-section" class="section-label" style="margin-top:0">Pending Photo Review</div>
+      {% for photo in pending_photos | sort(attribute='created_at', reverse=True) %}
       <div style="display:flex;gap:12px;align-items:center;background:#111;border-radius:4px;padding:10px 14px;margin-bottom:8px" id="photoa-{{ photo.id }}">
         {% if photo.url %}
         <img src="{{ photo.url }}" style="width:72px;height:72px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid #333" onerror="this.style.display='none'">
@@ -1946,7 +2241,10 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       {% else %}
       <div style="color:#888;font-size:13px;font-style:italic">No photos pending review. Drop images into brand/random-snaps to queue them.</div>
       {% endif %}
-      <div style="color:#777;font-size:11px;margin-top:12px">Drop folder: brand/random-snaps</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+        <div style="color:#555;font-size:11px">Drop images into <code style="color:#666">brand/random-snaps/</code></div>
+        <button id="scan-photos-btn" onclick="scanPhotos()" style="background:none;border:1px solid #333;color:#666;padding:5px 14px;border-radius:3px;font-size:11px;cursor:pointer">↻ Update photos</button>
+      </div>
     </div>
   </div>
 
@@ -2126,77 +2424,78 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- C. Charts -->
-  <div class="section-label">Trends</div>
-  <div class="charts-row">
-    <div class="chart-card">
-      <div class="chart-title">Revenue vs Spend</div>
-      <div class="chart-wrap">
-        <canvas id="chartRevSpend"></canvas>
-      </div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">Funnel</div>
-      <div class="chart-wrap">
-        <canvas id="chartFunnel"></canvas>
-      </div>
-    </div>
-  </div>
-
   <!-- D. Marketing arc -->
-  <div class="section-label">Marketing Arc — Phase {{ arc_phase_index + 1 }} / 6</div>
-  <div class="arc-row">
-    {% for phase in arc_phases %}
-    <div class="arc-phase{% if loop.index0 == arc_phase_index %} active{% endif %}">
-      <span class="arc-num">{{ loop.index }}</span>
-      {{ phase }}
+  <div class="bot-section" style="margin-top:10px">
+    <div class="bot-header" onclick="toggleBot('arc')">
+      <span class="bot-name">Marketing Arc — Phase {{ arc_phase_index + 1 }} / 6</span>
+      <span class="bot-chevron" id="chev-arc">&#9660;</span>
     </div>
-    {% endfor %}
+    <div class="bot-body" id="body-arc">
+      <div class="arc-row">
+        {% for phase in arc_phases %}
+        <div class="arc-phase{% if loop.index0 == arc_phase_index %} active{% endif %}">
+          <span class="arc-num">{{ loop.index }}</span>
+          {{ phase }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
   </div>
 
   <!-- E. Social & Ads -->
-  <div class="section-label">Social &amp; Ads</div>
-  <div class="two-col">
-    <div class="dark-card">
-      <div class="dark-card-title">Social</div>
-      <div class="stat-row">
-        <span class="stat-name">FB Followers</span>
-        <span class="stat-val">{{ fb_followers }}
-          {% if fb_delta != 0 %}<span class="stat-delta{% if fb_delta < 0 %} neg{% endif %}">
-            {{ '+' if fb_delta > 0 else '' }}{{ fb_delta }}</span>{% endif %}
-        </span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-name">IG Followers</span>
-        <span class="stat-val">{{ ig_followers }}</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-name">Organic Reach (week)</span>
-        <span class="stat-val">{{ organic_reach_week }}</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-name">Link Clicks (week)</span>
-        <span class="stat-val">{{ link_clicks_week }}</span>
-      </div>
+  <div class="bot-section" style="margin-top:10px">
+    <div class="bot-header" onclick="toggleBot('social');if(document.getElementById('body-social').style.display!=='none')loadCampaigns()">
+      <span class="bot-name">Social &amp; Ads</span>
+      <span class="bot-chevron" id="chev-social">&#9660;</span>
     </div>
-    <div class="dark-card">
-      <div class="dark-card-title">Ads</div>
-      {% if has_ad_data %}
-      <div class="stat-row">
-        <span class="stat-name">Impressions</span>
-        <span class="stat-val">{{ ad_impressions }}</span>
+    <div class="bot-body" id="body-social">
+      <div class="two-col">
+        <div class="dark-card">
+          <div class="dark-card-title">Social</div>
+          <div class="stat-row">
+            <span class="stat-name">FB Followers</span>
+            <span class="stat-val">{{ fb_followers }}
+              {% if fb_delta != 0 %}<span class="stat-delta{% if fb_delta < 0 %} neg{% endif %}">
+                {{ '+' if fb_delta > 0 else '' }}{{ fb_delta }}</span>{% endif %}
+            </span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-name">IG Followers</span>
+            <span class="stat-val">{{ ig_followers }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-name">Organic Reach (week)</span>
+            <span class="stat-val">{{ organic_reach_week }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-name">Link Clicks (week)</span>
+            <span class="stat-val">{{ link_clicks_week }}</span>
+          </div>
+        </div>
+        <div class="dark-card" style="grid-column:1/-1">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div class="dark-card-title" style="margin:0">Ad Campaigns</div>
+            <button onclick="loadCampaigns()" style="background:none;border:1px solid #333;color:#888;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer">↻ Refresh</button>
+          </div>
+          {% if has_ad_data %}
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+            <div style="background:#111;border-radius:3px;padding:10px">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Spend (7d)</div>
+              <div style="font-size:18px;font-weight:700;color:#fff;margin-top:4px">&#163;{{ "%.2f"|format(ad_spend) }}</div>
+            </div>
+            <div style="background:#111;border-radius:3px;padding:10px">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Impressions</div>
+              <div style="font-size:18px;font-weight:700;color:#fff;margin-top:4px">{{ "{:,}".format(ad_impressions) }}</div>
+            </div>
+            <div style="background:#111;border-radius:3px;padding:10px">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Results</div>
+              <div style="font-size:18px;font-weight:700;color:#fff;margin-top:4px">{{ ad_results }}</div>
+            </div>
+          </div>
+          {% endif %}
+          <div id="campaigns-list" style="font-size:12px;color:#555;font-style:italic">Click Refresh to load live campaigns</div>
+        </div>
       </div>
-      <div class="stat-row">
-        <span class="stat-name">Ad Spend</span>
-        <span class="stat-val">&#163;{{ "%.2f"|format(ad_spend) }}</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-name">Results</span>
-        <span class="stat-val">{{ ad_results }}</span>
-      </div>
-      {% else %}
-      <div class="no-data">Add <code>FB_USER_TOKEN</code> to <code>~/.battleship.env</code> to enable ad tracking.</div>
-      {% endif %}
     </div>
   </div>
 
@@ -2212,7 +2511,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       <span class="rem-badge" style="background:#1a0030;color:#c084fc">email</span>
       <div class="rem-body" style="flex:1">
         <div class="rem-title">{{ eq.subject }}</div>
-        <div class="rem-desc">To: <strong style="color:#ddd">{{ eq.to }}</strong>{% if eq.client_name %} ({{ eq.client_name }}){% endif %}</div>
+        <div class="rem-desc">To: <strong style="color:#ddd">{{ eq.to_addr }}</strong>{% if eq.client_name %} ({{ eq.client_name }}){% endif %}</div>
         {% if eq.reason %}<div class="rem-meta" style="color:#c084fc;margin-top:2px">Reason: {{ eq.reason }}</div>{% endif %}
         <details style="margin-top:8px">
           <summary style="font-size:12px;color:#666;cursor:pointer">Preview email body</summary>
@@ -2263,7 +2562,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     <div style="color:#888;font-size:13px;font-style:italic;padding:12px 0">No pending action items.</div>
     {% endif %}
     {% if pivot_notes %}
-    <div style="margin-top:18px;border-top:1px solid #222;padding-top:14px">
+    <div id="pivot-notes-section" style="margin-top:18px;border-top:1px solid #222;padding-top:14px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#333;margin-bottom:10px">Recent Pivots / Feedback</div>
       {% for p in pivot_notes[-5:] %}
       <div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:12px;color:#555">
@@ -2274,171 +2573,34 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     {% endif %}
   </div>
 
-  <!-- H2. Photo Review -->
-  <div class="section-label" id="photo-review-section">
-    Photo Review
-    {% if pending_photos %}<span style="background:#e8a020;color:#000;font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700">{{ pending_photos | length }}</span>{% endif %}
-  </div>
-  <div class="rem-card">
-    {% if pending_photos %}
-    {% for photo in pending_photos %}
-    <div class="rem-item" id="photob-{{ photo.id }}" style="align-items:flex-start;gap:12px">
-      {% if photo.url %}
-      <img src="{{ photo.url }}" style="width:80px;height:80px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid #333" onerror="this.style.display='none'">
-      {% else %}
-      <span class="rem-badge" style="background:#3a2000;color:#e8a020">📸</span>
-      {% endif %}
-      <div class="rem-body" style="flex:1">
-        <div class="rem-title">{{ photo.filename }}</div>
-        <div class="rem-desc">{{ photo.caption_hint }}</div>
-        <div class="rem-meta">Source: {{ photo.source }} · Added {{ photo.created_at[:10] }}</div>
-        <div class="rem-actions" style="margin-top:8px">
-          <button class="rem-btn done" onclick="approvePhoto('{{ photo.id }}')">✅ Add to library</button>
-          <button class="rem-btn" style="border-color:#c41e3a;color:#c41e3a" onclick="rejectPhoto('{{ photo.id }}')">❌ Skip</button>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-    {% else %}
-    <div style="color:#888;font-size:13px;font-style:italic;padding:12px 0">
-      No photos pending review. Drop images into <code style="color:#666">brand/random-snaps/</code> to queue them.
-    </div>
-    {% endif %}
-  </div>
-
   <!-- I. Roadmap -->
-  <div class="section-label">Feature Roadmap</div>
-  <div class="roadmap-card">
-    {% if roadmap_items %}
-    {% for item in roadmap_items %}
-    <div class="roadmap-item">
-      <div class="roadmap-num">{{ loop.index }}</div>
-      <div class="roadmap-body">
-        <div class="roadmap-title">{{ item.title }}</div>
-        <div class="roadmap-meta">Impact: {{ item.impact }} &middot; Effort: {{ item.effort }}</div>
+  <div class="bot-section" style="margin-top:10px">
+    <div class="bot-header" onclick="toggleBot('roadmap')">
+      <span class="bot-name">Feature Roadmap</span>
+      <span class="bot-chevron" id="chev-roadmap">&#9660;</span>
+    </div>
+    <div class="bot-body" id="body-roadmap">
+      <div class="roadmap-card">
+        {% if roadmap_items %}
+        {% for item in roadmap_items %}
+        <div class="roadmap-item">
+          <div class="roadmap-num">{{ loop.index }}</div>
+          <div class="roadmap-body">
+            <div class="roadmap-title">{{ item.title }}</div>
+            <div class="roadmap-meta">Impact: {{ item.impact }} &middot; Effort: {{ item.effort }}</div>
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="color:#444;font-size:13px;font-style:italic">roadmap.md not found.</div>
+        {% endif %}
       </div>
     </div>
-    {% endfor %}
-    {% else %}
-    <div style="color:#444;font-size:13px;font-style:italic">roadmap.md not found.</div>
-    {% endif %}
   </div>
 
-  <!-- J. Weekly targets -->
-  <!-- TODO: wire up actual content/lead counts when tracking is implemented -->
-  <div class="section-label">Weekly Targets</div>
-  <div class="targets-card">
-    {% for t in weekly_targets %}
-    <div class="target-item">
-      <div class="target-header">
-        <span class="target-label">{{ t.label }}</span>
-        <span class="target-frac">{{ t.current }} / {{ t.target }}</span>
-      </div>
-      <div class="progress-bar-wrap">
-        <div class="progress-bar-fill" style="width:{{ [((t.current / t.target * 100) if t.target else 0), 100] | min }}%"></div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
+  <!-- Weekly Targets moved to Dashboard -->
 
 </div><!-- /container -->
-
-<script>
-// ── Revenue vs Spend chart ─────────────────────────────────────────────────
-(function() {
-  const historyDates  = {{ history_dates | tojson }};
-  const historyMrr    = {{ history_mrr   | tojson }};
-  const historySpend  = {{ history_spend | tojson }};
-
-  const ctx = document.getElementById('chartRevSpend');
-  if (!ctx) return;
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: historyDates,
-      datasets: [
-        {
-          label: 'MRR',
-          data: historyMrr,
-          borderColor: '#2a9d4e',
-          backgroundColor: 'rgba(42,157,78,0.08)',
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: '#2a9d4e',
-        },
-        {
-          label: 'Spend',
-          data: historySpend,
-          borderColor: '#c41e3a',
-          backgroundColor: 'rgba(196,30,58,0.08)',
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: '#c41e3a',
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { labels: { color: '#666', font: { size: 11 } } }
-      },
-      scales: {
-        x: { ticks: { color: '#444', font: { size: 10 } }, grid: { color: '#1e1e1e' } },
-        y: { ticks: { color: '#444', font: { size: 10 }, callback: v => '\\u00A3' + v },
-             grid: { color: '#1e1e1e' } }
-      }
-    }
-  });
-})();
-
-// ── Funnel chart ──────────────────────────────────────────────────────────
-(function() {
-  const funnel = {{ funnel | tojson }};
-  const labels = ['Impressions', 'Clicks', 'Quiz Starts', 'Diagnosed', 'Paid'];
-  const values = [
-    funnel.impressions   || 0,
-    funnel.clicks        || 0,
-    funnel.quiz_starts   || 0,
-    funnel.diagnosed     || 0,
-    funnel.paid          || 0,
-  ];
-
-  const ctx = document.getElementById('chartFunnel');
-  if (!ctx) return;
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Count',
-        data: values,
-        backgroundColor: [
-          'rgba(196,30,58,0.25)',
-          'rgba(196,30,58,0.35)',
-          'rgba(196,30,58,0.50)',
-          'rgba(196,30,58,0.70)',
-          'rgba(196,30,58,0.90)',
-        ],
-        borderColor: '#c41e3a',
-        borderWidth: 1,
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: { ticks: { color: '#444', font: { size: 10 } }, grid: { color: '#1e1e1e' } },
-        y: { ticks: { color: '#aaa', font: { size: 11 } }, grid: { color: '#1e1e1e' } }
-      }
-    }
-  });
-})();
-</script>
 
 <script>
 function dismissReminder(id) {
@@ -2533,6 +2695,8 @@ function greenLightIdea(id) {
   const modal = document.getElementById('gl-modal');
   const grid  = document.getElementById('gl-photo-grid');
   const title = document.getElementById('gl-modal-title');
+  const ideaBtns = document.getElementById('gl-modal-idea-btns');
+  if (ideaBtns) ideaBtns.style.display = '';
   // Find idea title
   const ideaEl = document.getElementById('idea-' + id) || document.getElementById('idea-mkt-' + id);
   const ideaTitleEl = ideaEl ? ideaEl.querySelector('[style*="font-weight:600"]') : null;
@@ -2546,37 +2710,38 @@ function greenLightIdea(id) {
     .then(r => r.json())
     .then(data => {
       const candidates = data.candidates || [];
-      if (!candidates.length) {
-        grid.innerHTML = '<div style="color:#888;font-size:13px;padding:16px 0">No photos found. Drop images into brand/random-snaps to build your library.</div>';
-        return;
+      if (!data.has_variety) {
+        grid.insertAdjacentHTML('beforebegin', '<div id="gl-no-variety-msg" style="background:#2a1400;border-left:3px solid #e8a020;padding:10px 12px;border-radius:0 4px 4px 0;margin-bottom:14px;font-size:12px;color:#e8a020">All available photos are face shots. Use <b>Request graphics task</b> below to create on-brand statement images.</div>');
+      } else {
+        const existing = document.getElementById('gl-no-variety-msg');
+        if (existing) existing.remove();
       }
-      const photoCards = candidates.map(c => {
-        const isUncatalogued = c.quality === 'uncatalogued';
-        const badge = isUncatalogued
-          ? '<div style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,0.7);color:#e8a020;font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700">NEW</div>'
-          : '';
-        const faceTag = (c.tags||[]).includes('face')
-          ? '<div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);color:#666;font-size:9px;padding:2px 6px;border-radius:3px">face</div>'
-          : '';
-        return `<div onclick="_confirmGreenLight('${c.id}')"
-             style="cursor:pointer;border:2px solid #252525;border-radius:6px;overflow:hidden;background:#111;position:relative;-webkit-tap-highlight-color:transparent"
-             onmouseover="this.style.borderColor='#c41e3a'" onmouseout="this.style.borderColor='#252525'">
-          <div style="position:relative">
-            <img src="${c.url}" style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block" loading="lazy">
-            ${badge}${faceTag}
-          </div>
-          <div style="padding:7px 8px">
-            <div style="font-size:10px;font-weight:600;color:#ddd;text-transform:capitalize;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.label||c.quality}</div>
-          </div>
-        </div>`;
-      }).join('');
-
-      const noVarietyMsg = !data.has_variety
-        ? '<div style="background:#2a1400;border-left:3px solid #e8a020;padding:10px 12px;border-radius:0 4px 4px 0;margin-bottom:14px;font-size:12px;color:#e8a020">All available photos are face shots. Use <b>Request graphics task</b> below to create on-brand statement images.</div>'
-        : '';
-
-      grid.innerHTML = noVarietyMsg + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px">' + photoCards + '</div>';
+      _buildPhotoGrid(candidates, '_confirmGreenLight');
     });
+}
+function _buildPhotoGrid(candidates, onClickFn) {
+  const grid = document.getElementById('gl-photo-grid');
+  if (!candidates.length) {
+    grid.innerHTML = '<div style="color:#555;font-size:13px;padding:40px 0;text-align:center">No photos found — drop images into brand/random-snaps/ to build your library.</div>';
+    return;
+  }
+  const qualityColour = {best:'#2a9d4e', good:'#e8a020', usable:'#555', uncatalogued:'#4a9eff'};
+  const qualityDot = q => `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${qualityColour[q]||'#555'};margin-right:4px;vertical-align:middle"></span>`;
+  const cards = candidates.map(c => {
+    const isFace   = (c.tags||[]).includes('face');
+    const isNew    = c.quality === 'uncatalogued';
+    const topLeft  = isNew ? `<div style="position:absolute;top:6px;left:6px;background:rgba(42,158,255,0.9);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.5px">NEW</div>` : '';
+    const topRight = isFace ? `<div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);color:#888;font-size:9px;padding:2px 6px;border-radius:3px">face</div>` : '';
+    const label    = (c.notes || c.label || '').trim() || (c.id||'').split('/').pop().replace(/\.[^.]+$/,'').replace(/[-_]/g,' ');
+    return `<div onclick="${onClickFn}('${c.id}')" style="cursor:pointer;border:2px solid #252525;border-radius:6px;overflow:hidden;background:#111;position:relative;transition:border-color .12s" onmouseover="this.style.borderColor='#c41e3a'" onmouseout="this.style.borderColor='#252525'">
+      <div style="position:relative;aspect-ratio:1/1;overflow:hidden">
+        <img src="${c.url}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none';this.parentElement.style.background='#1e1e1e'">
+        ${topLeft}${topRight}
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:20px 7px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.8));font-size:10px;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${qualityDot(c.quality)}${label}</div>
+      </div>
+    </div>`;
+  }).join('');
+  grid.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">' + cards + '</div>';
 }
 function _closeGlModal() {
   document.getElementById('gl-modal').style.display = 'none';
@@ -2635,8 +2800,45 @@ function _requestGraphicsTask() {
 function archiveIdea(id) {
   fetch('/api/ideas-bank/' + id + '/archive', {method:'POST'})
     .then(r => r.json()).then(() => {
-      const el = document.getElementById('idea-' + id);
-      if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+      ['idea-'+id, 'idea-mkt-'+id].forEach(eid => {
+        const el = document.getElementById(eid);
+        if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+      });
+    });
+}
+function suggestPhotoForIdea(id, btn) {
+  btn.textContent = '🤖 Thinking…';
+  btn.disabled = true;
+  fetch('/api/ideas-bank/' + id + '/suggest-photo', {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { btn.textContent = '🤖 Suggest photo'; btn.disabled = false; return; }
+      location.reload();
+    });
+}
+function greenLightWithPhoto(ideaId, photoId) {
+  fetch('/api/ideas-bank/' + ideaId + '/green-light', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({photo_id: photoId})
+  }).then(r => r.json()).then(() => {
+    ['idea-'+ideaId, 'idea-mkt-'+ideaId].forEach(eid => {
+      const el = document.getElementById(eid);
+      if (el) el.innerHTML = '<div style="color:#2a9d4e;padding:8px 0;font-size:13px">✅ Green lit — check Content Review.</div>';
+    });
+  });
+}
+function scanPhotos() {
+  const btn = document.getElementById('scan-photos-btn');
+  if (btn) { btn.textContent = '↻ Scanning…'; btn.disabled = true; }
+  fetch('/api/photos/scan', {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (btn) { btn.textContent = '↻ Update photos'; btn.disabled = false; }
+      const toast = document.createElement('div');
+      toast.textContent = d.added > 0 ? '📸 ' + d.message + ' — scroll up to review' : '✓ No new photos found';
+      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid #333;color:#ccc;padding:12px 20px;border-radius:6px;font-size:13px;z-index:99999';
+      document.body.appendChild(toast);
+      setTimeout(() => { toast.remove(); if (d.added > 0) location.reload(); }, 2500);
     });
 }
 function approvePhoto(id) {
@@ -2679,9 +2881,46 @@ function postNow(id) {
         : '<div style="color:#c41e3a;font-size:12px;padding:8px">⚠ Error: ' + d.error + '</div>';
     });
 }
-function requestGraphic(id) {
-  fetch('/api/content/' + id + '/request-graphic', {method:'POST'})
-    .then(() => location.reload());
+function requestGraphicForIdea(id) {
+  fetch('/api/ideas-bank/' + id + '/needs-graphic', {method:'POST'})
+    .then(() => {
+      const el = document.getElementById('idea-mkt-' + id) || document.getElementById('idea-' + id);
+      if (el) el.style.opacity = '0.5';
+      const toast = document.createElement('div');
+      toast.textContent = '🎨 Flagged — add graphic to brand/random-snaps/ then pick it from the Awaiting Graphic column.';
+      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2a1800;border:1px solid #e8a020;color:#e8a020;padding:12px 20px;border-radius:6px;font-size:13px;z-index:99999;max-width:90vw;text-align:center';
+      document.body.appendChild(toast);
+      setTimeout(() => { toast.remove(); location.reload(); }, 2500);
+    });
+}
+var _graphicPostId = null;
+function pickGraphicForPost(id) {
+  _graphicPostId = id;
+  const modal = document.getElementById('gl-modal');
+  const title = document.getElementById('gl-modal-title');
+  if (title) title.textContent = 'Pick photo for post';
+  const ideaBtns = document.getElementById('gl-modal-idea-btns');
+  if (ideaBtns) ideaBtns.style.display = 'none';
+  const grid = document.getElementById('gl-photo-grid');
+  grid.innerHTML = '<div style="color:#888;font-size:13px;padding:20px 0">Loading photos...</div>';
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  fetch('/api/photo-candidates')
+    .then(r => r.json())
+    .then(data => {
+      _buildPhotoGrid(data.candidates || [], '_confirmGraphicForPost');
+    });
+}
+function _confirmGraphicForPost(photoId) {
+  const id = _graphicPostId;
+  if (!id) return;
+  _graphicPostId = null;
+  document.getElementById('gl-modal').style.display = 'none';
+  document.body.style.overflow = '';
+  fetch('/api/content/' + id + '/graphic-ready', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({photo_id: photoId})
+  }).then(() => location.reload());
 }
 function markGraphicReady(id) {
   fetch('/api/content/' + id + '/graphic-ready', {method:'POST'})
@@ -2693,17 +2932,23 @@ function showSendBack(id) {
 }
 function submitSendBack(id) {
   const comment = document.getElementById('sendback-txt-' + id).value;
+  const btn = document.querySelector('#sendback-' + id + ' button');
+  if (btn) { btn.textContent = '↩ Revising…'; btn.disabled = true; }
   fetch('/api/content/' + id + '/send-back', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({comment})
-  }).then(() => location.reload());
+  }).then(r => r.json()).then(data => {
+    if (data.revised) {
+      const card = document.getElementById('pc-' + id);
+      if (card) card.style.border = '1px solid #2a9d4e';
+    }
+    location.reload();
+  });
 }
 function archivePost(id) {
+  if (!confirm('Archive this post?')) return;
   fetch('/api/content/' + id + '/archive', {method:'POST'})
-    .then(() => {
-      const el = document.getElementById('cr-' + id);
-      if (el) { el.style.opacity = '0.3'; el.style.pointerEvents = 'none'; }
-    });
+    .then(() => location.reload());
 }
 function unqueuePost(id) {
   fetch('/api/content/' + id + '/send-back', {
@@ -2711,13 +2956,73 @@ function unqueuePost(id) {
     body: JSON.stringify({comment: ''})
   }).then(() => location.reload());
 }
+var _swapPostId = null;
 function swapPhoto(id) {
-  const photoId = prompt('Enter photo ID (catalogue key or random-snaps/filename):');
-  if (!photoId) return;
+  _swapPostId = id;
+  const modal = document.getElementById('gl-modal');
+  const title = document.getElementById('gl-modal-title');
+  if (title) title.textContent = 'Swap photo for post';
+  const ideaBtns = document.getElementById('gl-modal-idea-btns');
+  if (ideaBtns) ideaBtns.style.display = 'none';
+  const grid = document.getElementById('gl-photo-grid');
+  grid.innerHTML = '<div style="color:#888;font-size:13px;padding:20px 0">Loading photos...</div>';
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  fetch('/api/photo-candidates')
+    .then(r => r.json())
+    .then(data => {
+      _buildPhotoGrid(data.candidates || [], '_confirmSwapPhoto');
+    });
+}
+function _confirmSwapPhoto(photoId) {
+  const id = _swapPostId;
+  if (!id) return;
+  _swapPostId = null;
+  document.getElementById('gl-modal').style.display = 'none';
+  document.body.style.overflow = '';
   fetch('/api/content/' + id + '/swap-photo', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({photo_id: photoId})
   }).then(() => location.reload());
+}
+function loadCampaigns() {
+  const el = document.getElementById('campaigns-list');
+  el.innerHTML = '<div style="color:#555;font-size:12px;font-style:italic">Loading…</div>';
+  fetch('/api/ads/campaigns').then(r => r.json()).then(data => {
+    if (!data.ok) { el.innerHTML = '<div style="color:#c41e3a;font-size:12px">Error: ' + data.error + '</div>'; return; }
+    if (!data.campaigns.length) { el.innerHTML = '<div style="color:#555;font-size:12px;font-style:italic">No campaigns found.</div>'; return; }
+    const statusColour = {ACTIVE:'#2a9d4e', PAUSED:'#e8a020', ARCHIVED:'#555', DELETED:'#555'};
+    el.innerHTML = data.campaigns.map(c => `
+      <div style="border:1px solid #252525;border-radius:4px;padding:10px 12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${statusColour[c.status]||'#555'};flex-shrink:0;display:inline-block"></span>
+            <span style="color:#ddd;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name}</span>
+          </div>
+          <div style="display:flex;gap:12px;font-size:11px;color:#555;flex-wrap:wrap">
+            <span>${c.objective.replace(/_/g,' ')}</span>
+            ${c.daily_budget ? '<span>£' + c.daily_budget + '/day</span>' : ''}
+            <span>Spend (7d): £${c.spend.toFixed(2)}</span>
+            <span>Impressions: ${c.impressions.toLocaleString()}</span>
+            ${c.leads ? '<span style="color:#2a9d4e">Leads: ' + c.leads + '</span>' : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${c.status === 'ACTIVE'
+            ? `<button onclick="pauseCampaign('${c.id}')" style="background:none;border:1px solid #555;color:#888;padding:4px 10px;border-radius:3px;font-size:10px;cursor:pointer">⏸ Pause</button>`
+            : `<button onclick="resumeCampaign('${c.id}')" style="background:#2a1800;border:1px solid #e8a020;color:#e8a020;padding:4px 10px;border-radius:3px;font-size:10px;cursor:pointer">▶ Resume</button>`
+          }
+        </div>
+      </div>`).join('');
+  });
+}
+function pauseCampaign(id) {
+  fetch('/api/ads/campaigns/' + id + '/pause', {method:'POST'})
+    .then(r => r.json()).then(d => { if(d.ok) loadCampaigns(); else alert('Error: ' + d.error); });
+}
+function resumeCampaign(id) {
+  fetch('/api/ads/campaigns/' + id + '/resume', {method:'POST'})
+    .then(r => r.json()).then(d => { if(d.ok) loadCampaigns(); else alert('Error: ' + d.error); });
 }
 function fbQueuePause() {
   fetch('/api/fb-queue/pause', {method:'POST'}).then(() => location.reload());
@@ -2772,6 +3077,21 @@ function markTechDone(id) {
       if (row) { row.style.opacity = '0.4'; row.style.pointerEvents = 'none'; row.querySelector('.tech-done-btn').textContent = '✓ Done'; }
     });
 }
+function toggleCard(id) {
+  const expand = document.getElementById('expand-' + id);
+  if (!expand) return;
+  expand.style.display = expand.style.display === 'none' ? 'block' : 'none';
+}
+function requestGraphicForIdea(ideaId) {
+  fetch('/api/ideas-bank/' + ideaId + '/needs-graphic', {method:'POST'})
+    .then(r => r.json())
+    .then(() => {
+      const card = document.getElementById('idea-' + ideaId);
+      if (card) card.style.borderColor = '#3a2800';
+      const expand = document.getElementById('expand-idea-' + ideaId);
+      if (expand) expand.innerHTML = '<div style="background:#1a0800;border-left:2px solid #e8a020;padding:8px 10px;border-radius:0 3px 3px 0;font-size:11px;color:#e8a020">📸 Marked as needing a graphic. Drop an image into <b>brand/random-snaps/</b> — it will auto-advance on next page load.</div>';
+    });
+}
 function toggleBot(id) {
   const body  = document.getElementById('body-' + id);
   const chev  = document.getElementById('chev-' + id);
@@ -2788,16 +3108,18 @@ function togglePost(id) {
 </script>
 
 <!-- Photo picker modal -->
-<div id="gl-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:16px;box-sizing:border-box" onclick="if(event.target===this)_closeGlModal()">
-  <div style="background:#1a1a1a;border-radius:8px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;padding:22px;box-sizing:border-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div id="gl-modal-title" style="font-size:13px;font-weight:600;color:#ddd;flex:1;margin-right:12px">Pick a photo</div>
-      <button onclick="_closeGlModal()" style="background:none;border:none;color:#666;font-size:20px;cursor:pointer;padding:0;line-height:1">&times;</button>
+<div id="gl-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;padding:16px;box-sizing:border-box" onclick="if(event.target===this)_closeGlModal()">
+  <div style="background:#1a1a1a;border-radius:8px;width:100%;max-width:960px;max-height:92vh;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px 14px;flex-shrink:0">
+      <div id="gl-modal-title" style="font-size:14px;font-weight:600;color:#ddd;flex:1;margin-right:12px">Pick a photo</div>
+      <button onclick="_closeGlModal()" style="background:none;border:none;color:#555;font-size:22px;cursor:pointer;padding:0;line-height:1">&times;</button>
     </div>
-    <div id="gl-photo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:16px"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button onclick="_skipGlPhoto()" style="flex:1;background:none;border:1px solid #555;color:#aaa;padding:10px;border-radius:4px;font-size:13px;cursor:pointer;min-width:120px">No photo — text only</button>
-      <button onclick="_requestGraphicsTask()" style="flex:1;background:none;border:1px solid #e8a020;color:#e8a020;padding:10px;border-radius:4px;font-size:13px;cursor:pointer;min-width:160px">Request statement graphic &#8594;</button>
+    <div id="gl-photo-grid" style="overflow-y:auto;padding:0 22px 16px;flex:1"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:14px 22px 18px;border-top:1px solid #252525;flex-shrink:0">
+      <div id="gl-modal-idea-btns" style="display:flex;gap:8px;flex:1;flex-wrap:wrap">
+        <button onclick="_skipGlPhoto()" style="flex:1;background:none;border:1px solid #555;color:#aaa;padding:10px;border-radius:4px;font-size:13px;cursor:pointer;min-width:120px">Green light (text-only post)</button>
+        <button onclick="_requestGraphicsTask()" style="flex:1;background:none;border:1px solid #e8a020;color:#e8a020;padding:10px;border-radius:4px;font-size:13px;cursor:pointer;min-width:160px">Request statement graphic &#8594;</button>
+      </div>
       <button onclick="_closeGlModal()" style="background:none;border:1px solid #333;color:#666;padding:10px 18px;border-radius:4px;font-size:13px;cursor:pointer">Cancel</button>
     </div>
   </div>
@@ -3053,11 +3375,97 @@ def dashboard():
     active_count   = sum(1 for _, cs in clients if cs.get("status") == "active")
     diagnosed_count= sum(1 for _, cs in clients if cs.get("status") == "diagnosed")
     sys_status     = get_system_status()
+
+    # Core KPIs from DB + files
+    mrr   = _calc_mrr(state)
+    spend = _parse_finances_spend()
+    net   = round(mrr - spend, 2)
+    gap   = max(0.0, round(3000.0 - mrr, 2))
+
+    # Pipeline counts from DB
+    pipeline = {
+        "ideas":          len(db.get_ideas(status="draft")) + len(db.get_ideas(status="needs_graphic")),
+        "content_review": len(db.get_posts(stage="content_review")),
+        "fb_queue":       len(db.get_posts(stage="fb_queue")),
+        "posted":         len(db.get_posts(stage="posted")),
+        "pending_emails": len(db.get_pending_emails()),
+        "pending_photos": len(db.get_pending_photos()),
+    }
+
+    # Trends — real data from DB
+    from datetime import date as _date, timedelta as _td
+    _today = _date.today()
+    _mon_this = (_today - _td(days=_today.weekday())).isoformat()
+    _mon_last = (_today - _td(days=_today.weekday() + 7)).isoformat()
+
+    _all_posted = db.get_posts(stage="posted")
+    _all_ideas  = db.get_ideas()
+
+    def _in_week(ts, start, end):
+        if not ts:
+            return False
+        d = str(ts)[:10]
+        return start <= d < end
+
+    _mon_next = (_today - _td(days=_today.weekday()) + _td(days=7)).isoformat()
+
+    # Paid clients = active clients with actual payment_amount > 0 only
+    paid_count = sum(
+        1 for _, cs in clients
+        if cs.get("status") == "active" and float(cs.get("payment_amount", 0) or 0) > 0
+    )
+
+    # Weekly targets — all from DB + state.json
+    _all_fb_queue = db.get_posts(stage="fb_queue")
+    _wt_content = sum(
+        1 for p in _all_posted
+        if _in_week(p.get("posted_at"), _mon_this, _mon_next)
+    ) + sum(
+        1 for p in _all_fb_queue
+        if _in_week(p.get("created_at"), _mon_this, _mon_next)
+    )
+    _wt_leads = sum(
+        1 for _, cs in clients
+        if (cs.get("intake_date") or "")[:10] >= _mon_this
+    )
+    _wt_clients = sum(
+        1 for _, cs in clients
+        if cs.get("status") == "active" and float(cs.get("payment_amount", 0) or 0) > 0
+        and (cs.get("intake_date") or "")[:10] >= _mon_this
+    )
+    weekly_targets = [
+        {"label": "Content pieces",  "current": _wt_content,  "target": 5},
+        {"label": "Leads generated", "current": _wt_leads,    "target": 5},
+        {"label": "New clients",     "current": _wt_clients,  "target": 1},
+    ]
+
+    trends = {
+        "posts_this_week": sum(1 for p in _all_posted if _in_week(p.get("posted_at"), _mon_this, _mon_next)),
+        "posts_last_week": sum(1 for p in _all_posted if _in_week(p.get("posted_at"), _mon_last, _mon_this)),
+        "ideas_this_week": sum(1 for i in _all_ideas if _in_week(i.get("created_at"), _mon_this, _mon_next)),
+        "ideas_last_week": sum(1 for i in _all_ideas if _in_week(i.get("created_at"), _mon_last, _mon_this)),
+        "total_posted":    len(_all_posted),
+        "funnel_ideas":    len(db.get_ideas(status="draft")) + len(db.get_ideas(status="needs_graphic")),
+        "funnel_review":   len(db.get_posts(stage="content_review")),
+        "funnel_queue":    len(db.get_posts(stage="fb_queue")),
+        "funnel_posted":   len(_all_posted),
+        "recent_posts":    sorted(_all_posted, key=lambda p: p.get("posted_at") or "", reverse=True)[:5],
+    }
+
+    _queue_settings = db.get_queue_settings()
+    _leads_week = _wt_leads
     return render_template_string(DASHBOARD, title="Dashboard",
                                   clients=clients, flash=flash,
                                   status=sys_status,
+                                  queue_settings=_queue_settings,
                                   active_count=active_count,
-                                  diagnosed_count=diagnosed_count)
+                                  paid_count=paid_count,
+                                  diagnosed_count=diagnosed_count,
+                                  mrr=mrr, spend=spend, net=net, gap=gap,
+                                  pipeline=pipeline,
+                                  weekly_targets=weekly_targets,
+                                  leads_week=_leads_week,
+                                  trends=trends)
 
 @app.route("/client/<acct>")
 def client_detail(acct):
@@ -3199,7 +3607,15 @@ def client_tracker(acct: str):
 
 @app.route("/simulate")
 def simulator():
-    return render_template_string(SIMULATOR_PAGE, title="Pipeline Simulator")
+    import json as _json
+    edu_cells       = _build_gantt_education_cells()
+    challenge_cells = _build_gantt_challenge_cells()
+    return render_template_string(
+        SIMULATOR_PAGE,
+        title="Pipeline Simulator",
+        gantt_edu_cells=_json.dumps(edu_cells),
+        gantt_challenge_cells=_json.dumps(challenge_cells),
+    )
 
 @app.route("/api/sim/<int:week>")
 def api_sim_week(week):
@@ -3208,6 +3624,94 @@ def api_sim_week(week):
     if track not in _PROGRAM_FILES:
         track = "dumbbell_full_body"
     return jsonify({"week": week, "track": track, "events": _sim_week_events(week, track)})
+
+@app.route("/api/brand-confidence-review", methods=["POST"])
+def api_brand_confidence_review():
+    """Brand Bot assesses programme cadence & value for money."""
+    import anthropic as _anthropic
+    secrets = _load_secrets()
+    api_key = secrets.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 500
+
+    brand_guidelines = db.get_bot_state("brand_guidelines") or ""
+    learnings = db.get_learnings("marketing_bot")
+    learnings_hint = ""
+    if learnings:
+        recent = learnings[-5:]
+        learnings_hint = "\n\nRecent Brand learnings:\n" + "\n".join(
+            f"- [{l['type']}] {l['text']}" for l in recent
+        )
+
+    PROGRAMME_SUMMARY = """
+Battleship Reset — 12-week online fitness/reset coaching programme.
+Price: £97/month (£291 for 3 months, no contract).
+
+DELIVERY CADENCE:
+- Week 0 (Intake): Tally form → Claude diagnosis email → Stripe payment link email
+- Week 1: Onboarding email + personalised 12-week plan delivery email
+- Weeks 1–12: Every Sunday — weekly check-in request email (Google Form link)
+- Weeks 1–12: Claude reads check-in response → personalised coach reply email + session for the week
+- Weeks 2, 3, 4: Education drip emails (habit/mindset/nutrition content)
+- Week 8: Mid-programme challenge email
+- Week 12: Programme close email + Phase 2 pitch (upsell)
+
+PROGRAMME TRACKS (8 total — auto-selected at Week 1 check-in by equipment keywords):
+Beginner Bodyweight, Bodyweight Full-Body, Bodyweight HIIT, Resistance Bands,
+Dumbbell Full-Body, Home Complete (DB+Bands+Bar), Gym Beginner (Machines), Gym Intermediate (PPL)
+
+Sessions: Mon/Wed/Fri each week = 36 sessions over 12 weeks.
+Auto-graduation: gym_beginner clients promoted to gym_intermediate at Week 8 if check-in signals readiness.
+
+FOUNDER: Will Barratt — personal transformation story, before/after photos, authentic voice.
+TARGET MARKET: Busy professionals 30–55 who want structured reset, not another app.
+BRAND: Dark, minimal, confident. "Battleship" = strength, discipline, reliability.
+"""
+
+    prompt = f"""You are the Brand Manager for Battleship Reset, a premium online fitness coaching programme.
+
+Brand guidelines: {brand_guidelines[:600] if brand_guidelines else "Dark, minimal, confident. Authentic. Anti-gimmick."}
+{learnings_hint}
+
+Review this programme for product confidence. Assess:
+1. CADENCE — Is the 12-week touchpoint schedule appropriate? Too much / too little contact?
+2. VALUE FOR MONEY — Does £97/month feel fair vs market? What's the perceived vs actual value?
+3. PRODUCT-MARKET FIT — Does the delivery model match what busy 30-55yo professionals want?
+4. RISKS — What could make a client feel let down or drop off?
+5. VERDICT — One sentence summary.
+
+Programme details:
+{PROGRAMME_SUMMARY}
+
+Respond in this exact JSON format (no markdown, raw JSON only):
+{{
+  "score": <integer 1-10>,
+  "verdict": "<one sentence>",
+  "review": "<4-5 paragraphs covering cadence, value, fit, risks — plain text, no markdown>"
+}}"""
+
+    try:
+        client = _anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=800,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        import json as _json
+        text = msg.content[0].text.strip()
+        # Strip any accidental markdown fences
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.split("```")[0].strip()
+        result = _json.loads(text)
+        db.record_learning("marketing_bot", "brand_review",
+                           f"Brand confidence score: {result.get('score')}/10 — {result.get('verdict','')}")
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/run", methods=["GET", "POST"])
 def run_pipeline_page():
@@ -3241,14 +3745,6 @@ def _build_business_context():
 
     # ── Snapshot (write today's) ──────────────────────────────────────────────
     record_daily_snapshot(state, strategy, social, pnl)
-    # Reload after write
-    history = _load_json_safe(BIZ_HISTORY_FILE, {"history": []})
-
-    # ── History arrays for chart ──────────────────────────────────────────────
-    hist_items    = history.get("history", [])
-    history_dates = [h["date"] for h in hist_items]
-    history_mrr   = [h.get("mrr", 0) for h in hist_items]
-    history_spend = [h.get("spend", 0) for h in hist_items]
 
     # ── Social ────────────────────────────────────────────────────────────────
     page_data = social.get("page", {})
@@ -3299,12 +3795,18 @@ def _build_business_context():
         "Direct CTA",
     ]
     arc_phase_index = int(strategy.get("arc_phase_index", 0))
-    campaign_week   = int(strategy.get("campaign_week", 1))
-
-    # ── Funnel ────────────────────────────────────────────────────────────────
-    funnel = strategy.get("funnel", {
-        "impressions": 0, "clicks": 0, "quiz_starts": 0, "diagnosed": 0, "paid": 0
-    })
+    # Business week = weeks since first client's intake_date
+    _all_intake_dates = [
+        cs.get("intake_date", "")[:10]
+        for cs in state.get("clients", {}).values()
+        if cs.get("intake_date", "")
+    ]
+    if _all_intake_dates:
+        _first_intake = min(_all_intake_dates)
+        _days_since = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(_first_intake, "%Y-%m-%d")).days
+        campaign_week = max(1, (_days_since // 7) + 1)
+    else:
+        campaign_week = int(strategy.get("campaign_week", 1))
 
     # ── SEO ───────────────────────────────────────────────────────────────────
     SEO_TASK_DETAIL = [
@@ -3394,6 +3896,79 @@ def _build_business_context():
     pending_content   = db.get_posts(stage="content_review")
     ideas_drafts      = db.get_ideas(status="draft")
     all_ideas         = db.get_ideas()
+
+    # Auto-suggest photos for draft ideas that don't have one yet
+    _cat_file = VAULT_ROOT / "brand" / "catalogue.json"
+    _cat = json.loads(_cat_file.read_text()) if _cat_file.exists() else {}
+    # Load brand guidelines — check if face photos should be avoided
+    _guidelines_raw = db.get_bot_state("brand_guidelines") or "[]"
+    try:
+        _guidelines = json.loads(_guidelines_raw)
+    except Exception:
+        _guidelines = []
+    _avoid_faces = any(
+        re.search(r'no.{0,10}(pic|photo|selfie|image).{0,15}(me|myself|will)|no.{0,10}face|avoid.{0,10}(face|me)', g.get("comment","").lower())
+        for g in _guidelines
+    )
+    _auto_suggested = False
+    for _idea in all_ideas:
+        if _idea.get("status") == "draft" and not _idea.get("photo_id") and _cat:
+            _text = f"{_idea.get('title','')} {_idea.get('angle','')} {_idea.get('notes','')}".lower()
+            _keywords = set(re.findall(r'\b\w{4,}\b', _text))
+            _best_id, _best_score = None, -1
+            for _key, _meta in _cat.items():
+                if not (VAULT_ROOT / "brand" / _key).exists():
+                    continue
+                _meta_text = " ".join([_meta.get("notes",""), " ".join(_meta.get("tags",[])), " ".join(_meta.get("use_cases",[]))]).lower()
+                _meta_words = set(re.findall(r'\b\w{4,}\b', _meta_text))
+                _score = len(_keywords & _meta_words)
+                _score += {"best":3,"good":2,"usable":1}.get(_meta.get("quality","usable"),0)
+                if "face" not in _meta.get("tags",[]):
+                    _score += 1
+                if _avoid_faces and "face" in _meta.get("tags",[]):
+                    _score -= 10  # heavily penalise face photos if guideline says avoid
+                if _score > _best_score:
+                    _best_score = _score
+                    _best_id = _key
+            if _best_id:
+                db.set_idea_status(_idea["id"], _idea.get("status","draft"), {"photo_id": _best_id})
+                _auto_suggested = True
+    if _auto_suggested:
+        all_ideas    = db.get_ideas()          # reload with photo_ids populated
+        ideas_drafts = db.get_ideas(status="draft")  # also reload for kanban
+
+    # Auto-advance awaiting_graphic posts that now have a catalogue match
+    _awaiting_posts = db.get_posts(stage="awaiting_graphic")
+    for _post in _awaiting_posts:
+        if _post.get("image_path"):
+            db.advance_post_stage(_post["id"], "content_review", {"reviewed_at": db._now()})
+            continue
+        if not _cat:
+            continue
+        _text = f"{_post.get('theme','')} {_post.get('content','')}".lower()
+        _keywords = set(re.findall(r'\b\w{4,}\b', _text))
+        _best_id, _best_score = None, -1
+        for _key, _meta in _cat.items():
+            if not (VAULT_ROOT / "brand" / _key).exists():
+                continue
+            _meta_text = " ".join([_meta.get("notes",""), " ".join(_meta.get("tags",[])), " ".join(_meta.get("use_cases",[]))]).lower()
+            _meta_words = set(re.findall(r'\b\w{4,}\b', _meta_text))
+            _score = len(_keywords & _meta_words)
+            _score += {"best":3,"good":2,"usable":1}.get(_meta.get("quality","usable"),0)
+            if "face" not in _meta.get("tags",[]):
+                _score += 1
+            if _avoid_faces and "face" in _meta.get("tags",[]):
+                _score -= 10
+            if _score > _best_score:
+                _best_score = _score
+                _best_id = _key
+        if _best_id:
+            _img_path = str(VAULT_ROOT / "brand" / _best_id)
+            db.advance_post_stage(_post["id"], "content_review", {
+                "image_path": _img_path,
+                "reviewed_at": db._now()
+            })
+
     all_content       = db.get_posts()
     queue_settings    = db.get_queue_settings()
 
@@ -3425,12 +4000,27 @@ def _build_business_context():
     if has_ad_data:
         ad_results = f"{last_ad.get('link_clicks', last_ad.get('clicks', '—'))} link clicks"
 
-    # ── Weekly targets ────────────────────────────────────────────────────────
+    # ── Weekly targets — live data from DB + state.json ──────────────────────
+    _week_start = (_date.today() - _td(days=_date.today().weekday())).isoformat()
+    _week_end   = (_date.today() - _td(days=_date.today().weekday()) + _td(days=7)).isoformat()
+    _content_this_week = sum(
+        1 for p in db.get_posts(stage="posted")
+        if (p.get("posted_at") or p.get("created_at") or "")[:10] >= _week_start
+    )
+    _leads_this_week = sum(
+        1 for cs in state.get("clients", {}).values()
+        if cs.get("intake_date", "")[:10] >= _week_start
+    )
+    _clients_this_week = sum(
+        1 for cs in state.get("clients", {}).values()
+        if cs.get("status") == "active" and cs.get("intake_date", "")[:10] >= _week_start
+    )
     weekly_targets = [
-        {"label": "Content pieces",  "current": 0, "target": 5},
-        {"label": "Leads generated", "current": 0, "target": 5},
-        {"label": "New clients",     "current": 0, "target": 1},
+        {"label": "Content pieces",  "current": _content_this_week, "target": 5},
+        {"label": "Leads generated", "current": _leads_this_week,   "target": 5},
+        {"label": "New clients",     "current": _clients_this_week,  "target": 1},
     ]
+    leads_week = _leads_this_week
 
     # ── Next 3 posting slots ──────────────────────────────────────────────────
     from datetime import timedelta
@@ -3451,16 +4041,54 @@ def _build_business_context():
             if sched == slot["date"]:
                 posted_by_date.setdefault(slot["date"], []).append(p)
 
-    # ── Catalogue stats ───────────────────────────────────────────────────────
+    # ── Catalogue stats + photo usage ─────────────────────────────────────────
     catalogue_file = VAULT_ROOT / "brand" / "catalogue.json"
+    # Backfill: any approved photo not yet in catalogue.json gets added as 'usable'
+    with db._conn() as _con:
+        _approved = _con.execute(
+            "SELECT filename, path FROM photo_candidates WHERE status='approved'"
+        ).fetchall()
+    if _approved:
+        _cat_now = json.loads(catalogue_file.read_text()) if catalogue_file.exists() else {}
+        _changed = False
+        for _fname, _path in _approved:
+            _key = "random-snaps/" + (_fname or "")
+            if _fname and _key not in _cat_now:
+                _cat_now[_key] = {"quality": "usable", "tags": [], "notes": "", "use_cases": []}
+                _changed = True
+        if _changed:
+            catalogue_file.write_text(json.dumps(_cat_now, indent=2))
+
     catalogue_stats = {"total": 0, "best": 0, "good": 0, "usable": 0, "pending_review_photos": len(pending_photos)}
+    catalogue_photos = []  # list of dicts for display in Brand Manager
+    # Build set of used image paths from all posts
+    used_paths = {p.get("image_path","") for p in db.get_posts() if p.get("image_path")}
     if catalogue_file.exists():
         cat = json.loads(catalogue_file.read_text())
         catalogue_stats["total"] = len(cat)
-        for v in cat.values():
+        for key, v in cat.items():
             q = v.get("quality", "usable")
             if q in catalogue_stats:
                 catalogue_stats[q] += 1
+            full_path = str(VAULT_ROOT / "brand" / key)
+            use_count = sum(1 for p in used_paths if key in p or p == full_path)
+            catalogue_photos.append({
+                "key": key,
+                "url": "/brand/" + key,
+                "quality": q,
+                "tags": v.get("tags", []),
+                "notes": v.get("notes", ""),
+                "use_count": use_count,
+            })
+    # Sort: unused best-quality first, then good, then used
+    _quality_order = {"best": 0, "good": 1, "usable": 2}
+    catalogue_photos.sort(key=lambda x: (1 if x["use_count"] > 0 else 0, _quality_order.get(x["quality"], 3)))
+    # Load brand guidelines for display
+    _guidelines_raw = db.get_bot_state("brand_guidelines") or "[]"
+    try:
+        brand_guidelines = json.loads(_guidelines_raw)
+    except Exception:
+        brand_guidelines = []
 
     # ── Orchestrator last-run times ───────────────────────────────────────────
     orch = _load_json_safe(VAULT_ROOT / "brand" / "Marketing" / "orchestrator_state.json", {})
@@ -3473,7 +4101,6 @@ def _build_business_context():
         mrr=mrr, gap=gap, spend=spend, net=net, active_clients=active_clients,
         campaign_week=campaign_week,
         arc_phases=arc_phases, arc_phase_index=arc_phase_index,
-        funnel=funnel,
         fb_followers=fb_followers, fb_delta=fb_delta,
         ig_followers=ig_followers,
         organic_reach_week=organic_reach_week, link_clicks_week=link_clicks_week,
@@ -3485,7 +4112,7 @@ def _build_business_context():
         pivot_notes=pivot_notes,
         roadmap_items=roadmap_items,
         weekly_targets=weekly_targets,
-        history_dates=history_dates, history_mrr=history_mrr, history_spend=history_spend,
+        leads_week=leads_week,
         briefing=briefing,
         pending_photos=pending_photos,
         pending_content=pending_content,
@@ -3495,6 +4122,8 @@ def _build_business_context():
         fb_schedule=fb_schedule,
         posted_by_date=posted_by_date,
         catalogue_stats=catalogue_stats,
+        catalogue_photos=catalogue_photos,
+        brand_guidelines=brand_guidelines,
         orch=orch,
         pending_emails=pending_emails,
         queue_settings=queue_settings,
@@ -3527,7 +4156,15 @@ def api_reminders():
 
 @app.route("/api/reminders/<rem_id>/dismiss", methods=["POST"])
 def api_reminder_dismiss(rem_id):
+    rem = db.get_reminder(rem_id) if hasattr(db, "get_reminder") else {}
     db.dismiss_reminder(rem_id)
+    if rem:
+        db.record_learning(
+            source=rem.get("added_by", "manual"),
+            learning_type="dismiss",
+            text=f"Will marked as done: \"{rem.get('title', '')}\"",
+            context=rem.get("description", "")[:200],
+        )
     return jsonify({"status": "ok"})
 
 
@@ -3535,7 +4172,15 @@ def api_reminder_dismiss(rem_id):
 def api_reminder_pivot(rem_id):
     body = request.get_json(silent=True) or {}
     note = body.get("note", "").strip()
+    rem  = db.get_reminder(rem_id) if hasattr(db, "get_reminder") else {}
     db.pivot_reminder(rem_id, note)
+    if note and rem:
+        db.record_learning(
+            source=rem.get("added_by", "manual"),
+            learning_type="pivot",
+            text=note,
+            context=f"Re: \"{rem.get('title', '')}\"",
+        )
     return jsonify({"status": "ok"})
 
 
@@ -3736,18 +4381,28 @@ def api_email_queue_reject(eq_id):
     return jsonify({"ok": True})
 
 
+def _add_to_catalogue(filename: str, path: str, quality: str = "usable", tags: list = None):
+    """Add a photo to catalogue.json if not already present."""
+    cat_file = VAULT_ROOT / "brand" / "catalogue.json"
+    cat = json.loads(cat_file.read_text()) if cat_file.exists() else {}
+    rel_key = "random-snaps/" + filename
+    if rel_key not in cat:
+        cat[rel_key] = {
+            "quality":   quality,
+            "tags":      tags or [],
+            "notes":     "",
+            "use_cases": [],
+        }
+        cat_file.write_text(json.dumps(cat, indent=2))
+    return rel_key
+
+
 @app.route("/api/photo-review/<photo_id>/approve", methods=["POST"])
 def api_photo_approve(photo_id):
     photo = next((p for p in db.get_pending_photos() if p["id"] == photo_id), None)
     db.set_photo_status(photo_id, "approved", "dashboard")
-    # Move to content pipeline as marketing_review so it surfaces for captioning
     if photo:
-        db.insert_post({
-            "theme":      "Photo — " + (photo.get("filename") or photo_id),
-            "stage":      "marketing_review",
-            "source":     "photo_review",
-            "image_path": photo.get("path", ""),
-        })
+        _add_to_catalogue(photo.get("filename", photo_id), photo.get("path", ""))
     return jsonify({"status": "approved"})
 
 
@@ -3755,6 +4410,42 @@ def api_photo_approve(photo_id):
 def api_photo_reject(photo_id):
     db.set_photo_status(photo_id, "rejected", "dashboard")
     return jsonify({"status": "rejected"})
+
+
+@app.route("/api/photos/scan", methods=["POST"])
+def api_photos_scan():
+    """Scan brand/random-snaps/ for new images and add them as pending photo candidates."""
+    snap_dir = VAULT_ROOT / "brand" / "random-snaps"
+    IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".JPG", ".JPEG", ".PNG", ".WEBP"}
+    if not snap_dir.exists():
+        return jsonify({"added": 0, "message": "random-snaps/ folder not found"})
+
+    # Build set of already-known paths
+    from urllib.parse import quote as _quote
+    existing = {p["path"] for p in db.get_pending_photos()}
+    # Also check non-pending ones via a broader query
+    with db._conn() as con:
+        all_paths = {r[0] for r in con.execute("SELECT path FROM photo_candidates").fetchall()}
+
+    added = 0
+    for img in sorted(snap_dir.iterdir()):
+        if img.is_dir() or img.suffix not in IMG_EXTS:
+            continue
+        full_path = str(img)
+        if full_path in all_paths:
+            continue
+        url = "/brand/random-snaps/" + _quote(img.name)
+        db.insert_photo_candidate({
+            "filename":     img.name,
+            "path":         full_path,
+            "url":          url,
+            "status":       "pending",
+            "caption_hint": img.stem.replace("-", " ").replace("_", " "),
+            "source":       "random-snaps",
+        })
+        added += 1
+
+    return jsonify({"added": added, "message": f"{added} new photo(s) queued for review"})
 
 
 # ── Content pipeline routes ────────────────────────────────────────────────────
@@ -3788,9 +4479,12 @@ def api_content_post_now(cr_id):
     if not (token and page_id):
         return jsonify({"ok": False, "error": "FB token not configured"}), 400
     try:
-        from skills.facebook_bot import post_photo as _post_photo, _post_live as _post_live_fn
+        from skills.facebook_bot import (post_photo as _post_photo,
+                                          _post_live as _post_live_fn,
+                                          cross_post_to_instagram as _ig_cross)
         secrets = {k: env.get(k, "") for k in
-                   ["FB_PAGE_ACCESS_TOKEN", "FB_PAGE_ID", "IG_USER_ID", "FB_USER_TOKEN"]}
+                   ["FB_PAGE_ACCESS_TOKEN", "FB_PAGE_ID", "IG_USER_ID",
+                    "FB_USER_TOKEN", "FB_SYSTEM_TOKEN"]}
         image_path = post.get("image_path", "")
         if image_path and Path(image_path).exists():
             fb_id = _post_photo(Path(image_path), post["content"], secrets)
@@ -3800,6 +4494,13 @@ def api_content_post_now(cr_id):
             "fb_post_id": fb_id,
             "posted_at":  datetime.now(timezone.utc).isoformat(),
         })
+        # Cross-post to Instagram in background thread
+        import threading
+        threading.Thread(
+            target=_ig_cross,
+            args=(post["content"], image_path or None, secrets),
+            daemon=True,
+        ).start()
         return jsonify({"ok": True, "fb_post_id": fb_id})
     except Exception as ex:
         return jsonify({"ok": False, "error": str(ex)}), 500
@@ -3816,25 +4517,88 @@ def api_content_request_graphic(cr_id):
 
 @app.route("/api/content/<cr_id>/graphic-ready", methods=["POST"])
 def api_content_graphic_ready(cr_id):
-    """Mark graphic as done — move back to content_review."""
+    """Mark graphic as done — move back to content_review. Optionally attach a photo."""
     body = request.get_json(silent=True) or {}
     fields = {"stage": "content_review"}
     if body.get("image_path"):
         fields["image_path"] = body["image_path"]
+    elif body.get("photo_id"):
+        photo = db.get_photo_candidate(body["photo_id"])
+        if photo:
+            fields["image_path"] = photo.get("path", "")
     db.update_post(cr_id, fields)
     return jsonify({"ok": True})
 
 
 @app.route("/api/content/<cr_id>/send-back", methods=["POST"])
 def api_content_send_back(cr_id):
-    """Return post to content_review with Will's comment for the bot to revise."""
+    """Send post back — Claude revises immediately, returns to content_review."""
     body    = request.get_json(silent=True) or {}
     comment = body.get("comment", "").strip()
-    db.update_post(cr_id, {
-        "stage":            "content_review",
-        "send_back_comment": comment,
-    })
-    return jsonify({"ok": True})
+
+    post = db.get_post(cr_id)
+    if not post:
+        return jsonify({"ok": False, "error": "not found"}), 404
+
+    # Persist non-trivial comments as brand guidelines for future reference
+    if comment and len(comment) > 5:
+        existing_raw = db.get_bot_state("brand_guidelines") or "[]"
+        try:
+            guidelines = json.loads(existing_raw)
+        except Exception:
+            guidelines = []
+        guidelines.append({
+            "comment": comment,
+            "added_at": datetime.now(timezone.utc).isoformat()[:16],
+            "source": "send_back",
+            "post_id": cr_id,
+        })
+        db.set_bot_state("brand_guidelines", json.dumps(guidelines[-20:]))
+
+    if not comment:
+        # No comment — just return to content_review unchanged
+        db.update_post(cr_id, {"stage": "content_review", "send_back_comment": None})
+        return jsonify({"ok": True, "revised": False})
+
+    # Trigger immediate revision via Claude
+    try:
+        env = _read_env()
+        api_key = env.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            raise ValueError("No API key")
+        import anthropic as _anthropic
+        _client = _anthropic.Anthropic(api_key=api_key)
+        REVISION_PROMPT = (
+            "You are the content writer for Battleship Reset — a 12-week fitness coaching programme for UK men 40-60.\n\n"
+            "A post was sent back for revision with this feedback:\n\"{comment}\"\n\n"
+            "Original post:\n---\n{original}\n---\n\n"
+            "Rewrite the post addressing the feedback. Keep the same core topic.\n"
+            "Voice: Will Barratt — direct, honest, no bullshit. Real story, no corporate tone.\n"
+            "Length: 150-250 words. Hook first line. End with soft CTA or question.\n"
+            "2-3 hashtags at end only.\n\nReturn only the revised post text, nothing else."
+        )
+        msg = _client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=600,
+            messages=[{"role": "user", "content": REVISION_PROMPT.format(
+                comment=comment, original=post["content"]
+            )}],
+        )
+        revised = msg.content[0].text.strip()
+        db.update_post(cr_id, {
+            "content":           revised,
+            "stage":             "content_review",
+            "send_back_comment": None,
+            "reviewed_at":       datetime.now(timezone.utc).isoformat(),
+        })
+        return jsonify({"ok": True, "revised": True})
+    except Exception as ex:
+        # Fallback: park in marketing_review for next pipeline run
+        db.update_post(cr_id, {
+            "stage":             "marketing_review",
+            "send_back_comment": comment,
+        })
+        return jsonify({"ok": True, "revised": False, "queued": True})
 
 
 @app.route("/api/content/<cr_id>/archive", methods=["POST"])
@@ -3883,6 +4647,149 @@ def api_fb_queue_resume():
     return jsonify({"ok": True, "paused": False})
 
 
+@app.route("/api/fb-ads/pause", methods=["POST"])
+def api_fb_ads_pause():
+    db.set_bot_state("fb_ads_paused", "1")
+    return jsonify({"ok": True, "paused": True})
+
+
+@app.route("/api/fb-ads/resume", methods=["POST"])
+def api_fb_ads_resume():
+    db.set_bot_state("fb_ads_paused", "0")
+    return jsonify({"ok": True, "paused": False})
+
+
+@app.route("/api/ads/campaigns")
+def api_ads_campaigns():
+    """Fetch live campaigns from Meta Graph API."""
+    env   = _read_env()
+    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    acct  = "act_" + env.get("FB_AD_ACCOUNT_ID", "869755968629816")
+    if not token:
+        return jsonify({"ok": False, "error": "No token"}), 400
+    import requests as _req
+    r = _req.get(
+        f"https://graph.facebook.com/v19.0/{acct}/campaigns",
+        params={
+            "fields": "id,name,status,objective,daily_budget,lifetime_budget,"
+                      "insights.date_preset(last_7d){spend,impressions,clicks,actions}",
+            "limit": 20,
+            "access_token": token,
+        },
+        timeout=15,
+    )
+    if not r.ok:
+        return jsonify({"ok": False, "error": r.text}), 500
+    campaigns = []
+    for c in r.json().get("data", []):
+        ins = (c.get("insights") or {}).get("data", [{}])[0] if c.get("insights") else {}
+        actions = ins.get("actions", [])
+        leads   = next((a["value"] for a in actions if a["action_type"] in ("lead","offsite_conversion.fb_pixel_lead")), "0")
+        campaigns.append({
+            "id":           c["id"],
+            "name":         c["name"],
+            "status":       c["status"],
+            "objective":    c.get("objective", ""),
+            "daily_budget": int(c["daily_budget"]) // 100 if c.get("daily_budget") else None,
+            "spend":        float(ins.get("spend", 0)),
+            "impressions":  int(ins.get("impressions", 0)),
+            "clicks":       int(ins.get("clicks", 0)),
+            "leads":        int(leads),
+        })
+    return jsonify({"ok": True, "campaigns": campaigns})
+
+
+@app.route("/api/ads/campaigns/<campaign_id>/pause", methods=["POST"])
+def api_ads_campaign_pause(campaign_id):
+    env   = _read_env()
+    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    import requests as _req
+    r = _req.post(
+        f"https://graph.facebook.com/v19.0/{campaign_id}",
+        data={"status": "PAUSED", "access_token": token},
+        timeout=15,
+    )
+    return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
+
+
+@app.route("/api/ads/campaigns/<campaign_id>/resume", methods=["POST"])
+def api_ads_campaign_resume(campaign_id):
+    env   = _read_env()
+    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    import requests as _req
+    r = _req.post(
+        f"https://graph.facebook.com/v19.0/{campaign_id}",
+        data={"status": "ACTIVE", "access_token": token},
+        timeout=15,
+    )
+    return jsonify({"ok": r.ok, "error": r.text if not r.ok else None})
+
+
+@app.route("/api/ads/boost-post", methods=["POST"])
+def api_ads_boost_post():
+    """Create a simple page post boost campaign."""
+    body  = request.get_json(silent=True) or {}
+    post_id     = body.get("post_id", "")
+    daily_budget_gbp = float(body.get("daily_budget", 5))
+    days        = int(body.get("days", 7))
+    env         = _read_env()
+    token       = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    acct        = "act_" + env.get("FB_AD_ACCOUNT_ID", "869755968629816")
+    page_id     = env.get("FB_PAGE_ID", "")
+    if not token or not post_id:
+        return jsonify({"ok": False, "error": "Missing token or post_id"}), 400
+    import requests as _req
+    from datetime import date, timedelta
+    daily_budget_cents = int(daily_budget_gbp * 100)
+    end_date = (date.today() + timedelta(days=days)).strftime("%Y-%m-%d")
+    # Create campaign
+    rc = _req.post(f"https://graph.facebook.com/v19.0/{acct}/campaigns", data={
+        "name": f"Boost: {post_id}",
+        "objective": "POST_ENGAGEMENT",
+        "status": "ACTIVE",
+        "special_ad_categories": "[]",
+        "is_adset_budget_sharing_enabled": "false",
+        "access_token": token,
+    }, timeout=15)
+    if not rc.ok:
+        return jsonify({"ok": False, "error": rc.text}), 500
+    camp_id = rc.json()["id"]
+    # Create adset
+    rs = _req.post(f"https://graph.facebook.com/v19.0/{acct}/adsets", data={
+        "name": f"Boost adset: {post_id}",
+        "campaign_id": camp_id,
+        "daily_budget": daily_budget_cents,
+        "end_time": end_date + "T23:59:59+0000",
+        "billing_event": "IMPRESSIONS",
+        "optimization_goal": "POST_ENGAGEMENT",
+        "targeting": '{"age_min":35,"age_max":65,"genders":[1],"geo_locations":{"countries":["GB"]}}',
+        "status": "ACTIVE",
+        "access_token": token,
+    }, timeout=15)
+    if not rs.ok:
+        return jsonify({"ok": False, "error": rs.text}), 500
+    adset_id = rs.json()["id"]
+    # Create creative + ad
+    creative_r = _req.post(f"https://graph.facebook.com/v19.0/{acct}/adcreatives", data={
+        "name": f"Boost creative: {post_id}",
+        "object_story_id": f"{page_id}_{post_id}" if "_" not in post_id else post_id,
+        "access_token": token,
+    }, timeout=15)
+    if not creative_r.ok:
+        return jsonify({"ok": False, "error": creative_r.text}), 500
+    creative_id = creative_r.json()["id"]
+    ra = _req.post(f"https://graph.facebook.com/v19.0/{acct}/ads", data={
+        "name": f"Boost ad: {post_id}",
+        "adset_id": adset_id,
+        "creative": f'{{"creative_id":"{creative_id}"}}',
+        "status": "ACTIVE",
+        "access_token": token,
+    }, timeout=15)
+    if not ra.ok:
+        return jsonify({"ok": False, "error": ra.text}), 500
+    return jsonify({"ok": True, "campaign_id": camp_id})
+
+
 @app.route("/api/photo-candidates")
 def api_photo_candidates():
     """Return diverse photo candidates: catalogued non-face-first, then uncatalogued snaps."""
@@ -3893,9 +4800,12 @@ def api_photo_candidates():
     PREFER_USE   = {"social_post", "lifestyle_post", "equipment_post",
                     "nutrition_post", "progress_post", "cover"}
 
-    # ── 1. Catalogued photos, non-face first ────────────────────────────────
+    # ── 1. Catalogued photos, non-face first (skip entries whose file is missing) ──
+    brand_dir = VAULT_ROOT / "brand"
     non_face, face_only = [], []
     for key, meta in cat.items():
+        if not (brand_dir / key).exists():
+            continue  # file deleted/moved — skip silently
         tags = meta.get("tags", [])
         entry = {
             "id":      key,
@@ -4068,6 +4978,62 @@ def api_idea_archive(idea_id):
     return jsonify({"status": "archived"})
 
 
+@app.route("/api/ideas-bank/<idea_id>/needs-graphic", methods=["POST"])
+def api_idea_needs_graphic(idea_id):
+    db.set_idea_status(idea_id, "needs_graphic")
+    return jsonify({"status": "needs_graphic"})
+
+
+@app.route("/api/ideas-bank/<idea_id>/suggest-photo", methods=["POST"])
+def api_idea_suggest_photo(idea_id):
+    """Pick the best catalogue photo for this idea using keyword matching."""
+    idea = db.get_idea(idea_id)
+    if not idea:
+        return jsonify({"error": "not found"}), 404
+
+    text = f"{idea.get('title','')} {idea.get('angle','')} {idea.get('notes','')}".lower()
+    keywords = set(re.findall(r'\b\w{4,}\b', text))
+
+    cat_file = VAULT_ROOT / "brand" / "catalogue.json"
+    cat = json.loads(cat_file.read_text()) if cat_file.exists() else {}
+
+    best_id, best_score = None, -1
+    for key, meta in cat.items():
+        if not (VAULT_ROOT / "brand" / key).exists():
+            continue
+        meta_text = " ".join([
+            meta.get("notes", ""),
+            " ".join(meta.get("tags", [])),
+            " ".join(meta.get("use_cases", [])),
+        ]).lower()
+        meta_words = set(re.findall(r'\b\w{4,}\b', meta_text))
+        score = len(keywords & meta_words)
+        score += {"best": 3, "good": 2, "usable": 1}.get(meta.get("quality", "usable"), 0)
+        if "face" not in meta.get("tags", []):
+            score += 1
+        if score > best_score:
+            best_score = score
+            best_id = key
+
+    # Fallback: first uncatalogued snap
+    if not best_id:
+        snap_dir = VAULT_ROOT / "brand" / "random-snaps"
+        IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".JPG", ".JPEG"}
+        if snap_dir.exists():
+            for img in sorted(snap_dir.iterdir()):
+                if img.suffix in IMG_EXTS and not img.is_dir():
+                    best_id = "random-snaps/" + img.name
+                    break
+
+    if not best_id:
+        return jsonify({"error": "no photos available"}), 404
+
+    db.upsert_idea({"id": idea_id, "photo_id": best_id})
+    from urllib.parse import quote as _q
+    url = "/brand/" + "/".join(_q(p) for p in best_id.split("/"))
+    return jsonify({"photo_id": best_id, "url": url})
+
+
 @app.route("/api/seo-task/<int:task_id>/complete", methods=["POST"])
 def api_seo_task_complete(task_id):
     seo = _load_json_safe(SEO_STATE_FILE, {})
@@ -4091,11 +5057,19 @@ def api_seo_task_complete(task_id):
 def api_tech_gap_complete(gap_id):
     from datetime import date as _date
     data = _load_json_safe(TECH_BACKLOG_FILE, {"gaps": []})
+    gap_title = ""
     for gap in data.get("gaps", []):
         if isinstance(gap, dict) and gap.get("id") == gap_id:
             gap["status"]       = "done"
             gap["completed_at"] = _date.today().isoformat()
+            gap_title = gap.get("title", gap.get("description", ""))
     TECH_BACKLOG_FILE.write_text(json.dumps(data, indent=2))
+    if gap_title:
+        db.record_learning(
+            source="tech_bot",
+            learning_type="tech_done",
+            text=f"Tech gap resolved: \"{gap_title}\"",
+        )
     return jsonify({"status": "done"})
 
 

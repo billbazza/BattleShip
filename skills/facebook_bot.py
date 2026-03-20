@@ -122,43 +122,25 @@ def _claude(prompt: str, secrets: dict, max_tokens: int = 600) -> str:
 def _save_to_content_review(content: str, theme: str, status: str = "pending_review",
                              source: str = "facebook_bot", post_id: str = "",
                              idea_id: str = "", image_path: str = ""):
-    """Save a post draft to the content review queue for Business Manager visibility."""
-    import uuid as _uuid
-    if CONTENT_REVIEW_FILE.exists():
-        data = json.loads(CONTENT_REVIEW_FILE.read_text())
-    else:
-        data = {"posts": []}
-    data.setdefault("posts", []).append({
-        "id":          "cr_" + _uuid.uuid4().hex[:8],
-        "created":     datetime.now(timezone.utc).isoformat(),
-        "theme":       theme,
-        "content":     content,
-        "status":      status,       # pending_review | approved | rejected | posted
-        "source":      source,       # facebook_bot | ideas_bank | manual
-        "idea_id":     idea_id,
-        "post_id":     post_id,      # FB post ID if already live
-        "image_path":  image_path,   # local path to generated card
-        "reviewed_at": None,
-        "edited":      False,
+    """Save a post draft to the DB content_review stage (authoritative) + legacy JSON."""
+    import sys as _sys
+    _sys.path.insert(0, str(VAULT_ROOT))
+    import scripts.db as _db
+    _db.insert_post({
+        "theme":      theme,
+        "content":    content,
+        "stage":      "content_review",
+        "source":     source,
+        "idea_id":    idea_id or "",
+        "image_path": image_path or "",
     })
-    CONTENT_REVIEW_FILE.write_text(json.dumps(data, indent=2))
 
 
 def _queue_post(content: str, theme: str, image_path=None):
-    """Save a generated post to the queue folder AND content review."""
-    QUEUE_DIR.mkdir(exist_ok=True)
-    ts  = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    out = QUEUE_DIR / f"post-{ts}.json"
-    out.write_text(json.dumps({
-        "created":    datetime.now(timezone.utc).isoformat(),
-        "theme":      theme,
-        "content":    content,
-        "image_path": str(image_path) if image_path else "",
-        "status":     "queued",
-    }, indent=2))
+    """Save a generated post to the DB (content_review) for dashboard approval."""
     _save_to_content_review(content, theme, status="pending_review",
                             image_path=str(image_path) if image_path else "")
-    print(f"  → Queued: {out.name}")
+    print(f"  → Post queued for content review in dashboard")
 
 
 def _make_post_image(post_text: str, theme: str, secrets: dict) -> Path | None:
@@ -264,9 +246,10 @@ def _get_recent_posts(secrets: dict) -> list:
 
 
 def _get_comments(post_id: str, secrets: dict) -> list:
+    token = secrets.get("FB_SYSTEM_TOKEN") or secrets.get("FB_PAGE_ACCESS_TOKEN", "")
     r = requests.get(
         f"{GRAPH}/{post_id}/comments",
-        params={"access_token": secrets["FB_PAGE_ACCESS_TOKEN"],
+        params={"access_token": token,
                 "fields": "id,message,from,created_time"},
         timeout=15,
     )
@@ -333,7 +316,21 @@ def post_scheduled_content(secrets: dict):
     except Exception:
         pass
 
-    post = _claude(POST_PROMPT.format(theme=theme) + arc_hint, secrets)
+    # Inject Will's learnings (pivot notes, dismissals, send-backs) into prompt
+    learnings_hint = ""
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(VAULT_ROOT))
+        import scripts.db as _db
+        _learnings = _db.get_learnings(source="facebook_bot")
+        if _learnings:
+            lines = [f"- [{l['type']}] {l['text']}" + (f" ({l['context']})" if l.get('context') else "")
+                     for l in _learnings[-10:]]
+            learnings_hint = "\n\nWILL'S FEEDBACK (act on these):\n" + "\n".join(lines)
+    except Exception:
+        pass
+
+    post = _claude(POST_PROMPT.format(theme=theme) + arc_hint + learnings_hint, secrets)
 
     # Generate image card — always goes to pending_review, approved via dashboard
     image_path = _make_post_image(post, theme, secrets)
@@ -353,11 +350,17 @@ def reply_to_new_comments(secrets: dict):
     replied  = set(schedule.get("replied_comments", []))
     posts    = _get_recent_posts(secrets)
 
+    page_id = secrets.get("FB_PAGE_ID", "")
     for post in posts:
         post_topic = (post.get("message", "") or "")[:120]
         for comment in _get_comments(post["id"], secrets):
             cid = comment["id"]
             if cid in replied:
+                continue
+            # Skip comments made by the page itself (Will posting via BM)
+            commenter_id = comment.get("from", {}).get("id", "")
+            if commenter_id and commenter_id == page_id:
+                replied.add(cid)
                 continue
             reply = _claude(COMMENT_PROMPT.format(
                 post_topic=post_topic,
@@ -408,7 +411,7 @@ def handle_messenger_dms(secrets: dict):
 
 def _ig_post_image(image_url: str, caption: str, secrets: dict) -> str:
     """Post an image to Instagram. image_url must be publicly accessible. Returns media ID."""
-    token   = secrets.get("FB_PAGE_ACCESS_TOKEN", "")
+    token   = secrets.get("FB_SYSTEM_TOKEN") or secrets.get("FB_PAGE_ACCESS_TOKEN", "")
     ig_id   = secrets.get("IG_USER_ID", "")
     if not token or not ig_id:
         print("  ❌ IG_USER_ID or FB_PAGE_ACCESS_TOKEN not set")
@@ -485,6 +488,34 @@ def post_to_instagram(caption: str, secrets: dict, vault_root: Path = VAULT_ROOT
         return ""
 
     return _ig_post_image(image_url, caption, secrets)
+
+
+def cross_post_to_instagram(content: str, image_path: str | None, secrets: dict) -> str:
+    """
+    Cross-post a Facebook post to Instagram. Called automatically after FB publish.
+    Uses FB_SYSTEM_TOKEN + IG_USER_ID. Silently skips if not configured.
+    Returns IG media ID or "" on failure/skip.
+    """
+    ig_id = secrets.get("IG_USER_ID", "")
+    token = secrets.get("FB_SYSTEM_TOKEN") or secrets.get("FB_PAGE_ACCESS_TOKEN", "")
+    if not ig_id or not token:
+        print("  ℹ️  Instagram cross-post skipped — IG_USER_ID or FB_SYSTEM_TOKEN not set")
+        return ""
+
+    # Instagram captions: strip markdown bold (**text**) and trim to 2200 chars
+    import re as _re
+    caption = _re.sub(r'\*\*(.+?)\*\*', r'\1', content)[:2200]
+
+    if image_path and Path(image_path).exists():
+        image_url = _upload_photo_get_url(Path(image_path), secrets)
+        if not image_url:
+            print("  ⚠️  Instagram cross-post: could not get CDN URL for image")
+            return ""
+        return _ig_post_image(image_url, caption, secrets)
+    else:
+        # Text-only: Instagram doesn't support text-only posts — skip
+        print("  ℹ️  Instagram cross-post skipped — no image (IG requires a photo)")
+        return ""
 
 
 # ── Photo post ────────────────────────────────────────────────────────────────
@@ -1354,11 +1385,66 @@ def send_brand_report(secrets: dict):
     print("  ✅ Weekly brand report sent to will@battleship.me")
 
 
+REVISION_PROMPT = """You are the content writer for Battleship Reset — a 12-week fitness coaching programme for UK men 40-60.
+
+A post was sent back for revision with this feedback:
+"{comment}"
+
+Original post:
+---
+{original}
+---
+
+Rewrite the post addressing the feedback. Keep the same core topic and structure.
+Voice: Will Barratt — direct, honest, no bullshit. Real story, no corporate tone.
+Length: 150-250 words. Hook first line. End with soft CTA or question.
+2-3 hashtags at end only.
+
+Return only the revised post text, nothing else."""
+
+
+def revise_sent_back_posts(secrets: dict):
+    """
+    Process posts in marketing_review that have a send_back_comment.
+    Claude revises each one based on the feedback, then moves back to content_review.
+    """
+    import sys as _sys
+    _sys.path.insert(0, str(VAULT_ROOT))
+    import scripts.db as _db
+
+    posts = _db.get_posts(stage="marketing_review")
+    to_revise = [p for p in posts if p.get("send_back_comment")]
+    if not to_revise:
+        return
+
+    for post in to_revise:
+        comment  = post["send_back_comment"]
+        original = post["content"]
+        theme    = post.get("theme", "")
+        print(f"  ↩  Revising sent-back post: {theme[:60]}")
+        try:
+            revised = _claude(
+                REVISION_PROMPT.format(comment=comment, original=original),
+                secrets,
+                max_tokens=600,
+            )
+            _db.update_post(post["id"], {
+                "content":          revised,
+                "stage":            "content_review",
+                "send_back_comment": None,
+                "reviewed_at":      datetime.now(timezone.utc).isoformat(),
+            })
+            print(f"  ✅ Revised and returned to content review")
+        except Exception as e:
+            print(f"  ⚠️  Revision failed for {post['id']}: {e}")
+
+
 # ── Entry points ───────────────────────────────────────────────────────────────
 
 def run(secrets: dict, vault_root: Path = VAULT_ROOT):  # noqa: ARG001
     """Called from battleship_pipeline.py main()."""
     try:
+        revise_sent_back_posts(secrets)
         post_scheduled_content(secrets)
         reply_to_new_comments(secrets)
         handle_messenger_dms(secrets)
