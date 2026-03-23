@@ -2493,6 +2493,14 @@ BUSINESS_PAGE = """<!DOCTYPE html>
             </div>
           </div>
           {% endif %}
+          {% if ads_bot_log %}
+          <div style="margin-bottom:10px">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#444;margin-bottom:6px">Last bot run {% if ads_bot_run_at %}· {{ ads_bot_run_at }}{% endif %}</div>
+            {% for line in ads_bot_log.split('\n') %}
+            <div style="font-size:11px;color:#777;padding:3px 0;border-bottom:1px solid #141414">{{ line }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
           <div id="campaigns-list" style="font-size:12px;color:#555;font-style:italic">Click Refresh to load live campaigns</div>
         </div>
       </div>
@@ -2951,10 +2959,7 @@ function archivePost(id) {
     .then(() => location.reload());
 }
 function unqueuePost(id) {
-  fetch('/api/content/' + id + '/send-back', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({comment: ''})
-  }).then(() => location.reload());
+  fetch('/api/content/' + id + '/unqueue', {method:'POST'}).then(() => location.reload());
 }
 var _swapPostId = null;
 function swapPhoto(id) {
@@ -3123,6 +3128,34 @@ function togglePost(id) {
       <button onclick="_closeGlModal()" style="background:none;border:1px solid #333;color:#666;padding:10px 18px;border-radius:4px;font-size:13px;cursor:pointer">Cancel</button>
     </div>
   </div>
+</div>
+
+<!-- System Health section -->
+{% set _hc_raw = health_check %}
+<div class="section-label" id="system-health-section" style="margin-top:32px">
+  System Health
+  {% if _hc_raw %}
+  <span style="font-size:10px;font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px;color:{% if _hc_raw.all_pass %}#2a9d4e{% else %}#c41e3a{% endif %}">
+    {% if _hc_raw.all_pass %}&#10003; All checks pass{% else %}&#9888; {{ _hc_raw.failures|length }} issue(s){% endif %}
+  </span>
+  {% endif %}
+</div>
+<div style="background:#111;border:1px solid #1e1e1e;border-radius:4px;padding:16px 18px;margin-bottom:12px">
+  {% if _hc_raw %}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:{% if not _hc_raw.all_pass %}12px{% else %}0{% endif %}">
+    <span style="font-size:13px;color:{% if _hc_raw.all_pass %}#2a9d4e{% else %}#c41e3a{% endif %};font-weight:600">
+      {{ _hc_raw.summary }}
+    </span>
+    <span style="font-size:11px;color:#555">Last run {{ _hc_raw.run_at }}</span>
+  </div>
+  {% if not _hc_raw.all_pass %}
+  {% for fail in _hc_raw.failures %}
+  <div style="font-size:12px;color:#e8a020;padding:4px 0;border-top:1px solid #1e1e1e">&#9747; {{ fail }}</div>
+  {% endfor %}
+  {% endif %}
+  {% else %}
+  <span style="font-size:12px;color:#444">No health check run yet — will run at next pipeline execution.</span>
+  {% endif %}
 </div>
 
 </body>
@@ -3784,6 +3817,8 @@ def _build_business_context():
     ad_impressions = last_ad.get("impressions", 0) if has_ad_data else 0
     ad_spend       = float(last_ad.get("spend", 0) or 0) if has_ad_data else 0.0
     ad_results     = last_ad.get("results", "—") if has_ad_data else "—"
+    ads_bot_log    = db.get_bot_state("ads_bot_last_run") or ""
+    ads_bot_run_at = db.get_bot_state("ads_bot_last_run_at") or ""
 
     # ── Marketing arc ─────────────────────────────────────────────────────────
     arc_phases = [
@@ -3979,6 +4014,7 @@ def _build_business_context():
         "content_review":   len(pending_content),
         "fb_queue":         len(db.get_posts(stage="fb_queue")),
         "posted":           len(db.get_posts(stage="posted")),
+        "pending_emails":   len(pending_emails),
     }
     fb_queued_posts   = db.get_posts(stage="fb_queue")
 
@@ -4096,6 +4132,15 @@ def _build_business_context():
     # Morning briefing
     briefing = _load_json_safe(MORNING_BRIEFING_FILE, {})
 
+    # System health check — stored by pipeline's biz_health_check.py
+    _hc_raw = db.get_bot_state("health_check_last") or ""
+    health_check = None
+    if _hc_raw:
+        try:
+            health_check = json.loads(_hc_raw)
+        except Exception:
+            health_check = None
+
     return dict(
         today=today,
         mrr=mrr, gap=gap, spend=spend, net=net, active_clients=active_clients,
@@ -4106,6 +4151,7 @@ def _build_business_context():
         organic_reach_week=organic_reach_week, link_clicks_week=link_clicks_week,
         has_ad_data=has_ad_data, ad_impressions=ad_impressions,
         ad_spend=ad_spend, ad_results=ad_results,
+        ads_bot_log=ads_bot_log, ads_bot_run_at=ads_bot_run_at,
         seo_complete=seo_complete, seo_pct=seo_pct, seo_tasks=seo_tasks,
         tech_gaps=tech_gaps,
         pending_reminders=pending_reminders,
@@ -4129,6 +4175,7 @@ def _build_business_context():
         queue_settings=queue_settings,
         pipeline_counts=pipeline_counts,
         fb_queued_posts=fb_queued_posts,
+        health_check=health_check,
     )
 
 
@@ -4563,7 +4610,7 @@ def api_content_send_back(cr_id):
     # Trigger immediate revision via Claude
     try:
         env = _read_env()
-        api_key = env.get("ANTHROPIC_API_KEY", "")
+        api_key = env.get("ANTHROPIC_API_KEY") or env.get("ANTHROPIC_KEY", "")
         if not api_key:
             raise ValueError("No API key")
         import anthropic as _anthropic
@@ -4593,13 +4640,22 @@ def api_content_send_back(cr_id):
         })
         return jsonify({"ok": True, "revised": True})
     except Exception as ex:
-        # Fallback: park in marketing_review for next pipeline run
+        # Fallback: keep in content_review with comment attached so it's still visible
         db.update_post(cr_id, {
-            "stage":             "marketing_review",
+            "stage":             "content_review",
             "send_back_comment": comment,
         })
         return jsonify({"ok": True, "revised": False, "queued": True})
 
+
+@app.route("/api/content/<cr_id>/unqueue", methods=["POST"])
+def api_content_unqueue(cr_id):
+    """Return a post from fb_queue (or anywhere) straight back to content_review."""
+    post = db.get_post(cr_id)
+    if not post:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    db.update_post(cr_id, {"stage": "content_review", "send_back_comment": None})
+    return jsonify({"ok": True})
 
 @app.route("/api/content/<cr_id>/archive", methods=["POST"])
 @app.route("/api/content-review/<cr_id>/reject", methods=["POST"])
@@ -4669,7 +4725,7 @@ def api_ads_campaigns():
         return jsonify({"ok": False, "error": "No token"}), 400
     import requests as _req
     r = _req.get(
-        f"https://graph.facebook.com/v19.0/{acct}/campaigns",
+        f"https://graph.facebook.com/v22.0/{acct}/campaigns",
         params={
             "fields": "id,name,status,objective,daily_budget,lifetime_budget,"
                       "insights.date_preset(last_7d){spend,impressions,clicks,actions}",
@@ -4705,7 +4761,7 @@ def api_ads_campaign_pause(campaign_id):
     token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
     import requests as _req
     r = _req.post(
-        f"https://graph.facebook.com/v19.0/{campaign_id}",
+        f"https://graph.facebook.com/v22.0/{campaign_id}",
         data={"status": "PAUSED", "access_token": token},
         timeout=15,
     )
@@ -4718,7 +4774,7 @@ def api_ads_campaign_resume(campaign_id):
     token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
     import requests as _req
     r = _req.post(
-        f"https://graph.facebook.com/v19.0/{campaign_id}",
+        f"https://graph.facebook.com/v22.0/{campaign_id}",
         data={"status": "ACTIVE", "access_token": token},
         timeout=15,
     )
@@ -4743,7 +4799,7 @@ def api_ads_boost_post():
     daily_budget_cents = int(daily_budget_gbp * 100)
     end_date = (date.today() + timedelta(days=days)).strftime("%Y-%m-%d")
     # Create campaign
-    rc = _req.post(f"https://graph.facebook.com/v19.0/{acct}/campaigns", data={
+    rc = _req.post(f"https://graph.facebook.com/v22.0/{acct}/campaigns", data={
         "name": f"Boost: {post_id}",
         "objective": "POST_ENGAGEMENT",
         "status": "ACTIVE",
@@ -4755,7 +4811,7 @@ def api_ads_boost_post():
         return jsonify({"ok": False, "error": rc.text}), 500
     camp_id = rc.json()["id"]
     # Create adset
-    rs = _req.post(f"https://graph.facebook.com/v19.0/{acct}/adsets", data={
+    rs = _req.post(f"https://graph.facebook.com/v22.0/{acct}/adsets", data={
         "name": f"Boost adset: {post_id}",
         "campaign_id": camp_id,
         "daily_budget": daily_budget_cents,
@@ -4770,7 +4826,7 @@ def api_ads_boost_post():
         return jsonify({"ok": False, "error": rs.text}), 500
     adset_id = rs.json()["id"]
     # Create creative + ad
-    creative_r = _req.post(f"https://graph.facebook.com/v19.0/{acct}/adcreatives", data={
+    creative_r = _req.post(f"https://graph.facebook.com/v22.0/{acct}/adcreatives", data={
         "name": f"Boost creative: {post_id}",
         "object_story_id": f"{page_id}_{post_id}" if "_" not in post_id else post_id,
         "access_token": token,
@@ -4778,7 +4834,7 @@ def api_ads_boost_post():
     if not creative_r.ok:
         return jsonify({"ok": False, "error": creative_r.text}), 500
     creative_id = creative_r.json()["id"]
-    ra = _req.post(f"https://graph.facebook.com/v19.0/{acct}/ads", data={
+    ra = _req.post(f"https://graph.facebook.com/v22.0/{acct}/ads", data={
         "name": f"Boost ad: {post_id}",
         "adset_id": adset_id,
         "creative": f'{{"creative_id":"{creative_id}"}}',

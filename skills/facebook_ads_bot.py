@@ -318,10 +318,12 @@ def optimise(ad_account_id: str, token: str, dry_run: bool = False) -> list[str]
         is_cbo = False
         try:
             as_data = _get(asid, {"fields": "daily_budget,name"}, token)
-            budget  = int(as_data.get("daily_budget", 700))
+            if "daily_budget" not in as_data:
+                is_cbo = True  # CBO — budget at campaign level
+            else:
+                budget = int(as_data["daily_budget"])
         except Exception:
-            # CBO campaign — budget lives at campaign level, not adset
-            is_cbo = True
+            is_cbo = True  # treat any fetch failure as CBO
 
         ctr_pct   = f"{m['ctr']:.1%}"
         spend_str = f"£{m['spend']:.2f}"
@@ -378,12 +380,124 @@ def report(ad_account_id: str, token: str):
     print(f"\n{'='*60}\n")
 
 
+# ── Ideas-bank ad creative pipeline ──────────────────────────────────────────
+
+def launch_pending_ad_variants(secrets: dict, vault_root: Path) -> list[str]:
+    """
+    Read green-lit ideas from brand/Marketing/ideas-bank.json that haven't been
+    promoted as ads yet, create a Facebook ad for each one (PAUSED, £3/day),
+    and mark the idea with promoted_as_ad + ad_created_at.
+
+    Returns a list of action strings for the digest.
+    """
+    ideas_file = vault_root / "brand" / "Marketing" / "ideas-bank.json"
+    if not ideas_file.exists():
+        return []
+
+    ideas_data = json.loads(ideas_file.read_text())
+    ideas      = ideas_data.get("ideas", [])
+
+    # Only green-lit ideas that haven't been promoted yet
+    candidates = [
+        i for i in ideas
+        if i.get("status") == "green_lit" and not i.get("promoted_as_ad")
+    ]
+    if not candidates:
+        return []
+
+    ad_account_id = secrets.get("FB_AD_ACCOUNT_ID") or secrets.get("fb_ad_account_id", "")
+    page_id       = secrets.get("FB_PAGE_ID") or secrets.get("fb_page_id", "")
+    token         = (secrets.get("FB_SYSTEM_TOKEN") or secrets.get("fb_system_token", "")
+                     or secrets.get("FB_USER_TOKEN") or secrets.get("fb_user_token", "")
+                     or secrets.get("FB_PAGE_ACCESS_TOKEN") or secrets.get("fb_page_access_token", ""))
+
+    if not ad_account_id or not token or not page_id:
+        return ["  ⚠️  Ad variants: missing FB_AD_ACCOUNT_ID / FB_PAGE_ID / token — skipped"]
+
+    log = []
+    daily_budget_pence = 300  # £3/day
+
+    # Get image via brand_manager
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(vault_root))
+        from skills.brand_manager import get_best_image
+    except Exception:
+        get_best_image = None
+
+    for idea in candidates:
+        title = idea.get("title", "")
+        angle = idea.get("angle", "")
+        print(f"  🚀 Creating ad for green-lit idea: {title[:60]}")
+        try:
+            # Pick best image
+            image_path = None
+            if idea.get("photo_id"):
+                candidate_path = vault_root / "brand" / idea["photo_id"]
+                if candidate_path.exists():
+                    image_path = str(candidate_path)
+            if not image_path and get_best_image:
+                image_path = get_best_image("ad")
+            if not image_path:
+                image_path = str(vault_root / "brand" / "random-snaps" / "IMG_0448.jpeg")
+
+            # Build ad copy from idea
+            ad_body = (
+                f"{angle[:400]}\n\n"
+                "Take the free quiz — battleshipreset.com"
+            ) if angle else AD_COPY["body"]
+            ad_headline = title[:40] if title else AD_COPY["headline"]
+
+            name_ts  = datetime.now().strftime("%b %Y")
+            safe_ttl = title[:30].replace('"', "'")
+
+            campaign  = create_campaign(ad_account_id, f"BSR — {safe_ttl} — {name_ts}", token)
+            cid       = campaign["id"]
+
+            adset     = create_adset(ad_account_id, cid, "UK Men 40-60", daily_budget_pence, token)
+            asid      = adset["id"]
+
+            img_hash  = upload_image(ad_account_id, image_path, token)
+
+            creative  = create_ad_creative(
+                ad_account_id, page_id,
+                ad_headline, ad_body,
+                img_hash, AD_COPY["link"], AD_COPY["cta"], token,
+            )
+            crid = creative["id"]
+
+            ad       = create_ad(ad_account_id, asid, crid, f"BSR — {safe_ttl}", token)
+            adid     = ad["id"]
+
+            # Mark idea as promoted
+            idea["promoted_as_ad"] = True
+            idea["ad_created_at"]  = datetime.now().strftime("%Y-%m-%d")
+            idea["ad_campaign_id"] = cid
+            idea["ad_id"]          = adid
+
+            ideas_file.write_text(json.dumps(ideas_data, indent=2))
+
+            log.append(
+                f"  ✅ Ad created (PAUSED): \"{safe_ttl}\" — "
+                f"campaign {cid} · ad {adid} · £3/day"
+            )
+            print(f"  ✅ Ad created (PAUSED): campaign={cid} ad={adid}")
+
+        except Exception as e:
+            log.append(f"  ⚠️  Ad creation failed for \"{title[:40]}\": {e}")
+            print(f"  ⚠️  Ad creation failed for '{title[:40]}': {e}")
+
+    return log
+
+
 # ── Pipeline entry point (called by battleship_pipeline.py) ───────────────────
 
 def run(secrets: dict, vault_root: Path):
     """Daily optimisation run — called from main pipeline."""
-    ad_account_id = secrets.get("fb_ad_account_id", "")
-    token         = secrets.get("fb_user_token", "") or secrets.get("fb_page_access_token", "")
+    ad_account_id = (secrets.get("FB_AD_ACCOUNT_ID") or secrets.get("fb_ad_account_id", ""))
+    token         = (secrets.get("FB_SYSTEM_TOKEN") or secrets.get("fb_system_token", "")
+                     or secrets.get("FB_USER_TOKEN") or secrets.get("fb_user_token", "")
+                     or secrets.get("FB_PAGE_ACCESS_TOKEN") or secrets.get("fb_page_access_token", ""))
 
     if not ad_account_id:
         print("  (FB_AD_ACCOUNT_ID not set — skipping ads bot)")
@@ -395,6 +509,25 @@ def run(secrets: dict, vault_root: Path):
     actions = optimise(ad_account_id, token)
     for a in actions:
         print(a)
+
+    # Launch any new ad variants from green-lit ideas
+    variant_log = launch_pending_ad_variants(secrets, vault_root)
+    for a in variant_log:
+        print(a)
+    actions += variant_log
+
+    # Write summary to DB so Business Manager can display it
+    if actions:
+        try:
+            import sys as _sys
+            _sys.path.insert(0, str(vault_root))
+            import scripts.db as _db
+            from datetime import datetime, timezone
+            summary = "\n".join(actions)
+            _db.set_bot_state("ads_bot_last_run", summary)
+            _db.set_bot_state("ads_bot_last_run_at", datetime.now(timezone.utc).isoformat()[:16])
+        except Exception:
+            pass
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -423,7 +556,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     env = _load_env()
-    token         = env.get("fb_user_token") or env.get("fb_page_access_token", "")
+    token         = env.get("fb_system_token") or env.get("fb_user_token") or env.get("fb_page_access_token", "")
     ad_account_id = env.get("fb_ad_account_id", "")
     page_id       = env.get("fb_page_id", "")
 

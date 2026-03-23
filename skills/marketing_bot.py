@@ -313,13 +313,28 @@ def generate_copy(format: str, usp_id: str = None, secrets: dict = None) -> str:
         arc_usp_id = phase["usps"][0] if phase["usps"] else "transformation"
         usp = next((u for u in USPS if u["id"] == arc_usp_id), USPS[0])
 
+    # Inject Will's learnings
+    learnings_hint = ""
+    try:
+        import sys as _sys, pathlib as _pl
+        _vault = _pl.Path(__file__).parent.parent
+        _sys.path.insert(0, str(_vault))
+        import scripts.db as _db
+        _learnings = _db.get_learnings(source="marketing_bot")
+        if _learnings:
+            lines = [f"- [{l['type']}] {l['text']}" + (f" ({l['context']})" if l.get('context') else "")
+                     for l in _learnings[-10:]]
+            learnings_hint = "\n\nWILL'S FEEDBACK (act on these):\n" + "\n".join(lines)
+    except Exception:
+        pass
+
     prompt = AD_COPY_PROMPT.format(
         usp_headline=usp["headline"],
         usp_detail=usp["detail"],
         emotion=usp["emotion"],
         arc_theme=phase["theme"],
         format=format,
-    )
+    ) + learnings_hint
     api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic") if secrets else None
     if not api_key:
         return "[No API key — run with secrets]"

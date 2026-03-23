@@ -89,7 +89,7 @@ NOTION_PARENT_PAGE_ID = ""  # e.g. "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d"
 
 # Education drip schedule — 2 lessons/week max
 # Format: week_number → list of (state_key, subject, content_file)
-# Week 12 is handled separately by send_week12_close() — not in this dict
+# All weeks 1–12 covered. Week 12 sends the full programme digest + close email.
 EDUCATION_DRIPS = {
     # One lesson per week — strongest signal for that stage of the programme.
     # Dropped lessons (key-to-success, balanced-plate, closing-the-gap, hacking-consistency,
@@ -99,7 +99,8 @@ EDUCATION_DRIPS = {
     2:  [("edu_fatloss_1",  "How to actually lose fat: getting started",                       "education-lessons/fat-loss/getting-started.md"),
          ("edu_mfp",        "Your calorie tracking tool: MyFitnessPal — simple setup guide",  "education-lessons/Myfitnesspal/myfitnesspal-guide.md")],
     3:  [("edu_zone2",      "Why slow walking beats hard running — the science",               "education-lessons/exercises/zone2-walking.md")],
-    4:  [("edu_8020",       "The 80/20 rule of nutrition",                                     "education-lessons/nutrition/80-20-rule.md")],
+    4:  [("edu_8020",          "The 80/20 rule of nutrition",                                     "education-lessons/nutrition/80-20-rule.md"),
+         ("edu_challenge_w4", "Week 4 challenge: your first milestone",                          "education-lessons/training/week4-challenge.md")],
     5:  [("edu_fatloss_2",  "How to actually lose fat: awareness",                             "education-lessons/fat-loss/awareness.md")],
     6:  [("edu_training_1",  "Time to add weights — here's what your training looks like",     "education-lessons/training/workout-overview.md")],
     7:  [("edu_gymtim",      "Gymtimidation — and why it ends at session three",               "education-lessons/training/gymtimidation.md")],
@@ -110,7 +111,8 @@ EDUCATION_DRIPS = {
     9:  [("edu_fasting",     "Why fasting is the fastest way to burn dangerous belly fat",     "education-lessons/fasting/jamnadas-fasting-visceral-fat.md")],
     10: [("edu_fatloss_t",   "Why lifting beats cardio for body composition",                  "education-lessons/training/training-for-fat-loss.md")],
     11: [("edu_bws",         "The Battleship training method — and why boring works",          "education-lessons/training/bws-method.md")],
-    12: [("edu_arms",        "What about arms? Why the basics come first",                     "education-lessons/training/arms-and-basics.md")],
+    12: [("edu_digest",      "Your Battleship reference guide — everything that matters",       "education-lessons/week12-final-digest.md"),
+         ("edu_arms",        "What about arms? Why the basics come first",                     "education-lessons/training/arms-and-basics.md")],
 }
 
 
@@ -313,6 +315,16 @@ def load_secrets() -> dict:
         "stripe_phase2_link": "STRIPE_PHASE2_LINK",
         "fb_ad_account_id":   "FB_AD_ACCOUNT_ID",
         "fb_user_token":      "FB_USER_TOKEN",
+        # FB keys used by facebook_bot.py and facebook_ads_bot.py (uppercase expected)
+        "FB_PAGE_ACCESS_TOKEN": "FB_PAGE_ACCESS_TOKEN",
+        "FB_PAGE_ID":           "FB_PAGE_ID",
+        "FB_SYSTEM_TOKEN":      "FB_SYSTEM_TOKEN",
+        "FB_AD_ACCOUNT_ID":     "FB_AD_ACCOUNT_ID",
+        "FB_USER_TOKEN":        "FB_USER_TOKEN",
+        "IG_USER_ID":           "IG_USER_ID",
+        "TELEGRAM_BOT_TOKEN":   "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID":     "TELEGRAM_CHAT_ID",
+        "ANTHROPIC_KEY":        "ANTHROPIC_KEY",
         "gsheets_id":    "GSHEETS_ID",
         "gsheets_creds": "GSHEETS_CREDS",
         "imap_host":     "IMAP_HOST",
@@ -915,6 +927,40 @@ LENGTH: 200–300 words.
 OUTPUT: Email body only. No subject line. No preamble.
 """
 
+WEEK4_CHALLENGE_PROMPT = """\
+You are Will Barratt, writing a short personal email to {name} at the end of Week 4 of their Battleship programme.
+
+The purpose of this email is to set them ONE specific 7-day challenge to complete before their Week 5 check-in.
+
+CLIENT STARTING POINT:
+{intake_summary}
+
+PROGRESS TRACKER SO FAR (4 weeks):
+{tracker_text}
+
+YOUR JOB:
+1. Open with one sentence acknowledging something REAL about their first 4 weeks — specific to their tracker,
+   not generic. Reference an actual number, change, or observation if available.
+
+2. Tell them Month 1 is the hardest — they've already done it. Month 2 is where things start to click.
+
+3. Set ONE specific, measurable 7-day challenge calibrated to where they actually are:
+   - If they're struggling with consistency: a daily walking streak challenge (e.g. 7 days without missing)
+   - If they're doing well with walking but haven't tracked calories yet: a 7-day calorie tracking challenge
+   - If they're tracking well: a personal best challenge (longest single walk, hitting calorie target 6/7 days)
+   - If they've mentioned the gym or weights: first gym session this week
+   - The challenge should feel slightly stretching but clearly achievable in 7 days
+   - Give it a name. Make it feel like a real milestone, not homework.
+
+4. Tell them you'll check in on it at their Week 5 check-in — ask them to reply to this email with their commitment: one sentence, what they're going to do.
+
+5. Close with 1–2 lines. Warm, direct. Sign off as Will.
+
+TONE: Warm, direct, British. Short paragraphs. No hype. No exclamation marks.
+LENGTH: 150–220 words.
+OUTPUT: Email body only. No subject line. No preamble.
+"""
+
 
 # ── Notion ───────────────────────────────────────────────────────────────────
 
@@ -1259,7 +1305,7 @@ def send_email(secrets: dict, to: str, subject: str, plain_body: str, html_body:
 
 
 def email_diagnosis(name: str, diagnosis: str,
-                    payment_link: str = "https://buy.stripe.com/3cI6oG79qefgb1CdhwejK00") -> tuple[str, str, str]:
+                    payment_link: str = "") -> tuple[str, str, str]:
     subj = f"Your Battleship Diagnosis, {name}"
 
     # Plain text fallback
@@ -1465,7 +1511,8 @@ def process_short_intake(client: dict, secrets: dict, state: dict):
     log_event(folder, "Short-form teaser diagnosis generated")
 
     if client["email"]:
-        subj, plain, html = email_diagnosis(client["name"], diagnosis_text)
+        payment_link = secrets.get("stripe_payment_link", "https://buy.stripe.com/9B6eVc9hyb340mY91gejK02")
+        subj, plain, html = email_diagnosis(client["name"], diagnosis_text, payment_link=payment_link)
         send_email(secrets, client["email"], subj, plain, html)
         log_event(folder, "Short-form diagnosis email sent")
 
@@ -1551,7 +1598,8 @@ def process_new_intake(client: dict, secrets: dict, state: dict):
 
     # Send diagnosis email
     if client["email"]:
-        subj, plain, html = email_diagnosis(client["name"], diagnosis_text)
+        payment_link = secrets.get("stripe_payment_link", "https://buy.stripe.com/9B6eVc9hyb340mY91gejK02")
+        subj, plain, html = email_diagnosis(client["name"], diagnosis_text, payment_link=payment_link)
         send_email(secrets, client["email"], subj, plain, html)
         log_event(folder, "Diagnosis email sent")
 
@@ -2184,12 +2232,22 @@ def _process_single_checkin(state: dict, secrets: dict, parsed: dict, row_id: st
     if next_session:
         full_next_week += f"\n\nStrength sessions next week:\n{next_session[:600]}"
 
+    # At Week 5 — inject the Week 4 challenge commitment so Claude can review it
+    w4_challenge_note = ""
+    if week == 5 and cs.get("challenge_goal_w4"):
+        w4_challenge_note = (
+            f"\n\nWEEK 4 CHALLENGE — REVIEW REQUIRED:\n"
+            f"At Week 4 this client committed to: \"{cs['challenge_goal_w4']}\"\n"
+            f"Ask them directly how it went. Acknowledge the result — good or not — before moving on. "
+            f"If they crushed it, celebrate it specifically. If they didn't, normalise it and refocus."
+        )
+
     prompt = CHECKIN_PROMPT.format(
         name            = cs["name"],
         week            = week,
         main_goal       = cs.get("goal", cs.get("tags", {}).get("main_goal", "general health improvement")),
         success_metrics = metrics_text,
-        log_text        = parsed["raw_text"],
+        log_text        = parsed["raw_text"] + w4_challenge_note,
         tracker_text    = existing_tracker[:2000] if existing_tracker else "No previous tracker.",
         next_week_plan  = full_next_week,
     )
@@ -2584,7 +2642,28 @@ def process_inbound_emails(state: dict, secrets: dict):
         week      = ((datetime.now(timezone.utc).date() - enrolled).days // 7) + 1
         background = cs.get("intake_summary", cs.get("goal", "No background on file."))
 
-        # Detect challenge goal reply — store it and send a short acknowledgement
+        # Detect Week 4 challenge commitment reply — store and acknowledge
+        w4_challenge_keywords = ["week 4 challenge", "first milestone"]
+        is_w4_challenge_reply = (
+            is_coach and
+            not cs.get("challenge_goal_w4") and
+            any(kw in subject.lower() for kw in w4_challenge_keywords) and
+            len(body) > 3
+        )
+        if is_w4_challenge_reply:
+            cs["challenge_goal_w4"] = body[:300]
+            if cs.get("folder"):
+                log_event(cs["folder"], f"Week 4 challenge committed: {body[:100]}")
+            print(f"  🎯 Week 4 challenge captured for {cs['name']}: {body[:80]}")
+            ack = (
+                f"Noted.\n\n"
+                f"I'll ask you how it went at your Week 5 check-in. "
+                f"One week. Do the thing.\n\n— Will"
+            )
+            send_email(secrets, sender_email, f"Re: {subject}", ack)
+            mail.store(uid, "+FLAGS", "\\Seen")
+
+        # Detect Week 8 challenge goal reply — store it and send a short acknowledgement
         challenge_keywords = ["what's your challenge", "week 8: what", "confirmation challenge"]
         is_challenge_reply = (
             is_coach and
@@ -2768,7 +2847,20 @@ def send_education_drips(state: dict, secrets: dict):
                         f"That number is in your plan. Use it.\n\n{calorie_line}"
                     )
 
-            # Challenge email: generate personalised version via Claude
+            # Week 4 challenge: generate personalised version via Claude
+            if key == "edu_challenge_w4":
+                tracker_text   = read_client_file(cs["folder"], "progress-tracker.md") if cs.get("folder") else ""
+                intake_tags    = cs.get("tags", {})
+                intake_summary = "\n".join(f"{k}: {v}" for k, v in intake_tags.items() if v) or "No intake data."
+                w4_prompt = WEEK4_CHALLENGE_PROMPT.format(
+                    name=cs["name"],
+                    intake_summary=intake_summary,
+                    tracker_text=tracker_text[:2000] if tracker_text else "No tracker data yet.",
+                )
+                content = call_claude(secrets["anthropic"], w4_prompt, max_tokens=400)
+                content = f"# Week 4 challenge: your first milestone\n\n{content}"
+
+            # Week 8 challenge: generate personalised version via Claude
             if key == "edu_challenge":
                 tracker_text    = read_client_file(cs["folder"], "progress-tracker.md") if cs.get("folder") else ""
                 intake_tags     = cs.get("tags", {})
@@ -3501,6 +3593,32 @@ def main():
     for acct, cs in state["clients"].items():
         print(f"   • {acct}  {cs['name']:20s}  {cs['status']:12s}  week {cs.get('current_week', 0)}")
     print(f"{'='*60}\n")
+
+    # 16. System health check
+    print("\n🩺 System health check...")
+    try:
+        import importlib.util as _ilu
+        _hspec = _ilu.spec_from_file_location("biz_health_check", VAULT_ROOT / "scripts" / "biz_health_check.py")
+        _hmod  = _ilu.module_from_spec(_hspec)
+        _hspec.loader.exec_module(_hmod)
+        hc_result = _hmod.run_health_check(quiet=True)
+        status_str = "PASS" if hc_result["all_pass"] else "FAIL"
+        failures   = hc_result.get("failures", [])
+        summary    = f"{status_str} — {len(failures)} issue(s)" if failures else f"{status_str} — all checks green"
+        print(f"  {'✅' if hc_result['all_pass'] else '⚠️ '} Health: {summary}")
+        if failures:
+            for f in failures[:5]:
+                print(f"    ✗ {f}")
+        # Store in DB for Business Manager display
+        import scripts.db as _db
+        _db.set_bot_state("health_check_last", json.dumps({
+            "run_at":   datetime.now(timezone.utc).isoformat()[:16],
+            "all_pass": hc_result["all_pass"],
+            "failures": failures,
+            "summary":  summary,
+        }))
+    except Exception as _he:
+        print(f"  ⚠️  Health check skipped: {_he}")
 
 
 if __name__ == "__main__":

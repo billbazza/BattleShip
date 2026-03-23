@@ -409,7 +409,7 @@ def generate_hooked_variants(secrets: dict | None = None) -> list[Path]:
         print(f"  Hook {i+1}: {hook[:60]}...")
 
     # AI-generated hooks if API key available
-    if secrets and (secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")):
+    if secrets and (secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")):
         ai_hooks = _generate_ai_hooks(secrets)
         for j, hook in enumerate(ai_hooks):
             fname = f"before_after_ai_{j+1:02d}.jpg"
@@ -423,7 +423,7 @@ def _generate_ai_hooks(secrets: dict) -> list[str]:
     """Use Claude to generate fresh hook variants aligned to current arc phase."""
     try:
         import anthropic
-        api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")
+        api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
         client  = anthropic.Anthropic(api_key=api_key)
 
         # Pull arc phase for alignment

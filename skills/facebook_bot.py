@@ -16,7 +16,7 @@ Called from pipeline:
 """
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import requests
@@ -108,7 +108,7 @@ Reply only."""
 # ── Claude helpers ─────────────────────────────────────────────────────────────
 
 def _claude(prompt: str, secrets: dict, max_tokens: int = 600) -> str:
-    client = anthropic.Anthropic(api_key=secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY"))
+    client = anthropic.Anthropic(api_key=secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic"))
     msg = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=max_tokens,
