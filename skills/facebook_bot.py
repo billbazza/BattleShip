@@ -947,9 +947,11 @@ METRICS_FILE = VAULT_ROOT / "clients" / "social_metrics.json"
 
 
 def _load_metrics() -> dict:
+    base = {"posts": {}, "page": {}, "ig": {}, "ads": {}}
     if METRICS_FILE.exists():
-        return json.loads(METRICS_FILE.read_text())
-    return {"posts": {}, "page": {}, "ig": {}, "ads": {}}
+        stored = json.loads(METRICS_FILE.read_text())
+        base.update(stored)
+    return base
 
 
 def _save_metrics(m: dict):

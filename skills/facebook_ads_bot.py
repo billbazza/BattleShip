@@ -95,12 +95,13 @@ def _post(endpoint: str, data: dict, token: str) -> dict:
 # ── Campaign creation ─────────────────────────────────────────────────────────
 
 def create_campaign(ad_account_id: str, name: str, token: str) -> dict:
-    """Create a PAUSED traffic campaign."""
+    """Create a PAUSED traffic campaign (non-CBO, budget lives at ad set level)."""
     return _post(f"act_{ad_account_id}/campaigns", {
         "name": name,
         "objective": "OUTCOME_TRAFFIC",
         "status": "PAUSED",
         "special_ad_categories": "[]",
+        "is_adset_budget_sharing_enabled": "false",
     }, token)
 
 
@@ -112,14 +113,7 @@ def create_adset(ad_account_id: str, campaign_id: str, name: str,
         "age_min": 40,
         "age_max": 60,
         "genders": [1],  # 1 = male
-        "flexible_spec": [{
-            "interests": [
-                {"id": "6003107902433", "name": "Fitness and wellness"},
-                {"id": "6003020834693", "name": "Weight loss"},
-                {"id": "6002910373627", "name": "Health"},
-                {"id": "6003348604981", "name": "Physical exercise"},
-            ]
-        }]
+        "targeting_automation": {"advantage_audience": 0},
     })
     start = datetime.now(timezone.utc)
     end   = start + timedelta(days=7)
@@ -129,6 +123,7 @@ def create_adset(ad_account_id: str, campaign_id: str, name: str,
         "daily_budget":      daily_budget_pence,
         "billing_event":     "IMPRESSIONS",
         "optimization_goal": "LINK_CLICKS",
+        "bid_strategy":      "LOWEST_COST_WITHOUT_CAP",
         "targeting":         targeting,
         "start_time":        start.strftime("%Y-%m-%dT%H:%M:%S+0000"),
         "end_time":          end.strftime("%Y-%m-%dT%H:%M:%S+0000"),
@@ -416,6 +411,7 @@ def launch_pending_ad_variants(secrets: dict, vault_root: Path) -> list[str]:
 
     log = []
     daily_budget_pence = 300  # £3/day
+    dev_mode_blocked   = False  # set True on first 1885183 error, skip remaining ideas
 
     # Get image via brand_manager
     try:
@@ -426,6 +422,9 @@ def launch_pending_ad_variants(secrets: dict, vault_root: Path) -> list[str]:
         get_best_image = None
 
     for idea in candidates:
+        if dev_mode_blocked:
+            break
+
         title = idea.get("title", "")
         angle = idea.get("angle", "")
         print(f"  🚀 Creating ad for green-lit idea: {title[:60]}")
@@ -439,33 +438,26 @@ def launch_pending_ad_variants(secrets: dict, vault_root: Path) -> list[str]:
             if not image_path and get_best_image:
                 image_path = get_best_image("ad")
             if not image_path:
-                image_path = str(vault_root / "brand" / "random-snaps" / "IMG_0448.jpeg")
+                # Find any available image in random-snaps
+                snaps = list((vault_root / "brand" / "random-snaps").glob("*.jpeg"))
+                image_path = str(snaps[0]) if snaps else None
+            if not image_path:
+                log.append(f"  ⚠️  No image found for \"{title[:40]}\" — skipped")
+                continue
 
             # Build ad copy from idea
-            ad_body = (
-                f"{angle[:400]}\n\n"
-                "Take the free quiz — battleshipreset.com"
-            ) if angle else AD_COPY["body"]
+            ad_body     = (f"{angle[:400]}\n\nTake the free quiz — battleshipreset.com") if angle else AD_COPY["body"]
             ad_headline = title[:40] if title else AD_COPY["headline"]
+            name_ts     = datetime.now().strftime("%b %Y")
+            safe_ttl    = title[:30].replace('"', "'")
 
-            name_ts  = datetime.now().strftime("%b %Y")
-            safe_ttl = title[:30].replace('"', "'")
-
-            campaign  = create_campaign(ad_account_id, f"BSR — {safe_ttl} — {name_ts}", token)
-            cid       = campaign["id"]
-
-            adset     = create_adset(ad_account_id, cid, "UK Men 40-60", daily_budget_pence, token)
-            asid      = adset["id"]
-
-            img_hash  = upload_image(ad_account_id, image_path, token)
-
-            creative  = create_ad_creative(
-                ad_account_id, page_id,
-                ad_headline, ad_body,
-                img_hash, AD_COPY["link"], AD_COPY["cta"], token,
-            )
-            crid = creative["id"]
-
+            campaign = create_campaign(ad_account_id, f"BSR — {safe_ttl} — {name_ts}", token)
+            cid      = campaign["id"]
+            adset    = create_adset(ad_account_id, cid, "UK Men 40-60", daily_budget_pence, token)
+            asid     = adset["id"]
+            img_hash = upload_image(ad_account_id, image_path, token)
+            creative = create_ad_creative(ad_account_id, page_id, ad_headline, ad_body, img_hash, AD_COPY["link"], AD_COPY["cta"], token)
+            crid     = creative["id"]
             ad       = create_ad(ad_account_id, asid, crid, f"BSR — {safe_ttl}", token)
             adid     = ad["id"]
 
@@ -474,18 +466,25 @@ def launch_pending_ad_variants(secrets: dict, vault_root: Path) -> list[str]:
             idea["ad_created_at"]  = datetime.now().strftime("%Y-%m-%d")
             idea["ad_campaign_id"] = cid
             idea["ad_id"]          = adid
-
             ideas_file.write_text(json.dumps(ideas_data, indent=2))
 
-            log.append(
-                f"  ✅ Ad created (PAUSED): \"{safe_ttl}\" — "
-                f"campaign {cid} · ad {adid} · £3/day"
-            )
+            log.append(f"  ✅ Ad created (PAUSED): \"{safe_ttl}\" — campaign {cid} · ad {adid} · £3/day")
             print(f"  ✅ Ad created (PAUSED): campaign={cid} ad={adid}")
 
         except Exception as e:
-            log.append(f"  ⚠️  Ad creation failed for \"{title[:40]}\": {e}")
-            print(f"  ⚠️  Ad creation failed for '{title[:40]}': {e}")
+            # Detect Meta dev-mode block (subcode 1885183) — stop all attempts, log once
+            _subcode = 0
+            try:
+                _subcode = e.response.json().get("error", {}).get("error_subcode", 0)  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            if _subcode == 1885183 or "development mode" in str(e).lower():
+                dev_mode_blocked = True
+                log.append(f"  ℹ️  {len(candidates)} idea(s) ready — Meta Standard Access pending (app in dev mode)")
+                print(f"  ℹ️  Meta app in dev mode — ad variants queued until Standard Access approved")
+            else:
+                log.append(f"  ⚠️  Ad creation failed for \"{title[:40]}\": {e}")
+                print(f"  ⚠️  Ad creation failed for '{title[:40]}': {e}")
 
     return log
 
