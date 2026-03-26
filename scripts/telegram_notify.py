@@ -33,11 +33,18 @@ def _creds() -> tuple:
     return env.get("TELEGRAM_BOT_TOKEN", ""), env.get("TELEGRAM_CHAT_ID", "")
 
 
+def _muted() -> bool:
+    return _env().get("TELEGRAM_MUTED", "0").strip() == "1"
+
+
 def _post(method: str, **kwargs) -> dict:
     token, _ = _creds()
     if not token:
         print("  ⚠️  TELEGRAM_BOT_TOKEN not set")
         return {}
+    if _muted():
+        print("  🔇  Telegram muted (TELEGRAM_MUTED=1)")
+        return {"ok": False, "muted": True}
     resp = requests.post(
         BASE_URL.format(token=token, method=method),
         timeout=30,
@@ -81,6 +88,9 @@ def send_photo_with_keyboard(image_path: str, caption: str, buttons: list) -> di
         "parse_mode": "HTML",
         "reply_markup": json.dumps({"inline_keyboard": buttons})
     }
+    if _muted():
+        print("  🔇  Telegram muted (TELEGRAM_MUTED=1)")
+        return {"ok": False, "muted": True}
     try:
         with open(image_path, "rb") as f:
             resp = requests.post(

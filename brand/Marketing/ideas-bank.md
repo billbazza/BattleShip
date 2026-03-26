@@ -44,3 +44,43 @@
 **Angle:** Walking is so unglamorous that claiming it as the main tool for dramatic body transformation feels almost offensive to fitness culture — which is exactly why it stops the scroll. Busy men over 40 who feel excluded from intense workout culture see themselves in this story immediately.
 **Status:** 🟢 Green lit
 **Added:** 2026-03-17
+
+## I Never Set Foot in a Gym. Here's My Six-Pack at 47.
+**Angle:** Will's before/after photo paired with the single sentence 'No gym. No personal trainer. No protein shakes.' directly dismantles every excuse this audience has built up over decades, triggering both curiosity and the uncomfortable question: what's MY reason?
+**Status:** ⬛ Archived
+**Added:** 2026-03-18
+
+## Your Doctor Says You're 'Fine'. Your Body Is Lying to Both of You.
+**Angle:** Targets the specific denial men 40-55 live in — passing NHS checks while feeling sluggish, stiff and invisible. The contrarian twist is that 'fine' is not the same as well, positioning Battleship Reset as the truth nobody in their life is telling them.
+**Status:** 🟢 Green lit
+**Added:** 2026-03-18
+
+## The Fitness Industry Doesn't Want Men Like Us to Know This
+**Angle:** Frames walking and simple home movement as a suppressed truth the gym and supplement industries profit from hiding, speaking directly to the sceptical, no-nonsense mindset of this audience and making them feel smart for considering an alternative approach.
+**Status:** 🟡 Draft
+**Added:** 2026-03-18
+
+## Battleship Reset Activated — 3 silent killers after 40
+**Angle:** Cortisol/testosterone, stillness, junk nutrition = the 3 battleships. Short punchy hook for ads or organic.
+**Status:** 🟡 Draft
+**Added:** 2026-03-20
+
+## Tired of waking up exhausted? The 3 battleships sinking your vitality
+**Angle:** Hook-style short post naming the 3 enemies. Works as ad or organic opener.
+**Status:** 🟡 Draft
+**Added:** 2026-03-20
+
+## Men 40+: Stop accepting feeling old as normal
+**Angle:** Direct challenge hook. Works as a standalone post or ad intro.
+**Status:** 🟢 Green lit
+**Added:** 2026-03-20
+
+## Battleship Reset loading — 3 culprits if you're 40+ and feel like crap
+**Angle:** Loading screen metaphor, ultra-punchy. Good for Reels caption or ad.
+**Status:** 🟢 Green lit
+**Added:** 2026-03-20
+
+## Quick gut check for guys over 40 — stress, sitting, crappy food
+**Angle:** Gut-check style hook. Conversational, low-pressure entry point for ads.
+**Status:** 🟢 Green lit
+**Added:** 2026-03-20

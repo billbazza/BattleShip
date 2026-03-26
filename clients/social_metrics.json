@@ -1,4 +1,51 @@
 {
+  "posts": {
+    "1039975692536580_122104195940983973": {
+      "message": "Last Tuesday at 2am, I woke up, checked my phone out of habit, and saw three new orders had come in while I slept. Nothing had touched them. No me, no assistant, just a Mac Mini sitting on a shelf in ",
+      "created_time": "2026-03-26T10:48:53+0000",
+      "permalink": "https://www.facebook.com/122095678736983973/posts/122104195940983973",
+      "insights": {
+        "reach": 0,
+        "link_clicks": 0
+      }
+    },
+    "1039975692536580_122104195820983973": {
+      "message": "Six months ago I was watching my Mac Mini sit idle on my desk while I manually answered the same customer emails I'd answered the week before. And the week before that.\n\nThat's when it clicked. The ma",
+      "created_time": "2026-03-26T10:48:48+0000",
+      "permalink": "https://www.facebook.com/122095678736983973/posts/122104195820983973",
+      "insights": {
+        "reach": 0,
+        "link_clicks": 0
+      }
+    },
+    "1039975692536580_122104194812983973": {
+      "message": "I run my entire coaching business from a Mac Mini that cost less than a month's gym membership.\n\nIntake forms, personalised training and nutrition plans, payment processing, email sequences, content s",
+      "created_time": "2026-03-26T10:44:43+0000",
+      "permalink": "https://www.facebook.com/122095678736983973/posts/122104194812983973",
+      "insights": {
+        "reach": 0,
+        "link_clicks": 0
+      }
+    },
+    "1039975692536580_122104148954983973": {
+      "message": "There was a version of you that was strong, lean, and didn't have to think about any of this.\n\nMaybe you played sport. Maybe you just stayed active without trying. Maybe you were simply the fit one in",
+      "created_time": "2026-03-26T06:54:43+0000",
+      "permalink": "https://www.facebook.com/122095678736983973/posts/122104148954983973",
+      "insights": {
+        "reach": 0,
+        "link_clicks": 0
+      }
+    },
+    "1039975692536580_122104148888983973": {
+      "message": "You didn't get lazy at 43. Your body changed the rules without telling you.\n\nSame food. Same activity. Maybe even a bit more effort than before. And somehow a belly appeared that wasn't there two year",
+      "created_time": "2026-03-26T06:54:32+0000",
+      "permalink": "https://www.facebook.com/122095678736983973/posts/122104148888983973",
+      "insights": {
+        "reach": 0,
+        "link_clicks": 0
+      }
+    }
+  },
   "page": {
     "2026-03-15": {
       "fans": 17,
@@ -17,6 +64,34 @@
       "followers": 30
     },
     "2026-03-19": {
+      "fans": 30,
+      "followers": 30
+    },
+    "2026-03-20": {
+      "fans": 30,
+      "followers": 30
+    },
+    "2026-03-21": {
+      "fans": 30,
+      "followers": 30
+    },
+    "2026-03-22": {
+      "fans": 30,
+      "followers": 30
+    },
+    "2026-03-23": {
+      "fans": 30,
+      "followers": 30
+    },
+    "2026-03-24": {
+      "fans": 30,
+      "followers": 30
+    },
+    "2026-03-25": {
+      "fans": 30,
+      "followers": 30
+    },
+    "2026-03-26": {
       "fans": 30,
       "followers": 30
     }
@@ -51,54 +126,75 @@
       "follows_count": 19,
       "media_count": 1,
       "username": "battleshipreset"
+    },
+    "2026-03-20": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-03-21": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-03-22": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-03-23": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-03-24": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-03-25": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-03-26": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
     }
   },
-  "posts": {
-    "1039975692536580_122097722768983973": {
-      "message": "My doctor said my body is 30 years younger than my age.\n\nNot a typo. I'm 47. My fitness age tested at 17.\n\nNo gym. No personal trainer. No fancy supplements or 5am ice baths. Just one genuinely boring",
-      "created_time": "2026-03-17T17:07:03+0000",
-      "permalink": "https://www.facebook.com/122095678736983973/posts/122097722768983973",
-      "insights": {
-        "reach": 0,
-        "link_clicks": 0
-      }
+  "ads": {
+    "2026-03-23": {
+      "impressions": 16039,
+      "clicks": 1730,
+      "spend": 55.01,
+      "results": 1602
     },
-    "1039975692536580_122097337580983973": {
-      "message": "The real midlife crisis isn't the sports car.\n\nIt's waking up at 45 and realising you're exhausted climbing the stairs. It's avoiding photos at family events. It's feeling like you're living inside so",
-      "created_time": "2026-03-17T07:31:09+0000",
-      "permalink": "https://www.facebook.com/122095678736983973/posts/122097337580983973",
-      "insights": {
-        "reach": 0,
-        "link_clicks": 0
-      }
+    "2026-03-24": {
+      "impressions": 13668,
+      "clicks": 1400,
+      "spend": 47.74,
+      "results": 1311
     },
-    "1039975692536580_122097337046983973": {
-      "message": "**Most guys over 40 don't fail because they're lazy. They fail because nobody gave them a simple plan.**\n\nYou've probably tried the gym before. Maybe you went hard for a few weeks, got overwhelmed, go",
-      "created_time": "2026-03-17T07:30:54+0000",
-      "permalink": "https://www.facebook.com/122095678736983973/posts/122097337046983973",
-      "insights": {
-        "reach": 0,
-        "link_clicks": 0
-      }
+    "2026-03-25": {
+      "impressions": 13668,
+      "clicks": 1400,
+      "spend": 47.74,
+      "results": 1311
     },
-    "1039975692536580_122097318626983973": {
-      "message": "You don't need a PT. You need a plan.\n\nPersonal trainers are great \u2014 but at \u00a350-\u00a380 a session, they're not exactly realistic for most of us. And the gym? Half the time it just feels like walking into ",
-      "created_time": "2026-03-17T06:58:45+0000",
-      "permalink": "https://www.facebook.com/122095678736983973/posts/122097318626983973",
-      "insights": {
-        "reach": 0,
-        "link_clicks": 0
-      }
-    },
-    "1039975692536580_122096995454983973": {
-      "message": "The weight's gone. But is it actually gone for good?\n\nOzempic and GLP-1 drugs have helped thousands of men shift serious weight. That's real, and that's worth celebrating.\n\nBut here's the part nobody'",
-      "created_time": "2026-03-16T23:06:11+0000",
-      "permalink": "https://www.facebook.com/122095678736983973/posts/122096995454983973",
-      "insights": {
-        "reach": 0,
-        "link_clicks": 0
-      }
+    "2026-03-26": {
+      "impressions": 13668,
+      "clicks": 1400,
+      "spend": 47.74,
+      "results": 1311
     }
   },
-  "fetched_at": "2026-03-19T06:28:10.917632+00:00"
+  "fetched_at": "2026-03-26T10:56:18.802249+00:00"
 }

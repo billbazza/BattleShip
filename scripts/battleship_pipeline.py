@@ -416,6 +416,15 @@ def process_tally_queue(secrets: dict, state: dict):
                 f.unlink()
                 continue
             print(f"  📥 Processing Tally submission: {parsed['name']} ({parsed['email']}) [{'short' if parsed.get('short_form') else 'full'} form]")
+
+            # Auto-subscribe quiz leads to The Operator newsletter
+            if parsed.get("email"):
+                try:
+                    from skills.newsletter_bot import subscribe_email
+                    subscribe_email(parsed["email"], parsed.get("name", ""), secrets)
+                except Exception as e:
+                    print(f"  ⚠️  Newsletter subscribe skipped: {e}")
+
             if parsed.get("short_form"):
                 process_short_intake(parsed, secrets, state)
             else:
@@ -1702,6 +1711,49 @@ def check_stripe_payments(state: dict, secrets: dict):
         if cs["email"].lower() in paid_emails:
             enrol_client(acct, cs, secrets)
             log_event(cs["folder"], "Payment detected via Stripe — auto-enrolled")
+
+
+# ── Pipeline: Stuck Diagnosed Client Detector ─────────────────────────────────
+
+def check_stuck_clients(state: dict) -> list[dict]:
+    """
+    Scan state.json for clients in 'diagnosed' status whose intake_date is
+    more than 48 hours ago with no enrolled_date set.  Log a warning for each
+    and return the list so callers can include it in email output.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=48)
+    stuck = []
+
+    for acct, cs in state.get("clients", {}).items():
+        if cs.get("status") != "diagnosed":
+            continue
+        if cs.get("enrolled_date"):
+            continue  # already enrolled — not stuck
+        intake_raw = cs.get("intake_date", "")
+        if not intake_raw:
+            continue
+        try:
+            intake_dt = datetime.fromisoformat(intake_raw)
+            if intake_dt.tzinfo is None:
+                intake_dt = intake_dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if intake_dt < cutoff:
+            hours_waiting = int((now - intake_dt).total_seconds() // 3600)
+            entry = {
+                "account": acct,
+                "name":    cs.get("name", acct),
+                "email":   cs.get("email", ""),
+                "intake_date": intake_raw,
+                "hours_waiting": hours_waiting,
+            }
+            stuck.append(entry)
+            print(f"  ⏳ STUCK CLIENT: {cs.get('name', acct)} ({acct}) — diagnosed {hours_waiting}h ago, no payment yet")
+
+    if not stuck:
+        print("  ✓  No stuck diagnosed clients")
+    return stuck
 
 
 # ── Pipeline: Weekly Check-In Requests ────────────────────────────────────────
@@ -3446,6 +3498,10 @@ def main():
     print("\n💳 Checking Stripe for new payments...")
     check_stripe_payments(state, secrets)
 
+    # 2a. Stuck diagnosed client check
+    print("\n⏳ Checking for stuck diagnosed clients (48h+ no payment)...")
+    check_stuck_clients(state)
+
     # 3. Weekly check-in requests (Sundays only)
     print("\n📅 Weekly check-in requests (Sundays)...")
     send_weekly_checkin_requests(state, secrets)
@@ -3481,6 +3537,50 @@ def main():
     # 9. Weekly digest to Will (Mondays only)
     print("\n📊 Weekly digest (Mondays)...")
     send_weekly_digest(state, secrets)
+
+    # 9.5 FB queue auto-poster — post today's scheduled item; reschedule any overdue ones
+    print("\n🚀 FB queue auto-poster...")
+    try:
+        sys.path.insert(0, str(VAULT_ROOT))
+        import scripts.db as _db
+        from skills.facebook_bot import _post_live, _is_live, post_photo as _post_photo, cross_post_to_instagram as _ig_cross
+        from datetime import date as _date
+        today_str = str(_date.today())
+        all_queued = _db.get_posts(stage="fb_queue")
+        today_post = next((p for p in all_queued if p.get("scheduled_for") == today_str), None)
+        overdue    = [p for p in all_queued if (p.get("scheduled_for") or "9999") < today_str]
+
+        # Reschedule overdue posts to next available Mon/Wed/Fri slots (one per slot)
+        if overdue:
+            _db.recalculate_schedule(from_date=_date.today() + timedelta(days=1))
+            print(f"  📅 Rescheduled {len(overdue)} overdue post(s) to next available slots")
+
+        # Post today's item only
+        if not today_post:
+            print("  ℹ️  No post scheduled for today")
+        elif not _is_live(secrets):
+            print("  ℹ️  Dev mode — skipping queue auto-post")
+        else:
+            try:
+                img = today_post.get("image_path", "")
+                from pathlib import Path as _Path
+                if img and _Path(img).exists():
+                    fb_id = _post_photo(_Path(img), today_post["content"], secrets)
+                else:
+                    fb_id = _post_live(today_post["content"], secrets)
+                _db.advance_post_stage(today_post["id"], "posted", {
+                    "fb_post_id": fb_id,
+                    "posted_at":  datetime.now(timezone.utc).isoformat(),
+                })
+                print(f"  ✅ Posted from queue: {today_post['theme'][:50]} → {fb_id}")
+                try:
+                    _ig_cross(today_post["content"], img or None, secrets)
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"  ⚠️  Failed to post today's queued item: {e}")
+    except Exception as e:
+        print(f"  ⚠️  FB queue auto-poster skipped: {e}")
 
     # 10. Facebook bot (posts, comment replies, DMs)
     print("\n📘 Facebook bot...")
@@ -3522,7 +3622,23 @@ def main():
     except Exception as e:
         print(f"  ⚠️  Accounts bot skipped: {e}")
 
-    # 13. Marketing bot — daily review, weekly strategy, funnel tracking
+    # 13. Newsletter bot — "The Operator" weekly digest (Beehiiv, Tuesdays)
+    print("\n📰 Newsletter bot...")
+    try:
+        from skills.newsletter_bot import run as run_newsletter
+        run_newsletter(secrets, state, VAULT_ROOT)
+    except Exception as e:
+        print(f"  ⚠️  Newsletter bot skipped: {e}")
+
+    # 14a. PDF Guide bot — generate guides, sync sales (SOVEREIGN Stream A)
+    print("\n📚 PDF Guide bot...")
+    try:
+        from skills.pdf_guide_bot import run as run_guides
+        run_guides(secrets, state, VAULT_ROOT)
+    except Exception as e:
+        print(f"  ⚠️  PDF Guide bot skipped: {e}")
+
+    # 14. Marketing bot — daily review, weekly strategy, funnel tracking
     print("\n📣 Marketing bot...")
     try:
         from skills.marketing_bot import run as run_marketing

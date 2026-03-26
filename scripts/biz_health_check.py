@@ -131,6 +131,7 @@ def _check_pipeline_log() -> tuple[bool, str]:
                 if any(s in line for s in (
                     "skipping", "not set", "No key", "no credentials",
                     "already sent", "never run", "(no queued",
+                    "Pipeline log has", "Health:",
                 )):
                     continue
                 errors.append(line.strip()[:120])

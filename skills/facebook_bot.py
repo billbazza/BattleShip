@@ -50,6 +50,10 @@ POST_THEMES = [
     "What 12 weeks actually does. Not a transformation photo — a realistic description of what changes: waist, energy, sleep, confidence, blood pressure.",
     "The gym is optional. A post for men who don't want to join a gym. Dumbbells, bands, bodyweight — what's actually possible at home.",
     "Progressive overload explained simply. Why adding one rep or 2.5kg per week is the entire secret to getting stronger. No complexity needed.",
+    # Guide promo posts (SOVEREIGN Stream A) — value-first, not hard sell
+    "I built an AI system that runs my entire coaching business — intake forms, personalised plans, payment, email sequences, content scheduling — all autonomous on a Mac Mini. Here's what I learned about the gap between 'AI will change everything' and 'AI actually changed something for me'. End with: I wrote the whole process into a guide — link in comments.",
+    "Everyone's talking about Claude Code and AI agents. I've been running one for 3 months straight, managing a real business, not a demo. Here's the honest version of what it can and can't do. End with: I put the step-by-step into a guide for non-developers — link in comments.",
+    "My Mac Mini has been running 24/7 for a month. Not mining crypto — running AI automation that handles client onboarding, content scheduling, and email follow-ups. The setup cost less than a night out. End with: I wrote up the full setup in a guide — link in comments.",
 ]
 
 POST_PROMPT = """You are writing an organic Facebook post for Battleship Reset — a fitness coaching programme for men 45-60.
@@ -121,19 +125,28 @@ def _claude(prompt: str, secrets: dict, max_tokens: int = 600) -> str:
 
 def _save_to_content_review(content: str, theme: str, status: str = "pending_review",
                              source: str = "facebook_bot", post_id: str = "",
-                             idea_id: str = "", image_path: str = ""):
-    """Save a post draft to the DB content_review stage (authoritative) + legacy JSON."""
+                             idea_id: str = "", image_path: str = "",
+                             arc_phase: int = 0):
+    """Save a post to the DB. status='posted' → stage=posted with fb_post_id set."""
     import sys as _sys
     _sys.path.insert(0, str(VAULT_ROOT))
     import scripts.db as _db
-    _db.insert_post({
+    from datetime import datetime, timezone as _tz
+    stage = "posted" if status == "posted" else "content_review"
+    fields: dict = {
         "theme":      theme,
         "content":    content,
-        "stage":      "content_review",
+        "stage":      stage,
         "source":     source,
-        "idea_id":    idea_id or "",
+        **({"idea_id": idea_id} if idea_id else {}),
         "image_path": image_path or "",
-    })
+        "arc_phase":  arc_phase,
+    }
+    if post_id:
+        fields["fb_post_id"] = post_id
+    if status == "posted":
+        fields["posted_at"] = datetime.now(_tz.utc).isoformat()
+    _db.insert_post(fields)
 
 
 def _queue_post(content: str, theme: str, image_path=None):
@@ -288,7 +301,7 @@ def _send_dm(recipient_id: str, message: str, secrets: dict):
 # ── Core jobs ──────────────────────────────────────────────────────────────────
 
 def post_scheduled_content(secrets: dict):
-    """Generate and queue one post for review on Mon/Wed/Fri. Never auto-posts live."""
+    """Generate and post one post live on Mon/Wed/Fri. Skips if fb_queue already covers today."""
     today = datetime.now(timezone.utc)
     if today.weekday() not in POST_DAYS:
         return
@@ -296,11 +309,19 @@ def post_scheduled_content(secrets: dict):
     schedule = _load_schedule()
     date_key = today.strftime("%Y-%m-%d")
     if date_key in schedule["posted_dates"]:
-        return  # already queued today
+        return  # already posted today
 
-    # Write the date guard immediately to prevent double-run on simultaneous wake
-    schedule["posted_dates"].append(date_key)
-    _save_schedule(schedule)
+    # If the fb_queue auto-poster has a post scheduled for today, let it handle this slot
+    try:
+        import sys as _sys; _sys.path.insert(0, str(VAULT_ROOT))
+        import scripts.db as _db
+        if any(p.get("scheduled_for") == date_key for p in _db.get_posts(stage="fb_queue")):
+            print(f"  ℹ️  FB queue has a post for today — skipping new content generation")
+            schedule["posted_dates"].append(date_key)
+            _save_schedule(schedule)
+            return
+    except Exception:
+        pass
 
     idx   = schedule["theme_index"] % len(POST_THEMES)
     theme = POST_THEMES[idx]
@@ -332,11 +353,51 @@ def post_scheduled_content(secrets: dict):
 
     post = _claude(POST_PROMPT.format(theme=theme) + arc_hint + learnings_hint, secrets)
 
-    # Generate image card — always goes to pending_review, approved via dashboard
-    image_path = _make_post_image(post, theme, secrets)
-    _queue_post(post, theme, image_path=image_path)
-    print(f"  ✓ Facebook post + image queued for review (pending approval in dashboard)")
+    # Resolve current arc_phase_index for tagging the post
+    _arc_idx = 0
+    try:
+        from skills.marketing_bot import _load_strategy as _mkt_strat
+        _arc_idx = _mkt_strat().get("arc_phase_index", 0)
+    except Exception:
+        pass
 
+    if not _is_live(secrets):
+        print(f"  ℹ️  Dev mode — post generated but not sent live (no FB_PAGE_ACCESS_TOKEN)")
+        _save_to_content_review(post, theme, status="pending_review", arc_phase=_arc_idx)
+        schedule["posted_dates"].append(date_key)
+        schedule["theme_index"] = idx + 1
+        _save_schedule(schedule)
+        return
+
+    # Generate image first, then post with photo
+    image_path = None
+    try:
+        image_path = _make_post_image(post, theme, secrets)
+    except Exception as e:
+        print(f"  ⚠️  Image generation failed, posting text-only: {e}")
+
+    if image_path and image_path.exists():
+        post_id = post_photo(image_path, post, secrets)
+        print(f"  ✅ Facebook post (with photo) published live → {post_id}")
+    else:
+        post_id = _post_live(post, secrets)
+        print(f"  ✅ Facebook post (text-only) published live → {post_id}")
+
+    _save_to_content_review(post, theme, status="posted", post_id=post_id,
+                            image_path=str(image_path) if image_path else "",
+                            arc_phase=_arc_idx)
+
+    # Cross-post to Instagram (30s delay so FB can process the media)
+    try:
+        import time as _time; _time.sleep(30)
+        ig_id = cross_post_to_instagram(post, str(image_path) if image_path else None, secrets)
+        if ig_id:
+            print(f"  ✅ Instagram cross-post → {ig_id}")
+    except Exception as e:
+        print(f"  ⚠️  Instagram cross-post failed: {e}")
+
+    # Write the date guard after successful post
+    schedule["posted_dates"].append(date_key)
     schedule["theme_index"] = idx + 1
     _save_schedule(schedule)
 
@@ -1537,13 +1598,19 @@ if __name__ == "__main__":
         print(f"Generating post for theme: {theme[:60]}...\n")
         post       = _claude(POST_PROMPT.format(theme=theme), secrets)
         print(f"--- GENERATED POST ---\n{post}\n---\n")
+        _cli_arc = 0
+        try:
+            from skills.marketing_bot import _load_strategy as _mkt_strat2
+            _cli_arc = _mkt_strat2().get("arc_phase_index", 0)
+        except Exception:
+            pass
         if _is_live(secrets):
             post_id = _post_live(post, secrets)
-            _save_to_content_review(post, theme, status="posted", post_id=post_id)
+            _save_to_content_review(post, theme, status="posted", post_id=post_id, arc_phase=_cli_arc)
             print(f"✓ Posted live (ID: {post_id})")
             schedule["posted_dates"].append(datetime.now(timezone.utc).strftime("%Y-%m-%d"))
         else:
-            _queue_post(post, theme)
+            _save_to_content_review(post, theme, status="pending_review", arc_phase=_cli_arc)
         schedule["theme_index"] = idx + 1
         _save_schedule(schedule)
     else:

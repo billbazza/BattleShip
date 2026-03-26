@@ -1,0 +1,21 @@
+{
+  "guides": {
+    "guide_claude_agent": {
+      "generated_at": "2026-03-26T10:02:45.941931+00:00",
+      "pdf_path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/SOVEREIGN/products/live/claude-code-ai-agent.pdf",
+      "sections": 6
+    },
+    "guide_autonomous_biz": {
+      "generated_at": "2026-03-26T10:05:06.320307+00:00",
+      "pdf_path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/SOVEREIGN/products/live/autonomous-business-playbook.pdf",
+      "sections": 6
+    },
+    "guide_mac_mini": {
+      "generated_at": "2026-03-26T10:07:02.005938+00:00",
+      "pdf_path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/SOVEREIGN/products/live/mac-mini-income-machine.pdf",
+      "sections": 6
+    }
+  },
+  "last_generation_date": "2026-03-26",
+  "total_revenue_pence": 0
+}

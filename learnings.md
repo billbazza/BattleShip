@@ -60,3 +60,18 @@ Week 4 is 31 March 2026. To have paying clients by then, the following must exis
 ---
 
 *Add new daily entries above the weekly summary table.*
+
+## 2026-03-26 – Day 17
+
+- [2026-03-26] [ops] A missing `import sys` in `skills/marketing_bot.py` silently broke live posting for the entire day — 3 posts generated correctly but none reached Facebook. Silent warnings in pipeline output must be treated as P1 when they block the only revenue-generating action, even if they don't crash the process.
+- [2026-03-26] [engineering] Python UnboundLocalError cascade: a variable assigned inside a try block is unbound if the block crashes before that assignment line. A later try block referencing it gets `cannot access local variable X where it is not associated with a value` — this is a symptom, not the root cause. Always trace to the first error in the chain.
+- [2026-03-26] [strategy] With 5 days to the Week 4 client target and zero ad spend, the window is effectively closed unless a paid campaign goes live today. The bug fix unblocks content, but at 30 followers organic reach cannot close a week-4 paying-client target alone.
+
+## 2026-03-25 – Day 16
+
+- [2026-03-25] [distribution] At 30 FB followers, organic content is statistically inert — posting 5×/week into a 30-person audience generates near-zero impressions and zero leads. Paid traffic must run in parallel from day 1; organic compounds later once social proof and follower base exist.
+- [2026-03-25] [funnel] The quiz-to-paid conversion rate (100% across all completions to date) confirms the offer and close mechanism are not the problem. The entire growth constraint is top-of-funnel volume. Solving for traffic is the only task that moves MRR.
+- [2026-03-25] [ops] Meta app dev mode is a hard blocker on programmatic ad creation — 11 ideas queued with no path to launch until Standard Access is approved. Manual Ads Manager is the correct workaround and should not wait for the API fix. Parallel-track: submit Standard Access app review now so the unblock compounds later.
+- [2026-03-25] [ads] The "Promoting Website" campaign logged a 10.2% CTR before expiring — roughly 10× the 0.9% Facebook industry average. This confirms the creative (battleshipreset.com) resonates with the audience. The next manual campaign should duplicate this creative exactly with the quiz URL swapped in as the destination.
+- [2026-03-25] [strategy] Week 4 first-client deadline (31 Mar) is 6 days away with £0 ad spend and 0 leads. The only path to hitting it is a live paid campaign within the next 24 hours. If no campaign is live by EOD 25 Mar, the Week 4 target should be revised to Week 5 and the post-mortem should document the dev-mode blocker as the specific cause.
+- [2026-03-25] [pipeline] Health check FAIL triggered by 6 API error lines — but inspection shows all 6 are low-severity Meta 400s (expired campaign IDs + IG scope mismatch). The health check threshold needs tuning: distinguish between blocking errors and noisy stale-API calls so genuine issues don't get buried in false positives.

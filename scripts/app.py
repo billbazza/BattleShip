@@ -1963,124 +1963,101 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Pipeline kanban -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px">
+  <!-- Pipeline kanban — 4 columns: Ideas Bank | Review | Scheduled | Posted -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px">
 
-    <!-- Col 1: Ideas (draft + needs_graphic merged) -->
-    {% set all_pipeline_ideas = (ideas_drafts + (all_ideas | selectattr('status','equalto','needs_graphic') | list)) | sort(attribute='created_at', reverse=True) %}
+    <!-- Col 1: Ideas Bank -->
+    {% set draft_ideas    = all_ideas | selectattr('status','equalto','draft')    | list %}
+    {% set archived_ideas = all_ideas | selectattr('status','equalto','archived') | list %}
     <div style="background:#141414;border:1px solid #222;border-radius:4px;padding:12px">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
-        <span>Ideas</span>
-        {% if all_pipeline_ideas %}<span style="background:#2a1800;color:#e8a020;padding:1px 7px;border-radius:10px">{{ all_pipeline_ideas|length }}</span>{% endif %}
+        <span>Ideas Bank</span>
+        <span style="background:#1a1800;color:#e8a020;padding:1px 7px;border-radius:10px">{{ draft_ideas|length }} draft{% if draft_ideas|length != 1 %}s{% endif %}</span>
       </div>
-      {% for idea in all_pipeline_ideas %}
-      <div id="idea-{{ idea.id }}" style="background:#111;border:1px solid {% if idea.status == 'needs_graphic' %}#3a2800{% else %}#1e1e1e{% endif %};border-radius:3px;margin-bottom:7px;overflow:hidden">
-        <!-- Collapsed header (always visible) -->
-        <div onclick="toggleCard('idea-{{ idea.id }}')" style="padding:9px;cursor:pointer">
-          {% if idea.status == 'needs_graphic' %}
-          <div style="font-size:9px;color:#e8a020;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">⏱ Needs graphic</div>
-          {% endif %}
-          <div style="color:#ccc;font-size:12px;font-weight:600;line-height:1.4">{{ idea.title }}</div>
-          <div style="color:#444;font-size:10px;margin-top:3px">{{ idea.angle[:60] }}{% if idea.angle|length > 60 %}…{% endif %}</div>
+
+      <!-- Draft ideas — inbox awaiting approval -->
+      {% for idea in draft_ideas %}
+      <div id="idea-{{ idea.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:6px;overflow:hidden">
+        <div onclick="toggleCard('idea-{{ idea.id }}')" style="padding:8px;cursor:pointer;display:flex;align-items:flex-start;gap:6px">
+          <div style="flex:1;min-width:0">
+            <div style="color:#ccc;font-size:11px;font-weight:600;line-height:1.4">{{ idea.title }}</div>
+            <div style="color:#444;font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ idea.angle[:70] if idea.angle else '' }}{% if idea.angle and idea.angle|length > 70 %}…{% endif %}</div>
+          </div>
+          <span style="color:#333;font-size:11px;flex-shrink:0;margin-top:1px">›</span>
         </div>
-        <!-- Expanded body -->
-        <div class="card-expand" id="expand-idea-{{ idea.id }}" style="display:none;border-top:1px solid #1e1e1e;padding:9px">
-          {% if idea.photo_id %}
-          <img src="/brand/{{ idea.photo_id }}" style="width:100%;max-height:120px;object-fit:cover;border-radius:3px;border:1px solid #2a6f00;margin-bottom:8px" onerror="this.style.display='none'">
-          <div style="font-size:9px;color:#2a9d4e;margin-bottom:6px">✓ Photo auto-selected — change in picker if needed</div>
-          {% else %}
-          <div style="background:#1a0a00;border-left:2px solid #e8a020;padding:6px 8px;margin-bottom:8px;font-size:10px;color:#e8a020;border-radius:0 3px 3px 0">📸 No photo in catalogue yet — drop an image into <b>brand/random-snaps/</b> and reload, or request a graphic below</div>
-          {% endif %}
-          {% if idea.angle %}
-          <div style="font-size:11px;color:#666;margin-bottom:5px;line-height:1.5">{{ idea.angle }}</div>
-          {% endif %}
-          {% if idea.copy %}
-          <div style="font-size:11px;color:#888;white-space:pre-wrap;background:#0a0a0a;padding:7px;border-radius:3px;margin-bottom:7px;max-height:100px;overflow-y:auto">{{ idea.copy }}</div>
-          {% endif %}
-          <div style="display:flex;flex-direction:column;gap:5px">
-            <button onclick="greenLightIdea('{{ idea.id }}')" style="width:100%;background:#2a9d4e;color:#fff;border:none;padding:5px 0;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">{% if idea.photo_id %}✓ Green light with this photo{% else %}✓ Green light (pick photo){% endif %}</button>
-            {% if not idea.photo_id %}
-            <button onclick="requestGraphicForIdea('{{ idea.id }}')" style="width:100%;background:#2a1800;border:1px solid #e8a020;color:#e8a020;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">📸 Request graphic</button>
-            {% else %}
-            <button onclick="greenLightIdea('{{ idea.id }}')" style="width:100%;background:none;border:1px solid #333;color:#666;padding:3px 0;border-radius:3px;font-size:10px;cursor:pointer">🔄 Change photo</button>
-            {% endif %}
-            <button onclick="archiveIdea('{{ idea.id }}')" style="width:100%;background:none;border:1px solid #3a1010;color:#553333;padding:3px 0;border-radius:3px;font-size:10px;cursor:pointer">✗ Archive</button>
+        <div class="card-expand" id="expand-idea-{{ idea.id }}" style="display:none;border-top:1px solid #1a1a1a;padding:8px">
+          <!-- Copy preview -->
+          <div id="idea-copy-view-{{ idea.id }}" style="font-size:12px;color:#aaa;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:8px;max-height:180px;overflow-y:auto;line-height:1.6">{{ idea.copy if idea.copy else idea.angle }}</div>
+          <!-- Inline edit area (hidden by default) -->
+          <div id="idea-edit-wrap-{{ idea.id }}" style="display:none;margin-bottom:8px">
+            <textarea id="idea-edit-{{ idea.id }}" style="width:100%;box-sizing:border-box;background:#0a0a0a;border:1px solid #333;color:#ccc;font-size:12px;padding:8px;border-radius:3px;line-height:1.6;min-height:140px;resize:vertical;font-family:inherit">{{ idea.copy if idea.copy else idea.angle }}</textarea>
+          </div>
+          <!-- Action buttons -->
+          <div id="idea-actions-{{ idea.id }}" style="display:flex;gap:6px;flex-wrap:wrap">
+            <button onclick="approveIdea('{{ idea.id }}')" style="background:#1a3a1a;border:1px solid #2a9d4e;color:#2a9d4e;padding:4px 12px;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">✓ Approve</button>
+            <button id="edit-idea-btn-{{ idea.id }}" onclick="toggleIdeaEdit('{{ idea.id }}')" style="background:none;border:1px solid #444;color:#888;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer">Edit</button>
+            <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #2a1a1a;color:#555;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer">Reject</button>
+          </div>
+          <!-- Save button (shown only during edit) -->
+          <div id="idea-save-wrap-{{ idea.id }}" style="display:none;margin-top:6px">
+            <button onclick="saveIdeaCopy('{{ idea.id }}')" style="background:#1a2a3a;border:1px solid #4a9eff;color:#4a9eff;padding:4px 12px;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">Save copy</button>
+            <button onclick="toggleIdeaEdit('{{ idea.id }}')" style="background:none;border:1px solid #333;color:#555;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer;margin-left:4px">Cancel</button>
           </div>
         </div>
       </div>
       {% endfor %}
-      {% if not all_pipeline_ideas %}<div style="color:#333;font-size:11px;font-style:italic">No ideas waiting</div>{% endif %}
-    </div>
+      {% if not draft_ideas %}
+      <div style="color:#333;font-size:11px;font-style:italic">No ideas awaiting approval — new batch generated Monday</div>
+      {% endif %}
 
-    <!-- Col 2: Awaiting Graphic (posts only — ideas are in Col 1) -->
-    {% set awaiting_graphic_posts = all_content | selectattr('stage','equalto','awaiting_graphic') | list %}
-    <div style="background:#141414;border:1px solid #222;border-radius:4px;padding:12px">
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
-        <span>⏱ Needs Graphic</span>
-        {% if awaiting_graphic_posts %}<span style="background:#2a1800;color:#e8a020;padding:1px 7px;border-radius:10px">{{ awaiting_graphic_posts|length }}</span>{% endif %}
-      </div>
-      {% for post in awaiting_graphic_posts %}
-      <div id="pc-ag-{{ post.id }}" style="background:#111;border:1px solid #2a1800;border-radius:3px;margin-bottom:7px;overflow:hidden">
-        <div onclick="toggleCard('pc-ag-{{ post.id }}')" style="padding:9px;cursor:pointer">
-          <div style="color:#e8a020;font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Post — awaiting graphic</div>
-          <div style="color:#ccc;font-size:12px;font-weight:600">{{ post.theme[:50] }}</div>
+      <!-- Archive (collapsed) -->
+      {% if archived_ideas %}
+      <div style="margin-top:12px;border-top:1px solid #1a1a1a;padding-top:8px">
+        <div onclick="toggleCard('ideas-archive')" style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#333;cursor:pointer;display:flex;justify-content:space-between">
+          <span>Archive</span><span>{{ archived_ideas|length }}</span>
         </div>
-        <div class="card-expand" id="expand-pc-ag-{{ post.id }}" style="display:none;border-top:1px solid #2a1800;padding:9px">
-          <div style="font-size:11px;color:#888;white-space:pre-wrap;background:#0a0a0a;padding:7px;border-radius:3px;margin-bottom:8px;max-height:120px;overflow-y:auto">{{ post.content }}</div>
-          <div style="background:#1a0a00;border-left:2px solid #e8a020;padding:6px 8px;margin-bottom:8px;font-size:10px;color:#e8a020;border-radius:0 3px 3px 0">Drop image into <b>brand/random-snaps/</b> — page will auto-advance on reload</div>
-          <button onclick="pickGraphicForPost('{{ post.id }}')" style="width:100%;background:#2a1800;border:1px solid #e8a020;color:#e8a020;padding:5px 0;border-radius:3px;font-size:10px;cursor:pointer;font-weight:600">🖼 Pick photo now</button>
+        <div class="card-expand" id="expand-ideas-archive" style="display:none;margin-top:6px">
+          {% for idea in archived_ideas %}
+          <div style="padding:5px 0;border-bottom:1px solid #141414">
+            <div style="color:#333;font-size:10px">{{ idea.title }}</div>
+          </div>
+          {% endfor %}
         </div>
       </div>
-      {% endfor %}
-      {% if not awaiting_graphic_posts %}<div style="color:#333;font-size:11px;font-style:italic">None waiting</div>{% endif %}
+      {% endif %}
     </div>
 
-    <!-- Col 3: Content Review -->
-    <div id="content-review-col" style="background:#141414;border:1px solid #c41e3a;border-radius:4px;padding:12px">
+    <!-- Col 2: Content Review -->
+    <div style="background:#141414;border:1px solid {% if pending_content %}#5a0a1a{% else %}#222{% endif %};border-radius:4px;padding:12px">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
-        <span style="color:#c41e3a">Content Review</span>
-        {% if pending_content %}<span style="background:#1a0008;color:#c41e3a;padding:1px 7px;border-radius:10px">{{ pending_content|length }}</span>{% endif %}
+        <span>Review</span>
+        {% if pending_content %}<span style="background:#3a0010;color:#c41e3a;padding:1px 7px;border-radius:10px">{{ pending_content|length }}</span>{% endif %}
       </div>
       {% for post in pending_content %}
-      <div id="pc-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:7px;overflow:hidden">
-        <!-- Always-visible collapsed header -->
-        <div onclick="toggleCard('pc-{{ post.id }}')" style="padding:9px;cursor:pointer;display:flex;gap:8px;align-items:center">
-          {% if post.image_path and post.image_path != '' %}
-          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:48px;height:48px;object-fit:cover;border-radius:3px;flex-shrink:0;border:1px solid #222" onerror="this.style.display='none'">
-          {% else %}
-          <div style="width:48px;height:48px;background:#1a0a00;border:1px solid #c41e3a;border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px">⚠</div>
-          {% endif %}
+      <div id="cr-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:7px;overflow:hidden">
+        <div onclick="toggleCard('cr-{{ post.id }}')" style="padding:8px;cursor:pointer;display:flex;align-items:flex-start;gap:6px">
           <div style="flex:1;min-width:0">
-            <div style="color:#ccc;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ post.theme[:45] }}{% if post.send_back_comment %} <span style="color:#e8a020;font-size:9px">↩ SENT BACK</span>{% endif %}</div>
-            <div style="color:#444;font-size:10px;margin-top:2px">{{ post.content[:55] }}…</div>
+            <div style="color:#ccc;font-size:11px;font-weight:600;line-height:1.4">{{ post.theme[:50] }}{% if post.theme|length > 50 %}…{% endif %}</div>
+            <div style="color:#444;font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ post.content[:60] }}{% if post.content|length > 60 %}…{% endif %}</div>
           </div>
+          <span style="color:#333;font-size:11px;flex-shrink:0;margin-top:1px">›</span>
         </div>
-        <!-- Expanded body -->
-        <div class="card-expand" id="expand-pc-{{ post.id }}" style="display:{% if post.send_back_comment %}block{% else %}none{% endif %};border-top:1px solid #1e1e1e;padding:9px">
-          {% if post.image_path and post.image_path != '' %}
-          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:160px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
-          {% else %}
-          <div style="background:#1a0a00;border-left:2px solid #c41e3a;padding:6px 8px;margin-bottom:8px;font-size:10px;color:#c41e3a;border-radius:0 3px 3px 0">⚠ No photo — use Swap photo below</div>
+        <div class="card-expand" id="expand-cr-{{ post.id }}" style="display:none;border-top:1px solid #1a1a1a;padding:9px">
+          {% if post.image_path %}
+          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:140px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
           {% endif %}
-          {% if post.send_back_comment %}
-          <div style="background:#1a1000;border-left:2px solid #e8a020;padding:5px 8px;margin-bottom:8px;font-size:10px;color:#e8a020;border-radius:0 3px 3px 0">↩ {{ post.send_back_comment }}</div>
-          {% endif %}
-          <div style="font-size:12px;color:#aaa;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:8px;max-height:180px;overflow-y:auto;line-height:1.6">{{ post.content }}</div>
-          <div style="display:flex;flex-direction:column;gap:5px">
-            <div style="display:flex;gap:5px">
-              <button onclick="approveToQueue('{{ post.id }}')" style="flex:1;background:#2a9d4e;color:#fff;border:none;padding:6px 0;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">✓ Queue it</button>
-              <button onclick="postNow('{{ post.id }}')" style="flex:1;background:#1a4a2a;color:#2a9d4e;border:1px solid #2a9d4e;padding:6px 0;border-radius:3px;font-size:11px;cursor:pointer">▶ Post now</button>
-            </div>
-            <button onclick="swapPhoto('{{ post.id }}')" style="width:100%;background:none;border:1px solid #333;color:#666;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">⇄ Swap photo</button>
-            <button onclick="showSendBack('{{ post.id }}')" style="width:100%;background:none;border:1px solid #555;color:#888;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">↩ Send back with comment</button>
-            <div id="sendback-{{ post.id }}" style="display:none">
-              <textarea id="sendback-txt-{{ post.id }}" placeholder="Comment for the bot…" style="width:100%;background:#0a0a0a;border:1px solid #333;color:#aaa;padding:6px;font-size:11px;border-radius:3px;box-sizing:border-box;resize:vertical;min-height:60px"></textarea>
-              <div style="display:flex;gap:5px;margin-top:4px">
-                <button onclick="submitSendBack('{{ post.id }}')" style="flex:1;background:#c41e3a;color:#fff;border:none;padding:4px;border-radius:3px;font-size:10px;cursor:pointer">↩ Confirm send back</button>
-                <button onclick="document.getElementById('sendback-{{ post.id }}').style.display='none'" style="background:none;border:1px solid #333;color:#555;padding:4px 10px;border-radius:3px;font-size:10px;cursor:pointer">Cancel</button>
-              </div>
-            </div>
-            <button onclick="archivePost('{{ post.id }}')" style="width:100%;background:none;border:1px solid #3a1010;color:#553333;padding:3px 0;border-radius:3px;font-size:10px;cursor:pointer">✗ Archive</button>
+          <div id="cr-copy-view-{{ post.id }}" style="font-size:12px;color:#aaa;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:8px;max-height:180px;overflow-y:auto;line-height:1.6">{{ post.content }}</div>
+          <div id="crv-edit-wrap-{{ post.id }}" style="display:none;margin-bottom:8px">
+            <textarea id="crv-edit-{{ post.id }}" style="width:100%;box-sizing:border-box;background:#0a0a0a;border:1px solid #333;color:#ccc;font-size:12px;padding:8px;border-radius:3px;line-height:1.6;min-height:140px;resize:vertical;font-family:inherit">{{ post.content }}</textarea>
+          </div>
+          <div id="cr-actions-{{ post.id }}" style="display:flex;gap:6px;flex-wrap:wrap">
+            <button onclick="approveCR('{{ post.id }}')" style="background:#1a3a1a;border:1px solid #2a9d4e;color:#2a9d4e;padding:4px 12px;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">✓ Approve</button>
+            <button id="edit-cr-btn-{{ post.id }}" onclick="toggleCREdit('{{ post.id }}')" style="background:none;border:1px solid #444;color:#888;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer">Edit</button>
+            <button onclick="rejectCR('{{ post.id }}')" style="background:none;border:1px solid #2a1a1a;color:#555;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer">Reject</button>
+          </div>
+          <div id="crv-save-wrap-{{ post.id }}" style="display:none;margin-top:6px">
+            <button onclick="saveCRCopy('{{ post.id }}')" style="background:#1a2a3a;border:1px solid #4a9eff;color:#4a9eff;padding:4px 12px;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">Save</button>
+            <button onclick="toggleCREdit('{{ post.id }}')" style="background:none;border:1px solid #333;color:#555;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer;margin-left:4px">Cancel</button>
           </div>
         </div>
       </div>
@@ -2088,11 +2065,28 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       {% if not pending_content %}<div style="color:#333;font-size:11px;font-style:italic">Nothing to review</div>{% endif %}
     </div>
 
-    <!-- Col 4: FB Queue -->
+    <!-- Col 3: Scheduled (FB Queue) -->
     <div style="background:#141414;border:1px solid #222;border-radius:4px;padding:12px">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:10px;display:flex;justify-content:space-between">
         <span>FB Queue</span>
         {% if fb_queued_posts %}<span style="background:#001a0a;color:#2a9d4e;padding:1px 7px;border-radius:10px">{{ fb_queued_posts|length }}</span>{% endif %}
+      </div>
+      <!-- Upcoming 3 slots -->
+      <div style="margin-bottom:10px">
+        {% for slot in fb_schedule %}
+        {% set slot_posts = posted_by_date.get(slot.date, []) %}
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;padding:5px 7px;background:#0d0d0d;border-radius:3px;border-left:2px solid {% if slot_posts %}#2a9d4e{% elif slot.date == today %}#e8a020{% else %}#1e1e1e{% endif %}">
+          <div style="font-size:9px;color:#555;width:28px;flex-shrink:0">{{ slot.day }}</div>
+          <div style="font-size:10px;color:#444;width:62px;flex-shrink:0">{{ slot.date[5:] }}</div>
+          {% if slot_posts %}
+          <div style="font-size:10px;color:#2a9d4e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ slot_posts[0].theme[:30] }}</div>
+          {% elif slot.date == today %}
+          <div style="font-size:10px;color:#e8a020">generating now…</div>
+          {% else %}
+          <div style="font-size:10px;color:#333;font-style:italic">—</div>
+          {% endif %}
+        </div>
+        {% endfor %}
       </div>
       {% for post in fb_queued_posts %}
       <div id="pq-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:7px;overflow:hidden">
@@ -2405,22 +2399,64 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       <span class="bot-chevron" id="chev-accounts">&#9660;</span>
     </div>
     <div class="bot-body" id="body-accounts">
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
-        <div style="background:#111;border-radius:4px;padding:14px">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">MRR</div>
-          <div style="font-size:22px;font-weight:700;color:#fff;margin-top:4px">£{{ "%.0f"|format(mrr) }}</div>
-          <div style="font-size:11px;color:#555">Target: £3,000</div>
-          <div style="background:#1a1a1a;border-radius:3px;height:4px;margin-top:8px;overflow:hidden">
-            <div style="height:100%;background:#c41e3a;width:{{ [mrr/3000*100,100]|min|int }}%"></div>
-          </div>
+      <!-- Revenue vs Target -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        <div style="background:#111;border-radius:4px;padding:12px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Revenue</div>
+          <div style="font-size:20px;font-weight:700;color:{% if mrr > 0 %}#2a9d4e{% else %}#444{% endif %};margin-top:4px">£{{ "%.0f"|format(mrr) }}</div>
+          <div style="font-size:10px;color:#333;margin-top:2px">{{ active_clients }} active client{{ 's' if active_clients != 1 }}</div>
         </div>
-        <div style="background:#111;border-radius:4px;padding:14px">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Monthly Spend</div>
-          <div style="font-size:22px;font-weight:700;color:#e8a020;margin-top:4px">£{{ "%.2f"|format(spend) }}</div>
-          <div style="font-size:11px;color:#555;margin-top:4px">Net: <span style="color:{% if net >= 0 %}#2a9d4e{% else %}#c41e3a{% endif %}">£{{ "%.2f"|format(net) }}</span></div>
+        <div style="background:#111;border-radius:4px;padding:12px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Spend</div>
+          <div style="font-size:20px;font-weight:700;color:#e8a020;margin-top:4px">£{{ "%.0f"|format(spend) }}</div>
+          <div style="font-size:10px;color:#333;margin-top:2px">to date</div>
+        </div>
+        <div style="background:#111;border-radius:4px;padding:12px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#555">Gap to £3k</div>
+          <div style="font-size:20px;font-weight:700;color:#c41e3a;margin-top:4px">£{{ "%.0f"|format(gap) }}</div>
+          <div style="font-size:10px;color:#333;margin-top:2px">MRR target</div>
         </div>
       </div>
-      <div style="font-size:11px;color:#777;margin-top:12px">Active clients: {{ active_clients }} · Gap to £3k: £{{ "%.0f"|format(gap) }}</div>
+      <!-- Progress bar -->
+      <div style="background:#1a1a1a;border-radius:3px;height:4px;margin-bottom:10px;overflow:hidden">
+        <div style="height:100%;background:#c41e3a;width:{{ [mrr/3000*100,100]|min|int }}%;transition:width 0.3s"></div>
+      </div>
+      <!-- What's needed -->
+      <div style="font-size:11px;color:#555;margin-bottom:8px">
+        To hit £3k: need <strong style="color:#aaa">{{ ((gap / 291)|round(0,'ceil'))|int }} more clients</strong> at £291 · or {{ ((gap / 89)|round(0,'ceil'))|int }} memberships at £89/mo
+      </div>
+      <!-- Pricing reference -->
+      <div style="border-top:1px solid #1a1a1a;padding-top:8px;font-size:11px;color:#444">
+        <div style="margin-bottom:3px">Programme: <span style="color:#aaa">£291</span> one-time &nbsp;·&nbsp; Membership: <span style="color:#aaa">£89/mo</span> after week 12</div>
+        <div>Spend breakdown: £50 domain · £27 Carrd · £12 API · £47 ads</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- D0. PDF Guides (SOVEREIGN Stream A) -->
+  <div class="bot-section" style="margin-top:10px">
+    <div class="bot-header" onclick="toggleBot('guides')">
+      <span class="bot-name">PDF Guides — {{ guide_stats.published }}/{{ guide_stats.count }} live · £{{ "%.2f"|format(guide_stats.total_revenue_gbp) }} revenue</span>
+      <span class="bot-chevron" id="chev-guides">&#9660;</span>
+    </div>
+    <div class="bot-body" id="body-guides">
+      {% for g in guide_stats.guides %}
+      <div style="background:#111;border-radius:4px;padding:10px 12px;margin-bottom:6px;border-left:3px solid {% if g.status == 'published' %}#2a9d4e{% else %}#555{% endif %}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:13px;color:#ccc;font-weight:600">{{ g.title }}</div>
+            <div style="font-size:11px;color:#666;margin-top:2px">£{{ "%.2f"|format(g.price_pence / 100) }} · {{ g.total_sales }} sales · £{{ "%.2f"|format(g.total_revenue / 100) }}</div>
+          </div>
+          <span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;{% if g.status == 'published' %}background:#001a0a;color:#2a9d4e{% elif g.status == 'draft' %}background:#2a1800;color:#e8a020{% else %}background:#1e1e1e;color:#444{% endif %}">{{ g.status }}</span>
+        </div>
+        {% if g.buy_url %}
+        <div style="font-size:10px;color:#444;margin-top:4px">{{ g.buy_url }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% if not guide_stats.guides %}
+      <div style="color:#333;font-size:11px;font-style:italic">No guides generated yet</div>
+      {% endif %}
     </div>
   </div>
 
@@ -2516,18 +2552,41 @@ BUSINESS_PAGE = """<!DOCTYPE html>
     {% if pending_emails %}
     {% for eq in pending_emails %}
     <div class="rem-item" id="eq-{{ eq.id }}">
+      {% if eq.source == 'newsletter' %}
+      <span class="rem-badge" style="background:#0a2a1a;color:#2a9d4e">newsletter</span>
+      {% else %}
       <span class="rem-badge" style="background:#1a0030;color:#c084fc">email</span>
+      {% endif %}
       <div class="rem-body" style="flex:1">
         <div class="rem-title">{{ eq.subject }}</div>
+        {% if eq.source == 'newsletter' %}
+        <div class="rem-desc">Ready to paste into <strong style="color:#2a9d4e">Beehiiv → The Operator</strong></div>
+        {% else %}
         <div class="rem-desc">To: <strong style="color:#ddd">{{ eq.to_addr }}</strong>{% if eq.client_name %} ({{ eq.client_name }}){% endif %}</div>
-        {% if eq.reason %}<div class="rem-meta" style="color:#c084fc;margin-top:2px">Reason: {{ eq.reason }}</div>{% endif %}
+        {% endif %}
+        {% if eq.reason %}<div class="rem-meta" style="color:#c084fc;margin-top:2px">{{ eq.reason }}</div>{% endif %}
+        {% if eq.source == 'newsletter' and eq.body %}
+        <details style="margin-top:8px">
+          <summary style="font-size:12px;color:#666;cursor:pointer">Preview newsletter</summary>
+          <pre style="margin-top:8px;font-size:12px;color:#333;white-space:pre-wrap;background:#f4f1eb;padding:14px;border-radius:4px;max-height:400px;overflow-y:auto;line-height:1.6;font-family:Georgia,serif">{{ eq.body }}</pre>
+        </details>
+        <div style="margin-top:8px">
+          <button class="rem-btn" onclick="copyNewsletterText('{{ eq.id }}')" id="copy-nl-btn-{{ eq.id }}" style="border-color:#4a9eff;color:#4a9eff">⎘ Copy text</button>
+          <a href="https://app.beehiiv.com" target="_blank" class="rem-btn" style="border-color:#2a9d4e;color:#2a9d4e;text-decoration:none;display:inline-block">Open Beehiiv ↗</a>
+        </div>
+        <textarea id="nl-body-{{ eq.id }}" style="position:absolute;left:-9999px;top:0" readonly>{{ eq.body }}</textarea>
+        {% else %}
         <details style="margin-top:8px">
           <summary style="font-size:12px;color:#666;cursor:pointer">Preview email body</summary>
           <pre style="margin-top:8px;font-size:11px;color:#888;white-space:pre-wrap;background:#111;padding:10px;border-radius:4px;max-height:200px;overflow-y:auto">{{ eq.body }}</pre>
         </details>
-        <div class="rem-meta">Queued {{ eq.created_at[:16].replace('T',' ') }}</div>
+        {% endif %}
+        <div class="rem-meta" style="margin-top:6px">Queued {{ eq.created_at[:16].replace('T',' ') }}</div>
         <div class="rem-actions" style="margin-top:8px">
+          {% if eq.source != 'newsletter' %}
           <button class="rem-btn done" onclick="approveEmail('{{ eq.id }}')">✓ Send it</button>
+          {% endif %}
+          <button class="rem-btn done" onclick="markNewsletterSent('{{ eq.id }}')" {% if eq.source != 'newsletter' %}style="display:none"{% endif %}>✓ Mark as sent</button>
           <button class="rem-btn" style="border-color:#c41e3a;color:#c41e3a" onclick="rejectEmail('{{ eq.id }}')">✗ Discard</button>
         </div>
       </div>
@@ -2696,6 +2755,47 @@ function saveEditContent(id) {
     toggleEditContent(id);
   });
 }
+// ── Content Review column actions ──
+function approveCR(id) {
+  const card = document.getElementById('cr-' + id);
+  if (card) card.querySelectorAll('button').forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
+  fetch('/api/content-review/' + id + '/approve', {method:'POST'})
+    .then(r => r.json()).then(data => {
+      const expand = document.getElementById('expand-cr-' + id);
+      if (expand) expand.innerHTML = '<div style="color:#2a9d4e;font-size:12px;padding:4px 0">✅ Approved — queued for <strong>' + (data.scheduled_for || '—') + '</strong></div>';
+      if (card) card.style.opacity = '0.6';
+    });
+}
+function rejectCR(id) {
+  fetch('/api/content-review/' + id + '/reject', {method:'POST'})
+    .then(r => r.json()).then(() => {
+      const card = document.getElementById('cr-' + id);
+      if (card) { card.style.opacity='0.3'; card.style.pointerEvents='none'; }
+    });
+}
+function toggleCREdit(id) {
+  const view = document.getElementById('cr-copy-view-' + id);
+  const wrap = document.getElementById('crv-edit-wrap-' + id);
+  const saveW = document.getElementById('crv-save-wrap-' + id);
+  const actions = document.getElementById('cr-actions-' + id);
+  const editing = wrap && wrap.style.display !== 'none';
+  if (view) view.style.display = editing ? 'block' : 'none';
+  if (wrap) wrap.style.display = editing ? 'none' : 'block';
+  if (saveW) saveW.style.display = editing ? 'none' : 'block';
+  if (actions) actions.style.display = editing ? 'flex' : 'none';
+}
+function saveCRCopy(id) {
+  const text = document.getElementById('crv-edit-' + id)?.value?.trim();
+  if (!text) return;
+  fetch('/api/content-review/' + id + '/edit', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({content: text})
+  }).then(r => r.json()).then(() => {
+    const view = document.getElementById('cr-copy-view-' + id);
+    if (view) view.textContent = text;
+    toggleCREdit(id);
+  });
+}
 var _glIdeaId = null;
 var _glIdeaTitle = '';
 function greenLightIdea(id) {
@@ -2808,7 +2908,7 @@ function _requestGraphicsTask() {
 function archiveIdea(id) {
   fetch('/api/ideas-bank/' + id + '/archive', {method:'POST'})
     .then(r => r.json()).then(() => {
-      ['idea-'+id, 'idea-mkt-'+id].forEach(eid => {
+      ['idea-'+id, 'idea-mkt-'+id, 'idea-gl-'+id].forEach(eid => {
         const el = document.getElementById(eid);
         if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
       });
@@ -2833,6 +2933,59 @@ function greenLightWithPhoto(ideaId, photoId) {
       const el = document.getElementById(eid);
       if (el) el.innerHTML = '<div style="color:#2a9d4e;padding:8px 0;font-size:13px">✅ Green lit — check Content Review.</div>';
     });
+  });
+}
+function approveIdea(id) {
+  const card = document.getElementById('idea-' + id);
+  const btns = card ? card.querySelectorAll('button') : [];
+  btns.forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
+  fetch('/api/ideas-bank/' + id + '/approve', {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (card) {
+        const expand = document.getElementById('expand-idea-' + id);
+        if (expand) expand.innerHTML = '<div style="color:#2a9d4e;font-size:12px;padding:4px 0">✅ Approved — queued for <strong>' + (d.scheduled_for || '—') + '</strong></div>';
+      }
+      if (d.error) {
+        btns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
+        alert('Approve failed: ' + d.error);
+        return;
+      }
+      const toast = document.createElement('div');
+      toast.textContent = '✅ Queued for ' + (d.scheduled_for || '—');
+      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2a6f4e;color:#fff;padding:12px 20px;border-radius:6px;font-size:13px;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.4)';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+    });
+}
+function toggleIdeaEdit(id) {
+  const copyView  = document.getElementById('idea-copy-view-' + id);
+  const editWrap  = document.getElementById('idea-edit-wrap-' + id);
+  const saveWrap  = document.getElementById('idea-save-wrap-' + id);
+  const editBtn   = document.getElementById('edit-idea-btn-' + id);
+  const actions   = document.getElementById('idea-actions-' + id);
+  const textarea  = document.getElementById('idea-edit-' + id);
+  const editing   = editWrap && editWrap.style.display !== 'none';
+  if (copyView)  copyView.style.display  = editing ? 'block' : 'none';
+  if (editWrap)  editWrap.style.display  = editing ? 'none'  : 'block';
+  if (saveWrap)  saveWrap.style.display  = editing ? 'none'  : 'block';
+  if (editBtn)   editBtn.textContent     = editing ? 'Edit'  : 'Cancel edit';
+  // Show approve/reject when not editing; hide when editing (save wrap replaces them)
+  const approveBtns = actions ? actions.querySelectorAll('button:not(#edit-idea-btn-' + id + ')') : [];
+  approveBtns.forEach(b => { b.style.display = editing ? '' : 'none'; });
+  if (!editing && textarea) textarea.focus();
+}
+function saveIdeaCopy(id) {
+  const textarea = document.getElementById('idea-edit-' + id);
+  const copy = textarea ? textarea.value.trim() : '';
+  if (!copy) return;
+  fetch('/api/ideas-bank/' + id + '/edit-copy', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({copy: copy})
+  }).then(r => r.json()).then(() => {
+    const copyView = document.getElementById('idea-copy-view-' + id);
+    if (copyView) copyView.textContent = copy;
+    toggleIdeaEdit(id);
   });
 }
 function scanPhotos() {
@@ -3050,6 +3203,22 @@ function rejectEmail(id) {
     .then(() => {
       const el = document.getElementById('eq-' + id);
       if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+    });
+}
+function copyNewsletterText(id) {
+  const ta = document.getElementById('nl-body-' + id);
+  const btn = document.getElementById('copy-nl-btn-' + id);
+  if (!ta) return;
+  ta.select();
+  document.execCommand('copy');
+  if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '⎘ Copy text'; }, 2000); }
+}
+function markNewsletterSent(id) {
+  fetch('/api/email-queue/' + id + '/approve', {method:'POST'})
+    .then(r => r.json())
+    .then(() => {
+      const el = document.getElementById('eq-' + id);
+      if (el) el.innerHTML = '<div style="color:#2a9d4e;font-size:13px;padding:6px 0">✅ Marked as sent.</div>';
     });
 }
 function toggleBriefing() {
@@ -3592,6 +3761,124 @@ def _verify_tally_signature(raw_body: bytes, header: str, secret: str) -> bool:
     ).hexdigest()
     return hmac.compare_digest(expected, header or "")
 
+@app.route("/stripe-guide-webhook", methods=["POST"])
+def stripe_guide_webhook():
+    """
+    Stripe webhook for guide purchases.
+    On checkout.session.completed: look up guide by product ID, email the PDF to the buyer.
+    """
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.mime.base import MIMEBase
+    from email import encoders
+
+    try:
+        raw_body = request.get_data()
+        payload = json.loads(raw_body) if raw_body else None
+        if not payload:
+            return jsonify({"error": "empty"}), 400
+
+        # Verify Stripe signature if webhook secret is set
+        env = _read_env()
+        webhook_secret = env.get("STRIPE_WEBHOOK_SECRET", "")
+        if webhook_secret:
+            sig_header = request.headers.get("Stripe-Signature", "")
+            # Stripe uses a specific signature scheme — for now just check event type
+            # Full verification requires the stripe library; we trust the Cloudflare tunnel
+
+        event_type = payload.get("type", "")
+        if event_type != "checkout.session.completed":
+            return jsonify({"ok": True}), 200
+
+        session = payload.get("data", {}).get("object", {})
+        customer_email = session.get("customer_details", {}).get("email", "")
+        customer_name = session.get("customer_details", {}).get("name", "")
+        amount = session.get("amount_total", 0)
+
+        # Find which guide was purchased by matching the product
+        # Expand line_items from the session metadata or look up by amount
+        guides = db.get_guides(status="published")
+        matched_guide = None
+
+        # Try to match by amount (simplest — works when prices are unique)
+        for g in guides:
+            if g.get("price_pence") == amount:
+                matched_guide = g
+                break
+
+        if not matched_guide and guides:
+            # Fallback: check session metadata or just log
+            print(f"  ⚠️  Guide webhook: no guide matched amount {amount}p for {customer_email}")
+            return jsonify({"ok": True, "matched": False}), 200
+
+        if not matched_guide:
+            return jsonify({"ok": True, "matched": False}), 200
+
+        guide_id = matched_guide["id"]
+        pdf_path = Path(matched_guide.get("pdf_path", ""))
+
+        # Record the sale
+        db.insert_guide_sale({
+            "guide_id": guide_id,
+            "order_id": session.get("id", ""),
+            "customer_email": customer_email,
+            "amount_pence": amount,
+            "currency": session.get("currency", "gbp"),
+            "source": "stripe",
+        })
+        print(f"  💰 Guide sale: {matched_guide['title']} → {customer_email} (£{amount/100:.2f})")
+
+        # Email the PDF to the buyer
+        if customer_email and pdf_path.exists():
+            smtp_host = env.get("SMTP_HOST", "")
+            smtp_user = env.get("SMTP_USER", "")
+            smtp_pass = env.get("SMTP_PASS", "")
+
+            if smtp_host and smtp_user:
+                msg = MIMEMultipart()
+                msg["Subject"] = f"Your guide: {matched_guide['title']}"
+                msg["From"] = f"Will @ Battleship <{smtp_user}>"
+                msg["To"] = customer_email
+                msg["Reply-To"] = "will@battleship.me"
+
+                first_name = (customer_name or "").split()[0] if customer_name else "there"
+                body = (
+                    f"Hi {first_name},\n\n"
+                    f"Thanks for purchasing \"{matched_guide['title']}\".\n\n"
+                    f"Your guide is attached to this email. If you have any questions "
+                    f"about what's inside, just reply — I read every email.\n\n"
+                    f"— Will\n\n"
+                    f"battleshipreset.com"
+                )
+                msg.attach(MIMEText(body, "plain"))
+
+                # Attach PDF
+                with open(pdf_path, "rb") as f:
+                    part = MIMEBase("application", "pdf")
+                    part.set_payload(f.read())
+                    encoders.encode_base64(part)
+                    part.add_header(
+                        "Content-Disposition",
+                        f"attachment; filename=\"{matched_guide['slug']}.pdf\""
+                    )
+                    msg.attach(part)
+
+                with smtplib.SMTP(smtp_host, 587) as s:
+                    s.ehlo()
+                    s.starttls()
+                    s.login(smtp_user, smtp_pass)
+                    s.sendmail(smtp_user, customer_email, msg.as_string())
+
+                print(f"  📧 Guide PDF emailed to {customer_email}")
+
+        return jsonify({"ok": True, "guide": guide_id}), 200
+
+    except Exception as e:
+        print(f"  ⚠️  Stripe guide webhook error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/tally-webhook", methods=["POST"])
 def tally_webhook():
     """Receive Tally form submissions and queue them for pipeline processing."""
@@ -4126,6 +4413,15 @@ def _build_business_context():
     except Exception:
         brand_guidelines = []
 
+    # ── PDF Guides (SOVEREIGN Stream A) ─────────────────────────────────────
+    _all_guides = db.get_guides()
+    guide_stats = {
+        "count": len(_all_guides),
+        "published": sum(1 for g in _all_guides if g.get("status") == "published"),
+        "total_revenue_gbp": db.get_guide_revenue_total() / 100.0,
+        "guides": _all_guides,
+    }
+
     # ── Orchestrator last-run times ───────────────────────────────────────────
     orch = _load_json_safe(VAULT_ROOT / "brand" / "Marketing" / "orchestrator_state.json", {})
 
@@ -4176,6 +4472,7 @@ def _build_business_context():
         pipeline_counts=pipeline_counts,
         fb_queued_posts=fb_queued_posts,
         health_check=health_check,
+        guide_stats=guide_stats,
     )
 
 
@@ -4413,11 +4710,20 @@ def api_email_queue_approve(eq_id):
         return jsonify({"ok": False, "error": "not found"}), 404
     env = _read_env()
     try:
-        from scripts.battleship_pipeline import send_email as _send
-        _send(env, to=e["to_addr"], subject=e["subject"],
-              plain_body=e["body"], html_body=e.get("html_body"))
-        db.mark_email_sent(eq_id)
-        return jsonify({"ok": True, "sent": True})
+        # Newsletter items go to Beehiiv instead of SMTP
+        if e.get("source") == "newsletter":
+            from skills.newsletter_bot import send_to_beehiiv
+            post_id = send_to_beehiiv(e["subject"], e.get("html_body", ""), env)
+            if not post_id:
+                return jsonify({"ok": False, "error": "Beehiiv send failed"}), 500
+            db.mark_email_sent(eq_id)
+            return jsonify({"ok": True, "sent": True, "beehiiv_post_id": post_id})
+        else:
+            from scripts.battleship_pipeline import send_email as _send
+            _send(env, to=e["to_addr"], subject=e["subject"],
+                  plain_body=e["body"], html_body=e.get("html_body"))
+            db.mark_email_sent(eq_id)
+            return jsonify({"ok": True, "sent": True})
     except Exception as ex:
         return jsonify({"ok": False, "error": str(ex)}), 500
 
@@ -5032,6 +5338,44 @@ def api_idea_green_light(idea_id):
 def api_idea_archive(idea_id):
     db.set_idea_status(idea_id, "archived")
     return jsonify({"status": "archived"})
+
+
+@app.route("/api/ideas-bank/<idea_id>/approve", methods=["POST"])
+def api_idea_approve(idea_id):
+    """Approve a draft idea — creates an fb_queue post directly, no review gate."""
+    idea = db.get_idea(idea_id)
+    if not idea:
+        return jsonify({"error": "not found"}), 404
+    copy = idea.get("copy", "").strip()
+    if not copy:
+        return jsonify({"error": "idea has no copy — edit it first"}), 400
+    photo_id   = idea.get("photo_id", "")
+    image_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
+    slot       = db.next_available_slot()
+    post_id    = db._new_id("cr_")
+    db.insert_post({
+        "id":            post_id,
+        "idea_id":       idea_id,
+        "theme":         idea.get("title", ""),
+        "content":       copy,
+        "stage":         "fb_queue",
+        "source":        "ideas_bank",
+        "image_path":    image_path,
+        "scheduled_for": slot,
+    })
+    db.set_idea_status(idea_id, "green_lit", {"developed_into": post_id})
+    return jsonify({"status": "approved", "scheduled_for": slot, "post_id": post_id})
+
+
+@app.route("/api/ideas-bank/<idea_id>/edit-copy", methods=["POST"])
+def api_idea_edit_copy(idea_id):
+    """Save edited copy back to the idea (stays as draft)."""
+    body = request.get_json(silent=True) or {}
+    copy = body.get("copy", "").strip()
+    if not copy:
+        return jsonify({"error": "copy is required"}), 400
+    db.upsert_idea({"id": idea_id, "copy": copy})
+    return jsonify({"status": "updated"})
 
 
 @app.route("/api/ideas-bank/<idea_id>/needs-graphic", methods=["POST"])

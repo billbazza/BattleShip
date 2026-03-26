@@ -27,7 +27,8 @@
 | 2026-03-13 | Carrd — Pro Standard plan (annual, ends 13/03/2027) | USD 19.00 (~£15.01) | USD | Infrastructure | Order #6828177340065915. $9 from balance, $10 new charge. |
 | 2026-03-14 | Meta Ads — Facebook ad spend (funds added) | £35.00 | GBP | Advertising | Transaction ID: 26011846625167481. Account: 869755968629816. |
 | 2026-03-15 | Meta Ads — Facebook ad spend | £14.50 | GBP | Advertising | Transaction ID: 26033440609674747-26122887960730014. Account ID: 869755968629816. Date range: 14–15 Mar 2026. Two campaigns: Tally form (£12.34, 4649 impressions), Battleship Reset (£2.16, 291 impressions). |
-**Total Spend to date: £133.97**
+| 2026-03-20 | Meta Ads — Facebook ad spend | £2.97 | GBP | Advertising | Account ID: 869755968629816. Campaign: [14/03/2026] promoting tally.so/r/rjK752. 739 impressions. Transaction ID: 26081976608154482-26178879275130882 |
+**Total Spend to date: £136.94**
 **Committed upcoming: £0 (Typeform £220 avoided — using Tally free tier)**
 **Projected Month 1 costs: ~£300 confirmed/committed + ads TBD**
 

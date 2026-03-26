@@ -1,13 +1,13 @@
 {
   "campaign_start": "2026-03-15T09:49:57.561005+00:00",
-  "campaign_week": 1,
-  "arc_phase_index": 0,
+  "campaign_week": 2,
+  "arc_phase_index": 3,
   "funnel": {
     "impressions": 0,
     "clicks": 0,
     "quiz_starts": 0,
-    "diagnosed": 3,
-    "paid": 3,
+    "diagnosed": 2,
+    "paid": 2,
     "retained_week4": 0
   },
   "copy_tests": [
@@ -84,12 +84,41 @@
     {
       "date": "2026-03-19",
       "review": "# Battleship Reset \u2014 Week 1 Strategy Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Quiz \u2192 Paid conversion is 100% (3/3).** This is the only data point that matters right now and it's exceptional. Every person who completed the quiz bought. That means the offer, the price point, and the conversation that follows the quiz are working. Don't touch that mechanism.\n\n**You have a proof-of-concept.** Three paying clients in Week 1 with zero paid impressions means every sale came from direct outreach, word of m"
+    },
+    {
+      "date": "2026-03-20",
+      "review": "# Battleship Reset \u2014 Week 1 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Quiz-to-paid conversion is exceptional \u2014 once people reach the quiz.**\n8 diagnosed, 6 paid. That's 75% close rate. This is not a sales problem. This is not a product problem. The offer converts when a warm human being reaches it. That number would make most coaches weep.\n\n**The product clearly delivers enough perceived value to close at \u00a369/week** without significant top-of-funnel proof. People are buying on trust or wor"
+    },
+    {
+      "date": "2026-03-21",
+      "review": "# Battleship Reset \u2014 Week 1 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**The offer converts when it reaches the right person.**\n2 quiz completions \u2192 2 paid clients. That's 100% quiz-to-paid conversion. That number doesn't happen by accident \u2014 the offer is priced right, the positioning resonates, and you're clearly talking to people who already feel the pain acutely. Don't change the offer. Don't tinker with the pricing. The product is not the problem.\n\n**You have a proof-of-concept customer.*"
+    },
+    {
+      "date": "2026-03-22",
+      "review": "# Battleship Reset \u2014 Week 1 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**The offer converts when it reaches the right person.**\n2 quiz completions \u2192 2 paid clients. That's 100% quiz-to-paid conversion. This is the single most important number in the whole sheet. The offer, the price, the framing \u2014 something in that funnel works on warm/referred traffic. Don't touch the close mechanism. Protect it.\n\n**You have a real case study already.**\n47. Desk job. 3 stone. Fitness age 55\u219217. That's not a "
+    },
+    {
+      "date": "2026-03-23",
+      "review": "# Battleship Reset \u2014 Week 2 Campaign Analysis\n\n---\n\n## 1. WHAT'S WORKING\n\n**Word of mouth / direct trust is your entire engine right now.**\n\nTwo clients, zero tracked impressions, zero clicks. That means both conversions came from outside the funnel \u2014 direct conversation, referral, or existing relationship. That's actually a strong signal: **your offer closes when a real human explains it.** The problem isn't the product. It's the top of the funnel not existing yet.\n\nQuiz completion rate is irre"
+    },
+    {
+      "date": "2026-03-24",
+      "review": "# Battleship Reset \u2014 Week 2 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Organic word-of-mouth or direct outreach is your entire engine right now.**\n\n2 paid clients from 2 quiz completions = 100% quiz-to-paid conversion. That's not a funnel problem, that's a reach problem. The offer converts when it gets in front of the right person. Whatever you said to those two people \u2014 replicate it exactly. That's your sales script.\n\nNo paid traffic, no post impressions, yet you have paying clients. The p"
+    },
+    {
+      "date": "2026-03-25",
+      "review": "# Battleship Reset \u2014 Week 2 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Word of mouth / direct conversion is outperforming everything.**\n2 paying clients from 2 quiz completions = 100% quiz-to-paid conversion rate. That's not a funnel problem, that's a referral or direct-reach situation. Someone is talking to people they already trust, and those people are buying. That conversion rate is elite \u2014 protect whatever behaviour produced it.\n\n**The offer is resonating at point of contact.**\nZero dr"
+    },
+    {
+      "date": "2026-03-26",
+      "review": "# Battleship Reset \u2014 Week 2 Campaign Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**The offer converts when it reaches qualified people.**\n2 quiz completions, 2 paid clients. That's a 100% quiz-to-paid conversion rate. The product, the price point, and the positioning are working at the point of contact. Don't touch the offer. Don't change the price. Don't second-guess the programme structure.\n\nThat's the one signal worth protecting right now.\n\n---\n\n## 2. WHAT'S NOT WORKING\n\n**Zero impressions. Zero clic"
     }
   ],
   "flags_sent": [
-    "strategy_2026-11"
+    "strategy_2026-11",
+    "strategy_2026-12"
   ],
-  "last_review_date": "2026-03-19",
+  "last_review_date": "2026-03-26",
   "last_ad_metrics": {
     "impressions": 0,
     "reach": 0,
@@ -102,6 +131,6 @@
     "ctr": 0.0,
     "cpm": 0.0,
     "cpc": 0.0,
-    "fetched_at": "2026-03-19T06:28:11.102834+00:00"
+    "fetched_at": "2026-03-26T10:56:18.958739+00:00"
   }
 }
