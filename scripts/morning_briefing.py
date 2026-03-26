@@ -72,16 +72,15 @@ def _load_json(path: Path, default=None):
 
 
 def _calc_mrr(state: dict) -> float:
-    mrr = 0.0
+    """Sum actual payment_amount for active clients."""
+    total = 0.0
     for cs in state.get("clients", {}).values():
-        if cs.get("status") == "active":
-            mrr += 89.0 if cs.get("complimentary") is False else 0.0
-            if not cs.get("complimentary"):
-                mrr += 89.0
-    # Use paid count × £89 as MRR proxy
-    paid = [cs for cs in state.get("clients", {}).values()
-            if cs.get("status") in ("active",) and not cs.get("complimentary")]
-    return round(len(paid) * 89.0, 2)
+        if cs.get("status") in ("active", "complete") and not cs.get("complimentary"):
+            try:
+                total += float(cs.get("payment_amount", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+    return round(total, 2)
 
 
 def _parse_spend(finances_text: str) -> float:
@@ -281,6 +280,33 @@ def _build_briefing_data() -> dict:
     active_workarounds = [g for g in gaps if g.get("status") == "workaround_active"]
     blocked_gaps       = [g for g in gaps if g.get("status") in ("open", "blocked")]
 
+    # ── Stuck diagnosed clients (48h+ diagnosed, no enrolled_date) ──────────
+    now_dt   = datetime.now()
+    cutoff48 = now_dt - timedelta(hours=48)
+    stuck_clients = []
+    for acct, cs in clients.items():
+        if cs.get("status") != "diagnosed":
+            continue
+        if cs.get("enrolled_date"):
+            continue
+        intake_raw = cs.get("intake_date", "")
+        if not intake_raw:
+            continue
+        try:
+            intake_dt = datetime.fromisoformat(intake_raw.replace("Z", "+00:00"))
+            # Strip tz for naive comparison
+            intake_naive = intake_dt.replace(tzinfo=None)
+        except ValueError:
+            continue
+        if intake_naive < cutoff48:
+            hours_waiting = int((now_dt - intake_naive).total_seconds() // 3600)
+            stuck_clients.append({
+                "account": acct,
+                "name": cs.get("name", acct),
+                "email": cs.get("email", ""),
+                "hours_waiting": hours_waiting,
+            })
+
     # ── Reminders ────────────────────────────────────────────────────────────
     pending_rems = [r for r in rems.get("reminders", []) if r.get("status") == "pending"]
     high_prio    = [r for r in pending_rems if r.get("priority") == "high"]
@@ -308,10 +334,27 @@ def _build_briefing_data() -> dict:
 
     clients_needed_mrr = max(0, round((3000 - mrr) / 89))
 
+    # ── Content pipeline from DB ──────────────────────────────────────────────
+    db_content_review = 0
+    db_fb_queue       = 0
+    db_posted_week    = 0
+    try:
+        sys.path.insert(0, str(VAULT_ROOT))
+        import scripts.db as _db
+        db_content_review = len(_db.get_posts(stage="content_review"))
+        db_fb_queue       = len(_db.get_posts(stage="fb_queue"))
+        week_start = (datetime.now() - timedelta(days=datetime.now().weekday())).strftime("%Y-%m-%d")
+        db_posted_week = sum(
+            1 for p in _db.get_posts(stage="posted")
+            if (p.get("posted_at") or p.get("created_at") or "")[:10] >= week_start
+        )
+    except Exception:
+        pass
+
     # ── Agent briefs ─────────────────────────────────────────────────────────
     agents = {
         "brand": {
-            "summary": f"{fb_followers} FB followers ({'+' if fb_delta >= 0 else ''}{fb_delta} vs yesterday), {ig_followers} IG. Reach: {reach}, clicks: {clicks}.",
+            "summary": f"{fb_followers} FB followers ({'+' if fb_delta >= 0 else ''}{fb_delta} vs yesterday), {ig_followers} IG. Reach: {reach}, clicks: {clicks}. Posts this week: {db_posted_week}. Queue: {db_fb_queue}. To review: {db_content_review}.",
             "next_action": "Post due Mon/Wed/Fri. Next content should be Phase: " + arc_current,
         },
         "seo": {
@@ -368,6 +411,7 @@ def _build_briefing_data() -> dict:
         "photo_candidates": new_candidates,
         "campaign_week": campaign_week,
         "phase_label": phase_label,
+        "stuck_clients": stuck_clients,
     }
 
 
@@ -381,6 +425,7 @@ def _render_email(data: dict) -> str:
     phase    = data["phase_label"]
     week     = data["campaign_week"]
     n_photos = len(data["photo_candidates"])
+    stuck    = data.get("stuck_clients", [])
 
     mrr_light = _traffic_light(pulse["mrr"], 500, 3000)
     lead_light= _traffic_light(pulse["leads_week"], 1, 5)
@@ -480,6 +525,9 @@ def _render_email(data: dict) -> str:
       </tr>
     </table>
   </td></tr>
+
+  <!-- Stuck Diagnosed Clients -->
+  {'<tr><td style="padding:8px 32px 8px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:2.5px;color:#c41e3a;margin-bottom:10px">⏳ Stuck Diagnosed Clients</div>' + "".join(f'<div style="background:#2a0a0a;border-left:3px solid #c41e3a;border-radius:0 4px 4px 0;padding:10px 14px;margin-bottom:6px"><span style="color:#ffaaaa;font-size:13px;font-weight:600">{sc["name"]}</span> <span style="color:#888;font-size:12px">({sc["account"]})</span><br><span style="color:#888;font-size:12px">{sc["email"]} &nbsp;·&nbsp; Diagnosed {sc["hours_waiting"]}h ago — no payment yet</span></div>' for sc in stuck) + '</td></tr>' if stuck else ""}
 
   <!-- Photos -->
   <tr><td style="padding:8px 32px 24px">

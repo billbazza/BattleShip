@@ -43,6 +43,94 @@
       "ig_followers": 1,
       "ad_impressions": 0,
       "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-19",
+      "mrr": 0.0,
+      "spend": 133.97,
+      "net": -133.97,
+      "active_clients": 6,
+      "fb_followers": 30,
+      "ig_followers": 1,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-20",
+      "mrr": 0.0,
+      "spend": 133.97,
+      "net": -133.97,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-21",
+      "mrr": 0.0,
+      "spend": 133.97,
+      "net": -133.97,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-22",
+      "mrr": 0.0,
+      "spend": 133.97,
+      "net": -133.97,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-23",
+      "mrr": 0.0,
+      "spend": 1511.94,
+      "net": -1511.94,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-24",
+      "mrr": 0.0,
+      "spend": 1511.94,
+      "net": -1511.94,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-25",
+      "mrr": 0.0,
+      "spend": 136.94,
+      "net": -136.94,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-26",
+      "mrr": 0.0,
+      "spend": 136.94,
+      "net": -136.94,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
     }
   ]
 }

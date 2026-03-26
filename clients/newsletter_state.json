@@ -1,0 +1,41 @@
+{
+  "last_send_date": "2026-03-25",
+  "issue_number": 1,
+  "subscriber_count": 0,
+  "issues": [
+    {
+      "issue_number": 1,
+      "subject": "you don't need more hours, you need more leverage",
+      "theme": "automation and leverage \u2014 how to multiply output without multiplying hours",
+      "post_id": "post_ef9ed7de-4ac4-4d9b-bbe4-9b4291d079d0",
+      "sent_at": "2026-03-26T00:00:00+00:00",
+      "dry_run": false,
+      "stats_synced": false,
+      "beehiiv_url": "https://battleshipr.beehiiv.com/p/the-operator",
+      "open_rate": null,
+      "click_rate": null,
+      "sends": 0
+    }
+  ],
+  "affiliate_slots": [
+    {
+      "id": "aff_lemon",
+      "label": "Lemon Squeezy \u2014 sell digital products without the tax headache",
+      "url": "https://www.lemonsqueezy.com",
+      "click_count": 0
+    },
+    {
+      "id": "aff_beehiiv",
+      "label": "Beehiiv \u2014 the newsletter platform actually built for growth",
+      "url": "https://www.beehiiv.com",
+      "click_count": 0
+    },
+    {
+      "id": "aff_anthropic",
+      "label": "Claude \u2014 the AI that writes, reasons, and builds with you",
+      "url": "https://claude.ai",
+      "click_count": 0
+    }
+  ],
+  "theme_index": 1
+}

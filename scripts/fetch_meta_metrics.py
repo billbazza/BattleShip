@@ -26,7 +26,7 @@ MARKETING_STRATEGY_FILE = CLIENTS_DIR / "marketing_strategy.json"
 TECH_BACKLOG_FILE = VAULT_ROOT / "brand" / "Marketing" / "tech_backlog.json"
 ENV_FILE = Path.home() / ".battleship.env"
 
-GRAPH_BASE = "https://graph.facebook.com/v19.0"
+GRAPH_BASE = "https://graph.facebook.com/v22.0"
 
 
 def _load_env() -> dict:

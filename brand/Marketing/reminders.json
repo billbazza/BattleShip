@@ -150,6 +150,46 @@
       "priority": "medium",
       "created_at": "2026-03-18",
       "status": "pending"
+    },
+    {
+      "id": "rem_148f6745",
+      "added_by": "marketing_bot",
+      "type": "other",
+      "title": "Green light an idea from the ideas bank (2 waiting)",
+      "description": "Drafts: Your Doctor Says You're 'Fine'. Your Body Is Lying to Both of You., The Fitness Industry Doesn't Want Men Like Us to Know This. Reply on Telegram or visit Business Manager.",
+      "priority": "medium",
+      "created_at": "2026-03-20",
+      "status": "pending"
+    },
+    {
+      "id": "rem_4c8fd253",
+      "added_by": "bot",
+      "type": "creative",
+      "title": "Create statement graphic for: Tired of waking up exhausted? The 3 battleships sinking your vitality",
+      "description": "The Marketing Bot needs an on-brand statement image (text on background) to accompany this idea. Suggested formats: bold quote on dark background, stat/headline card, or motivational statement. Drop the finished image into brand/random-snaps/ and green-light the idea again.",
+      "priority": "medium",
+      "created_at": "2026-03-20",
+      "status": "pending"
+    },
+    {
+      "id": "rem_d2e9077d",
+      "added_by": "bot",
+      "type": "creative",
+      "title": "Create statement graphic for: Battleship Reset Activated \u2014 3 silent killers after 40",
+      "description": "The Marketing Bot needs an on-brand statement image (text on background) to accompany this idea. Suggested formats: bold quote on dark background, stat/headline card, or motivational statement. Drop the finished image into brand/random-snaps/ and green-light the idea again.",
+      "priority": "medium",
+      "created_at": "2026-03-20",
+      "status": "pending"
+    },
+    {
+      "id": "rem_b7c9c6ad",
+      "added_by": "bot",
+      "type": "creative",
+      "title": "Create statement graphic for: The Fitness Industry Doesn't Want Men Like Us to Know This",
+      "description": "The Marketing Bot needs an on-brand statement image (text on background) to accompany this idea. Suggested formats: bold quote on dark background, stat/headline card, or motivational statement. Drop the finished image into brand/random-snaps/ and green-light the idea again.",
+      "priority": "medium",
+      "created_at": "2026-03-20",
+      "status": "pending"
     }
   ],
   "pivot_notes": []

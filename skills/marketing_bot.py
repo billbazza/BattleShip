@@ -28,6 +28,7 @@ Standalone:
 
 import json
 import re
+import sys
 import requests
 import anthropic
 from datetime import datetime, timedelta, timezone
@@ -313,13 +314,28 @@ def generate_copy(format: str, usp_id: str = None, secrets: dict = None) -> str:
         arc_usp_id = phase["usps"][0] if phase["usps"] else "transformation"
         usp = next((u for u in USPS if u["id"] == arc_usp_id), USPS[0])
 
+    # Inject Will's learnings
+    learnings_hint = ""
+    try:
+        import sys as _sys, pathlib as _pl
+        _vault = _pl.Path(__file__).parent.parent
+        _sys.path.insert(0, str(_vault))
+        import scripts.db as _db
+        _learnings = _db.get_learnings(source="marketing_bot")
+        if _learnings:
+            lines = [f"- [{l['type']}] {l['text']}" + (f" ({l['context']})" if l.get('context') else "")
+                     for l in _learnings[-10:]]
+            learnings_hint = "\n\nWILL'S FEEDBACK (act on these):\n" + "\n".join(lines)
+    except Exception:
+        pass
+
     prompt = AD_COPY_PROMPT.format(
         usp_headline=usp["headline"],
         usp_detail=usp["detail"],
         emotion=usp["emotion"],
         arc_theme=phase["theme"],
         format=format,
-    )
+    ) + learnings_hint
     api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic") if secrets else None
     if not api_key:
         return "[No API key — run with secrets]"
@@ -606,103 +622,139 @@ def get_current_arc_guidance() -> dict:
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
+def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file) -> int:
+    """
+    Weekly Monday batch: generate 5 fresh ideas with full FB post copy as drafts.
+    User reviews in the Ideas Bank — approve/edit/reject before anything goes live.
+    Returns number of ideas added.
+    """
+    # Monday-only guard (weekday 0)
+    today = datetime.now(timezone.utc)
+    if today.weekday() != 0:
+        return 0
+    today_str = today.strftime("%Y-%m-%d")
+    if ideas_data.get("last_generation_date") == today_str:
+        print("  ℹ️  Ideas already generated today — skipping")
+        return 0
+
+    existing_titles = [i.get("title", "") for i in ideas_data.get("ideas", [])]
+    strategy = _load_strategy()
+    phase    = _current_arc_phase(strategy)
+
+    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
+    client  = anthropic.Anthropic(api_key=api_key)
+    msg = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=4000,
+        messages=[{"role": "user", "content": (
+            f"Generate 5 fresh Facebook post ideas for Battleship Reset — a 12-week fitness coaching "
+            f"programme for men 40-60. Voice: Will Barratt, 47, transformed himself. Direct, honest, no bullshit.\n\n"
+            f"Current content arc phase: {phase['theme']}\n"
+            f"Existing titles to avoid duplicating: {', '.join(existing_titles[:15])}\n\n"
+            f"For each idea provide:\n"
+            f"- title: punchy 5-10 word headline\n"
+            f"- angle: 1-2 sentence hook explaining why it resonates with men 40-60\n"
+            f"- copy: full ready-to-post Facebook post (150-250 words). Rules:\n"
+            f"  · First line is the hook — a bold statement or fact, NOT a question\n"
+            f"  · Short paragraphs, no bullet points, max 1 emoji or none\n"
+            f"  · End with ONE of these CTAs (vary naturally):\n"
+            f"    'If this sounds like you, take the free quiz at battleshipreset.com — takes 2 minutes.'\n"
+            f"    'Answer a few quick questions at battleshipreset.com and get a free personalised plan.'\n"
+            f"    'battleshipreset.com — take the free quiz and find out what your reset looks like.'\n"
+            f"  · 2-3 hashtags on the final line only\n\n"
+            f"Respond as a JSON array with exactly 5 objects: "
+            f"[{{\"title\": \"...\", \"angle\": \"...\", \"copy\": \"...\"}}]\n"
+            f"No markdown fences. Raw JSON only."
+        )}]
+    )
+    import uuid as _uuid2
+    try:
+        raw = msg.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
+        new_ideas = json.loads(raw)
+    except Exception as e:
+        print(f"  ⚠️  Idea generation parse error: {e}")
+        return 0
+
+    added = 0
+    for item in new_ideas[:5]:
+        if not item.get("title"):
+            continue
+        ideas_data.setdefault("ideas", []).append({
+            "id":           "idea_" + _uuid2.uuid4().hex[:8],
+            "title":        item["title"],
+            "angle":        item.get("angle", ""),
+            "copy":         item.get("copy", ""),
+            "status":       "draft",
+            "added":        today_str,
+            "developed_into": "",
+            "notes":        "Weekly batch",
+            "photo_id":     "",
+        })
+        added += 1
+
+    if added:
+        ideas_data["last_generation_date"] = today_str
+        ideas_file.write_text(json.dumps(ideas_data, indent=2))
+        print(f"  ✅ {added} new draft ideas generated — awaiting approval in Ideas Bank")
+    return added
+
+
 def review_ideas_bank(secrets: dict):
     """
-    Check ideas bank for new drafts — flag to Will if green light needed.
-    If any idea is green_lit, develop it into a post draft → content review.
+    Weekly ideas bank maintenance.
+    Generates a fresh batch of draft ideas on Mondays if fewer than 3 undeveloped drafts remain.
+    Ideas must be approved/rejected manually via the dashboard — nothing goes live automatically.
     """
-    ideas_file   = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
-    content_file = VAULT_ROOT / "clients" / "content_review.json"
+    ideas_file = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
     if not ideas_file.exists():
         return
 
     ideas_data = json.loads(ideas_file.read_text())
     ideas      = ideas_data.get("ideas", [])
-    drafts     = [i for i in ideas if i.get("status") == "draft"]
-    green_lit  = [i for i in ideas if i.get("status") == "green_lit" and not i.get("developed_into")]
 
-    # Develop any green-lit ideas into post drafts
-    for idea in green_lit:
-        print(f"  💡 Developing green-lit idea: {idea['title']}")
-        api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
-        client  = anthropic.Anthropic(api_key=api_key)
-        msg = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=600,
-            messages=[{"role": "user", "content": (
-                f"Write a Facebook post for a fitness coaching business targeting men 40+.\n\n"
-                f"Idea: {idea['title']}\nAngle: {idea['angle']}\n\n"
-                f"Requirements: 150-250 words. Hook in first line. No corporate language. "
-                f"Real, direct voice. End with a question or soft CTA to take the quiz at tally.so/r/rjK752. "
-                f"2-3 hashtags at the end only."
-            )}]
-        )
-        post_text = msg.content[0].text.strip()
+    # ── Arc gate: only advance phase when all posts for current phase are done ──
+    import sys as _sys_rb
+    _sys_rb.path.insert(0, str(VAULT_ROOT))
+    import scripts.db as _db_rb
 
-        # Save to content review
-        import uuid as _uuid
-        if content_file.exists():
-            cr_data = json.loads(content_file.read_text())
-        else:
-            cr_data = {"posts": []}
-        cr_id = "cr_" + _uuid.uuid4().hex[:8]
-        cr_data.setdefault("posts", []).append({
-            "id":          cr_id,
-            "created":     datetime.now(timezone.utc).isoformat(),
-            "theme":       idea["title"],
-            "content":     post_text,
-            "status":      "pending_review",
-            "source":      "ideas_bank",
-            "idea_id":     idea["id"],
-            "post_id":     "",
-            "reviewed_at": None,
-            "edited":      False,
-        })
-        content_file.write_text(json.dumps(cr_data, indent=2))
+    strategy = _load_strategy()
+    current_idx = strategy.get("arc_phase_index", 0)
+    pending = _db_rb.count_pending_posts_for_arc(current_idx)
 
-        # Mark idea as developed
-        idea["developed_into"] = cr_id
-        ideas_file.write_text(json.dumps(ideas_data, indent=2))
-        print(f"  ✅ Post draft created for '{idea['title']}' → content review")
+    if pending > 0:
+        print(f"  ℹ️  Arc phase {current_idx + 1} has {pending} pending posts — holding phase")
+    else:
+        # All posts for current phase are done (or none exist yet) — advance
+        if current_idx < len(ARC_PHASES) - 1:
+            old_idx = current_idx
+            current_idx += 1
+            strategy["arc_phase_index"] = current_idx
+            _save_strategy(strategy)
+            phase = _current_arc_phase(strategy)
+            print(f"  ✅ Arc phase advanced: {old_idx + 1} → {current_idx + 1} ({phase['theme']})")
 
-        # Telegram notification
-        try:
-            sys.path.insert(0, str(VAULT_ROOT))
-            from scripts.telegram_notify import send_message
-            send_message(
-                f"💡 <b>New post draft ready:</b> \"{idea['title']}\"\n"
-                f"Based on your green-lit idea. Review it in the Business Manager → Content Review."
-            )
-        except Exception:
-            pass
-
-    # Flag if there are unreviewed drafts sitting idle
-    if drafts:
-        reminders_file = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
-        try:
-            import requests as _req
-            _req.post("http://localhost:5100/api/reminders", json={
-                "added_by": "marketing_bot",
-                "type": "other",
-                "title": f"Green light an idea from the ideas bank ({len(drafts)} waiting)",
-                "description": f"Drafts: {', '.join(i['title'] for i in drafts[:3])}. Reply on Telegram or visit Business Manager.",
-                "priority": "medium",
-            }, timeout=3)
-        except Exception:
-            pass
+    undeveloped_drafts = sum(
+        1 for i in ideas
+        if i.get("status") == "draft" and not i.get("developed_into")
+    )
+    if undeveloped_drafts < 3:
+        print(f"  ℹ️  Ideas bank low ({undeveloped_drafts} undeveloped drafts) — generating new ideas")
+        _generate_new_ideas(secrets, ideas_data, ideas_file)
 
 
 def check_direction(secrets: dict):
     """
-    If recent posts are getting zero engagement, flag a direction pivot.
-    Called daily by marketing bot run().
+    If recent posts have zero engagement, act autonomously:
+    advance the arc phase and regenerate next queued posts with a sharper hook.
+    Logs what it did — no action item for Will.
     """
     metrics = _load_metrics()
     posts   = list(metrics.get("posts", {}).values())
     if len(posts) < 3:
-        return  # not enough data
+        return
 
-    # Check last 3 posts for engagement
     recent = sorted(posts, key=lambda p: p.get("tracked", ""), reverse=True)[:3]
     zero_engagement = all(
         (p.get("likes", 0) + p.get("comments", 0) + p.get("shares", 0)) == 0
@@ -711,28 +763,84 @@ def check_direction(secrets: dict):
     if not zero_engagement:
         return
 
-    print("  ⚠️  3 consecutive posts with zero engagement — flagging direction pivot")
-    try:
-        import requests as _req
-        _req.post("http://localhost:5100/api/reminders", json={
-            "added_by": "marketing_bot",
-            "type": "other",
-            "title": "Direction review needed — 3 posts with zero engagement",
-            "description": "Recent posts are getting no traction. Consider: different hook, different time, different format, or pivot the arc phase. Discuss with Claude on Telegram.",
-            "priority": "high",
-        }, timeout=3)
-    except Exception:
-        pass
+    print("  ⚠️  3 consecutive zero-engagement posts — regenerating queued posts with sharper hooks")
 
+    # Arc phase advancement is handled by the gate in review_ideas_bank() —
+    # check_direction() only regenerates queued content, never touches the arc index.
+    strategy = _load_strategy()
+    phase = _current_arc_phase(strategy)
+
+    # Regenerate next 3 queued posts with sharper hooks for the current arc phase
+    import sys as _sys
+    _sys.path.insert(0, str(VAULT_ROOT))
+    import scripts.db as _db
     try:
-        from scripts.telegram_notify import send_message
-        send_message(
-            "⚠️ <b>Direction check</b>\n\n"
-            "Last 3 posts got zero engagement. Something's not connecting.\n\n"
-            "Want to talk through a pivot? Reply here."
-        )
-    except Exception:
-        pass
+        queued = _db.get_posts(stage="fb_queue")[:3]
+        api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
+        client  = anthropic.Anthropic(api_key=api_key)
+        for p in queued:
+            msg = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=900,
+                messages=[{"role": "user", "content": (
+                    f"Rewrite this Facebook post for Battleship Reset with a much sharper hook.\n\n"
+                    f"Current arc phase: {phase['theme']} — {phase['description']}\n"
+                    f"Original theme: {p['theme']}\n\n"
+                    f"Rules:\n"
+                    f"- 150-250 words\n"
+                    f"- First line must STOP the scroll — a bold fact or provocative statement\n"
+                    f"- Align the angle with the arc phase: {phase['theme']}\n"
+                    f"- Direct, honest voice (Will Barratt, 47, transformed himself)\n"
+                    f"- MUST end with: battleshipreset.com — take the free quiz\n"
+                    f"- 2-3 hashtags on final line only\n"
+                    f"- Write only the post"
+                )}]
+            )
+            new_content = msg.content[0].text.strip()
+            _db.update_post(p["id"], {"content": new_content})
+            print(f"  ✅ Regenerated: {p['theme'][:50]}")
+    except Exception as e:
+        print(f"  ⚠️  Post regeneration failed: {e}")
+
+    # 3. Auto-assign photos to queued posts missing one
+    try:
+        from skills.facebook_bot import _make_post_image
+        queued_all = _db.get_posts(stage="fb_queue")
+        no_photo = [p for p in queued_all if not p.get("image_path")]
+        for p in no_photo[:5]:
+            img = _make_post_image(p["content"], p["theme"], secrets)
+            if img:
+                _db.update_post(p["id"], {"image_path": str(img)})
+                print(f"  ✅ Auto-assigned photo: {p['theme'][:45]}")
+    except Exception as e:
+        print(f"  ⚠️  Photo auto-assign failed: {e}")
+
+
+
+def _sync_ideas_to_db() -> None:
+    """Sync ideas-bank.json → SQLite so the dashboard stays current."""
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(VAULT_ROOT))
+        import scripts.db as _db
+        ideas_file = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
+        if not ideas_file.exists():
+            return
+        ideas = json.loads(ideas_file.read_text()).get("ideas", [])
+        for idea in ideas:
+            if not idea.get("id"):
+                continue
+            _db.upsert_idea({
+                "id":           idea["id"],
+                "title":        idea.get("title", ""),
+                "angle":        idea.get("angle", ""),
+                "copy":         idea.get("copy", ""),
+                "status":       idea.get("status", "draft"),
+                "developed_into": idea.get("developed_into") or "",
+            })
+        print(f"  🔄 Synced {len(ideas)} ideas → DB")
+    except Exception as e:
+        print(f"  ⚠️  ideas DB sync failed: {e}")
 
 
 def run(secrets: dict, state: dict, vault_root: Path = VAULT_ROOT):
@@ -742,6 +850,7 @@ def run(secrets: dict, state: dict, vault_root: Path = VAULT_ROOT):
         send_weekly_strategy(secrets, state)
         review_ideas_bank(secrets)
         check_direction(secrets)
+        _sync_ideas_to_db()
     except Exception as e:
         print(f"  ⚠️  Marketing bot error: {e}")
 

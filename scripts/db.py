@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS content_posts (
     reviewed_at          TEXT,
     posted_at            TEXT,
     edited               INTEGER NOT NULL DEFAULT 0,
+    arc_phase            INTEGER NOT NULL DEFAULT 0,
     created_at           TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_posts_stage      ON content_posts(stage);
@@ -134,14 +135,56 @@ CREATE TABLE IF NOT EXISTS bot_state (
     value       TEXT NOT NULL DEFAULT '',
     updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS guides (
+    id              TEXT PRIMARY KEY,
+    title           TEXT NOT NULL,
+    slug            TEXT NOT NULL DEFAULT '',
+    price_pence     INTEGER NOT NULL DEFAULT 799,
+    status          TEXT NOT NULL DEFAULT 'draft',
+    pdf_path        TEXT NOT NULL DEFAULT '',
+    stripe_link     TEXT NOT NULL DEFAULT '',
+    ls_product_id   TEXT NOT NULL DEFAULT '',
+    buy_url         TEXT NOT NULL DEFAULT '',
+    total_sales     INTEGER NOT NULL DEFAULT 0,
+    total_revenue   INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    published_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_guides_status ON guides(status);
+
+CREATE TABLE IF NOT EXISTS guide_sales (
+    id              TEXT PRIMARY KEY,
+    guide_id        TEXT NOT NULL REFERENCES guides(id),
+    order_id        TEXT NOT NULL DEFAULT '',
+    customer_email  TEXT NOT NULL DEFAULT '',
+    amount_pence    INTEGER NOT NULL DEFAULT 0,
+    currency        TEXT NOT NULL DEFAULT 'GBP',
+    source          TEXT NOT NULL DEFAULT 'stripe',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_guide_sales_guide ON guide_sales(guide_id);
 """
 
 
 def init_db():
-    """Create all tables. Safe to call on every startup."""
+    """Create all tables + run migrations. Safe to call on every startup."""
     DB_FILE.parent.mkdir(parents=True, exist_ok=True)
     with _conn() as con:
         con.executescript(_SCHEMA)
+        # Migrations — SQLite has no ADD COLUMN IF NOT EXISTS
+        _migrate_add_column(con, "content_posts", "arc_phase", "INTEGER NOT NULL DEFAULT 0")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_posts_arc_phase ON content_posts(arc_phase)")
+        # Backfill: existing posts without an explicit arc_phase get 0 (phase 1)
+        con.execute("UPDATE content_posts SET arc_phase = 0 WHERE arc_phase IS NULL")
+
+
+def _migrate_add_column(con, table: str, column: str, col_def: str):
+    """Safely add a column to an existing table, ignoring if it already exists."""
+    try:
+        con.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+    except sqlite3.OperationalError:
+        pass  # column already exists
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -217,6 +260,17 @@ def get_posts(stage: str | None = None) -> list[dict]:
                 "SELECT * FROM content_posts ORDER BY created_at DESC"
             ).fetchall()
     return _rows_to_list(rows)
+
+
+def count_pending_posts_for_arc(arc_phase: int) -> int:
+    """Count posts in a given arc_phase that haven't been posted or archived yet."""
+    with _conn() as con:
+        row = con.execute(
+            "SELECT COUNT(*) AS cnt FROM content_posts "
+            "WHERE arc_phase=? AND stage NOT IN ('posted', 'archived')",
+            (arc_phase,)
+        ).fetchone()
+    return row["cnt"] if row else 0
 
 
 def get_post(post_id: str) -> dict | None:
@@ -301,6 +355,12 @@ def next_available_slot(from_date: date | None = None) -> str:
 
 
 # ── Reminders ──────────────────────────────────────────────────────────────────
+
+def get_reminder(rem_id: str) -> dict | None:
+    with _conn() as con:
+        row = con.execute("SELECT * FROM reminders WHERE id=?", (rem_id,)).fetchone()
+    return _row_to_dict(row) or None
+
 
 def get_reminders(status: str = "pending") -> list[dict]:
     with _conn() as con:
@@ -390,6 +450,12 @@ def mark_email_rejected(eq_id: str):
 
 # ── Photo Candidates ───────────────────────────────────────────────────────────
 
+def get_photo_candidate(photo_id: str) -> dict | None:
+    with _conn() as con:
+        row = con.execute("SELECT * FROM photo_candidates WHERE id=?", (photo_id,)).fetchone()
+    return _row_to_dict(row) or None
+
+
 def get_pending_photos() -> list[dict]:
     with _conn() as con:
         rows = con.execute(
@@ -434,6 +500,118 @@ def set_bot_state(key: str, value: str):
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
             (key, value, _now())
         )
+
+
+# ── Bot Learnings ──────────────────────────────────────────────────────────────
+# Rolling log of Will's decisions — pivot notes, dismissals, tech completions.
+# Each bot reads its own slice on every run to inform prompts.
+
+def record_learning(source: str, learning_type: str, text: str, context: str = ""):
+    """Append a learning to the rolling bot_learnings log (max 50 entries)."""
+    import json as _json
+    raw = get_bot_state("bot_learnings") or "[]"
+    try:
+        learnings = _json.loads(raw)
+    except Exception:
+        learnings = []
+    learnings.append({
+        "source":  source,        # e.g. 'marketing_bot', 'facebook_bot', 'tech_bot', 'manual'
+        "type":    learning_type, # e.g. 'pivot', 'dismiss', 'tech_done', 'send_back'
+        "text":    text,
+        "context": context,
+        "added_at": _now(),
+    })
+    set_bot_state("bot_learnings", _json.dumps(learnings[-50:]))
+
+
+def get_learnings(source: str | None = None) -> list[dict]:
+    """Return learnings, optionally filtered by source bot."""
+    import json as _json
+    raw = get_bot_state("bot_learnings") or "[]"
+    try:
+        learnings = _json.loads(raw)
+    except Exception:
+        return []
+    if source:
+        return [l for l in learnings if l.get("source") == source]
+    return learnings
+
+
+# ── Guides ─────────────────────────────────────────────────────────────────────
+
+def upsert_guide(fields: dict):
+    if "id" not in fields:
+        fields["id"] = _new_id("guide_")
+    cols = ", ".join(fields.keys())
+    placeholders = ", ".join("?" * len(fields))
+    updates = ", ".join(f"{k}=excluded.{k}" for k in fields if k != "id")
+    sql = (f"INSERT INTO guides ({cols}) VALUES ({placeholders}) "
+           f"ON CONFLICT(id) DO UPDATE SET {updates}")
+    with _conn() as con:
+        con.execute(sql, list(fields.values()))
+
+
+def get_guides(status: str | None = None) -> list[dict]:
+    with _conn() as con:
+        if status:
+            rows = con.execute(
+                "SELECT * FROM guides WHERE status=? ORDER BY created_at DESC", (status,)
+            ).fetchall()
+        else:
+            rows = con.execute(
+                "SELECT * FROM guides ORDER BY created_at DESC"
+            ).fetchall()
+    return _rows_to_list(rows)
+
+
+def get_guide(guide_id: str) -> dict | None:
+    with _conn() as con:
+        row = con.execute("SELECT * FROM guides WHERE id=?", (guide_id,)).fetchone()
+    return _row_to_dict(row)
+
+
+def insert_guide_sale(fields: dict) -> str:
+    if "id" not in fields:
+        fields["id"] = _new_id("gsale_")
+    if "created_at" not in fields:
+        fields["created_at"] = _now()
+    cols = ", ".join(fields.keys())
+    placeholders = ", ".join("?" * len(fields))
+    with _conn() as con:
+        con.execute(f"INSERT INTO guide_sales ({cols}) VALUES ({placeholders})",
+                    list(fields.values()))
+    # Increment guide totals
+    guide_id = fields.get("guide_id", "")
+    amount = fields.get("amount_pence", 0)
+    if guide_id:
+        with _conn() as con:
+            con.execute(
+                "UPDATE guides SET total_sales = total_sales + 1, "
+                "total_revenue = total_revenue + ? WHERE id = ?",
+                (amount, guide_id)
+            )
+    return fields["id"]
+
+
+def get_guide_sales(guide_id: str | None = None) -> list[dict]:
+    with _conn() as con:
+        if guide_id:
+            rows = con.execute(
+                "SELECT * FROM guide_sales WHERE guide_id=? ORDER BY created_at DESC",
+                (guide_id,)
+            ).fetchall()
+        else:
+            rows = con.execute(
+                "SELECT * FROM guide_sales ORDER BY created_at DESC"
+            ).fetchall()
+    return _rows_to_list(rows)
+
+
+def get_guide_revenue_total() -> int:
+    """Return total revenue in pence across all guides."""
+    with _conn() as con:
+        row = con.execute("SELECT COALESCE(SUM(total_revenue), 0) AS total FROM guides").fetchone()
+    return row["total"] if row else 0
 
 
 # ── Init on import ─────────────────────────────────────────────────────────────
