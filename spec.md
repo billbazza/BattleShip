@@ -363,7 +363,7 @@ Loaded into the diagnosis prompt at runtime. Defines:
 | Item | Priority | Notes |
 |------|----------|-------|
 | Get `FB_USER_TOKEN` into `~/.battleship.env` | High | developers.facebook.com → Graph API Explorer → ads_read + ads_management + business_management |
-| Submit Meta Standard Access app review | Medium | Unlocks `ads_management` for campaign creation automation |
+| Keep Meta backend tokens valid | Medium | Posting and ad creation run through the backend Graph API path; use `fb_ads_paused` as the spend-control switch |
 | Instagram username → battleshipreset | High | Change in Instagram app; then add bio + battleshipreset.com link |
 | Run `python3 skills/seo_bot.py --confirm 0` | High | After claiming Google Business Profile at business.google.com |
 | Phase 2 Stripe product (£79/month) | Medium | Create when first Phase 2 client ready |

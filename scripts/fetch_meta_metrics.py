@@ -205,8 +205,8 @@ def update_tech_backlog(ad_data: dict):
                 gap["impact"] = "high"
                 gap["description"] = (
                     f"{active} active campaign(s). {impr} impressions, "
-                    f"£{spend} spend (7d). Meta Standard Access still pending "
-                    f"for full API campaign creation."
+                    f"£{spend} spend (7d). Backend Graph API path is live for "
+                    f"image upload, campaign creation, and ad creation."
                 )
             break
     backlog["last_updated"] = datetime.now(timezone.utc).isoformat()

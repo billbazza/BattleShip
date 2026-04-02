@@ -61,6 +61,12 @@ Week 4 is 31 March 2026. To have paying clients by then, the following must exis
 
 *Add new daily entries above the weekly summary table.*
 
+## 2026-04-02 – Day 24
+
+- [2026-04-02] [meta] Verified current backend-only Meta paths in code. Facebook image posting runs through `skills/facebook_bot.py` with `FB_PAGE_ACCESS_TOKEN`; Instagram image publishing uses the FB CDN upload path first; ad creation runs through `skills/facebook_ads_bot.py` and the dashboard API routes in `scripts/app.py`.
+- [2026-04-02] [ops] The correct control split is automation vs spend. Missing tokens should skip safely. `fb_ads_paused` is the explicit kill-switch for spend. Meta review/dev-mode responses should be treated as per-attempt API failures, not as a global pipeline blocker.
+- [2026-04-02] [docs] Active marketing docs updated to remove stale “Meta Standard Access is blocking campaign creation” language. Historical notes remain valid for 25 Mar 2026, but they no longer describe the current pipeline.
+
 ## 2026-03-26 – Day 17
 
 - [2026-03-26] [ops] A missing `import sys` in `skills/marketing_bot.py` silently broke live posting for the entire day — 3 posts generated correctly but none reached Facebook. Silent warnings in pipeline output must be treated as P1 when they block the only revenue-generating action, even if they don't crash the process.
