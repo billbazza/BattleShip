@@ -30,6 +30,7 @@ PYTHON              = sys.executable
 # Non-DB data paths (still JSON — bots write these)
 MARKETING_STRATEGY_FILE  = CLIENTS_DIR / "marketing_strategy.json"
 SOCIAL_METRICS_FILE      = CLIENTS_DIR / "social_metrics.json"
+IDEAS_BANK_FILE         = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
 SEO_STATE_FILE           = VAULT_ROOT / "brand" / "Marketing" / "SEO" / "seo_state.json"
 TECH_BACKLOG_FILE        = VAULT_ROOT / "brand" / "Marketing" / "tech_backlog.json"
 ROADMAP_FILE             = VAULT_ROOT / "roadmap.md"
@@ -77,6 +78,85 @@ def _read_env() -> dict:
             out[k.strip()] = v.strip()
     return out
 
+
+def _anthropic_api_key(env: dict | None = None) -> str:
+    env = env or _read_env()
+    return env.get("ANTHROPIC_API_KEY") or env.get("ANTHROPIC_KEY", "")
+
+
+def _normalize_ad_account_id(value: str) -> str:
+    value = (value or "").strip()
+    if value.startswith("act_"):
+        return value
+    return f"act_{value}" if value else ""
+
+
+def _load_ideas_bank() -> dict:
+    return _load_json_safe(IDEAS_BANK_FILE, {"ideas": []})
+
+
+def _save_ideas_bank(data: dict):
+    IDEAS_BANK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    IDEAS_BANK_FILE.write_text(json.dumps(data, indent=2))
+
+
+def _upsert_idea_in_json(idea_id: str, updates: dict | None = None):
+    updates = updates or {}
+    data = _load_ideas_bank()
+    ideas = data.setdefault("ideas", [])
+    record = next((i for i in ideas if i.get("id") == idea_id), None)
+
+    db_idea = db.get_idea(idea_id)
+    if not record:
+        if not db_idea:
+            return
+        record = {"id": idea_id}
+        ideas.append(record)
+
+    source = db_idea or {}
+    merged = {
+        "title": source.get("title", record.get("title", "")),
+        "angle": source.get("angle", record.get("angle", "")),
+        "copy": source.get("copy", record.get("copy", "")),
+        "status": source.get("status", record.get("status", "draft")),
+        "developed_into": source.get("developed_into", record.get("developed_into", "")),
+        "notes": source.get("notes", record.get("notes", "")),
+        "photo_id": source.get("photo_id", record.get("photo_id", "")),
+    }
+    record.update(merged)
+    record.update({k: v for k, v in updates.items() if v is not None})
+    _save_ideas_bank(data)
+
+
+def _sync_ideas_json_to_db():
+    data = _load_ideas_bank()
+    changed = False
+    for idea in data.get("ideas", []):
+        idea_id = idea.get("id")
+        if not idea_id:
+            continue
+        existing = db.get_idea(idea_id)
+        if existing:
+            # Respect DB as the canonical interactive state once the idea exists there.
+            for field in ("status", "developed_into", "photo_id", "copy", "title", "angle", "notes"):
+                db_val = existing.get(field)
+                if db_val not in (None, "") and idea.get(field) != db_val:
+                    idea[field] = db_val
+                    changed = True
+            continue
+        db.upsert_idea({
+            "id": idea_id,
+            "title": idea.get("title", ""),
+            "angle": idea.get("angle", ""),
+            "copy": idea.get("copy", ""),
+            "status": idea.get("status", "draft"),
+            "developed_into": idea.get("developed_into") or "",
+            "photo_id": idea.get("photo_id") or "",
+            "notes": idea.get("notes", ""),
+        })
+    if changed:
+        _save_ideas_bank(data)
+
 def _ok(msg=""):   return {"status": "ok",   "label": msg or "OK"}
 def _warn(msg=""):  return {"status": "warn", "label": msg or "—"}
 def _err(msg=""):   return {"status": "err",  "label": msg or "Error"}
@@ -123,7 +203,7 @@ def get_system_status() -> dict:
         stat["cron"] = _warn("Not scheduled")
 
     # Claude API
-    stat["claude"] = _ok("Key set") if env.get("ANTHROPIC_KEY") else _err("No key")
+    stat["claude"] = _ok("Key set") if _anthropic_api_key(env) else _err("No key")
 
     # Stripe
     stat["stripe"] = _ok("Live key") if (env.get("STRIPE_KEY") or "").startswith("sk_live") else \
@@ -3950,9 +4030,9 @@ def api_brand_confidence_review():
     """Brand Bot assesses programme cadence & value for money."""
     import anthropic as _anthropic
     secrets = _load_secrets()
-    api_key = secrets.get("ANTHROPIC_API_KEY", "")
+    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY", "")
     if not api_key:
-        return jsonify({"error": "ANTHROPIC_API_KEY not set"}), 500
+        return jsonify({"error": "Anthropic API key not set"}), 500
 
     brand_guidelines = db.get_bot_state("brand_guidelines") or ""
     learnings = db.get_learnings("marketing_bot")
@@ -4107,6 +4187,8 @@ def _build_business_context():
     ads_bot_log    = db.get_bot_state("ads_bot_last_run") or ""
     ads_bot_run_at = db.get_bot_state("ads_bot_last_run_at") or ""
 
+    _sync_ideas_json_to_db()
+
     # ── Marketing arc ─────────────────────────────────────────────────────────
     arc_phases = [
         "Problem Agitation",
@@ -4117,18 +4199,11 @@ def _build_business_context():
         "Direct CTA",
     ]
     arc_phase_index = int(strategy.get("arc_phase_index", 0))
-    # Business week = weeks since first client's intake_date
-    _all_intake_dates = [
-        cs.get("intake_date", "")[:10]
-        for cs in state.get("clients", {}).values()
-        if cs.get("intake_date", "")
-    ]
-    if _all_intake_dates:
-        _first_intake = min(_all_intake_dates)
-        _days_since = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(_first_intake, "%Y-%m-%d")).days
-        campaign_week = max(1, (_days_since // 7) + 1)
-    else:
-        campaign_week = int(strategy.get("campaign_week", 1))
+    try:
+        campaign_start = datetime.fromisoformat(strategy.get("campaign_start", ""))
+        campaign_week = max(1, min(12, (datetime.now(timezone.utc) - campaign_start).days // 7 + 1))
+    except Exception:
+        campaign_week = int(strategy.get("campaign_week", 1) or 1)
 
     # ── SEO ───────────────────────────────────────────────────────────────────
     SEO_TASK_DETAIL = [
@@ -4665,7 +4740,7 @@ If Will asks you to do something (approve a photo, add a reminder, etc.) say you
 Don't use markdown headers. Use plain text with occasional bold using HTML <b>tags</b>.
 Never say you can't do something — figure out the best response with the data you have."""
 
-            ai = _anthropic.Anthropic(api_key=env.get("ANTHROPIC_KEY", ""))
+            ai = _anthropic.Anthropic(api_key=_anthropic_api_key(env))
             resp = ai.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=1024,
@@ -4826,6 +4901,8 @@ def api_content_post_now(cr_id):
     post = db.get_post(cr_id)
     if not post:
         return jsonify({"ok": False, "error": "not found"}), 404
+    if db.get_queue_settings().get("paused"):
+        return jsonify({"ok": False, "error": "FB queue is paused"}), 409
     env     = _read_env()
     token   = env.get("FB_PAGE_ACCESS_TOKEN", "")
     page_id = env.get("FB_PAGE_ID", "")
@@ -5025,10 +5102,12 @@ def api_fb_ads_resume():
 def api_ads_campaigns():
     """Fetch live campaigns from Meta Graph API."""
     env   = _read_env()
-    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
-    acct  = "act_" + env.get("FB_AD_ACCOUNT_ID", "869755968629816")
+    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_USER_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    acct  = _normalize_ad_account_id(env.get("FB_AD_ACCOUNT_ID", ""))
     if not token:
         return jsonify({"ok": False, "error": "No token"}), 400
+    if not acct:
+        return jsonify({"ok": False, "error": "No ad account configured"}), 400
     import requests as _req
     r = _req.get(
         f"https://graph.facebook.com/v22.0/{acct}/campaigns",
@@ -5064,7 +5143,7 @@ def api_ads_campaigns():
 @app.route("/api/ads/campaigns/<campaign_id>/pause", methods=["POST"])
 def api_ads_campaign_pause(campaign_id):
     env   = _read_env()
-    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_USER_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
     import requests as _req
     r = _req.post(
         f"https://graph.facebook.com/v22.0/{campaign_id}",
@@ -5077,7 +5156,7 @@ def api_ads_campaign_pause(campaign_id):
 @app.route("/api/ads/campaigns/<campaign_id>/resume", methods=["POST"])
 def api_ads_campaign_resume(campaign_id):
     env   = _read_env()
-    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_USER_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
     import requests as _req
     r = _req.post(
         f"https://graph.facebook.com/v22.0/{campaign_id}",
@@ -5092,14 +5171,23 @@ def api_ads_boost_post():
     """Create a simple page post boost campaign."""
     body  = request.get_json(silent=True) or {}
     post_id     = body.get("post_id", "")
-    daily_budget_gbp = float(body.get("daily_budget", 5))
-    days        = int(body.get("days", 7))
+    try:
+        daily_budget_gbp = float(body.get("daily_budget", 5))
+        days = int(body.get("days", 7))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Invalid budget or duration"}), 400
+    if db.get_bot_state("fb_ads_paused") == "1":
+        return jsonify({"ok": False, "error": "FB ads are paused"}), 409
+    if daily_budget_gbp < 1 or daily_budget_gbp > 50:
+        return jsonify({"ok": False, "error": "daily_budget must be between £1 and £50"}), 400
+    if days < 1 or days > 14:
+        return jsonify({"ok": False, "error": "days must be between 1 and 14"}), 400
     env         = _read_env()
-    token       = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
-    acct        = "act_" + env.get("FB_AD_ACCOUNT_ID", "869755968629816")
+    token       = env.get("FB_SYSTEM_TOKEN") or env.get("FB_USER_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    acct        = _normalize_ad_account_id(env.get("FB_AD_ACCOUNT_ID", ""))
     page_id     = env.get("FB_PAGE_ID", "")
-    if not token or not post_id:
-        return jsonify({"ok": False, "error": "Missing token or post_id"}), 400
+    if not token or not post_id or not acct:
+        return jsonify({"ok": False, "error": "Missing token, post_id, or ad account"}), 400
     import requests as _req
     from datetime import date, timedelta
     daily_budget_cents = int(daily_budget_gbp * 100)
@@ -5241,7 +5329,7 @@ def _generate_gl_draft(idea: dict, photo_id: str):
     def _run():
         try:
             env     = _read_env()
-            api_key = env.get("ANTHROPIC_KEY", "")
+            api_key = _anthropic_api_key(env)
             if not api_key:
                 return
             client  = _anthropic.Anthropic(api_key=api_key)
@@ -5296,6 +5384,7 @@ def _generate_gl_draft(idea: dict, photo_id: str):
                 "image_path": image_path,
             })
             db.set_idea_status(idea["id"], "green_lit", {"green_lit_at": db._now()})
+            _upsert_idea_in_json(idea["id"], {"status": "green_lit", "green_lit_at": db._now()})
             print(f"  ✅ FB draft generated for green-lit idea: {idea.get('title','')[:50]}")
         except Exception as e:
             print(f"  ⚠️  GL draft generation failed: {e}")
@@ -5315,6 +5404,7 @@ def api_idea_green_light(idea_id):
     if idea.get("copy"):
         db.set_idea_status(idea_id, "green_lit", {"green_lit_at": db._now(),
                                                    "photo_id": photo_id})
+        _upsert_idea_in_json(idea_id, {"status": "green_lit", "green_lit_at": db._now(), "photo_id": photo_id or ""})
         img_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
         db.insert_post({
             "idea_id":    idea_id,
@@ -5329,6 +5419,7 @@ def api_idea_green_light(idea_id):
     # Otherwise kick off Claude draft generation in background
     db.set_idea_status(idea_id, "green_lit", {"green_lit_at": db._now(),
                                                "photo_id": photo_id})
+    _upsert_idea_in_json(idea_id, {"status": "green_lit", "green_lit_at": db._now(), "photo_id": photo_id or ""})
     idea["photo_id"] = photo_id or ""
     _generate_gl_draft(idea, photo_id or "")
     return jsonify({"status": "green_lit", "draft": {"status": "generating"}})
@@ -5337,34 +5428,38 @@ def api_idea_green_light(idea_id):
 @app.route("/api/ideas-bank/<idea_id>/archive", methods=["POST"])
 def api_idea_archive(idea_id):
     db.set_idea_status(idea_id, "archived")
+    _upsert_idea_in_json(idea_id, {"status": "archived"})
     return jsonify({"status": "archived"})
 
 
 @app.route("/api/ideas-bank/<idea_id>/approve", methods=["POST"])
 def api_idea_approve(idea_id):
-    """Approve a draft idea — creates an fb_queue post directly, no review gate."""
+    """Approve an idea with copy by creating a content_review draft, not a queued post."""
     idea = db.get_idea(idea_id)
     if not idea:
         return jsonify({"error": "not found"}), 404
     copy = idea.get("copy", "").strip()
     if not copy:
         return jsonify({"error": "idea has no copy — edit it first"}), 400
+    existing = [p for p in db.get_posts() if p.get("idea_id") == idea_id and p.get("stage") in ("content_review", "awaiting_graphic", "fb_queue", "posted")]
+    if existing:
+        post = existing[0]
+        return jsonify({"status": "exists", "post_id": post["id"], "stage": post["stage"]})
     photo_id   = idea.get("photo_id", "")
     image_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
-    slot       = db.next_available_slot()
     post_id    = db._new_id("cr_")
     db.insert_post({
         "id":            post_id,
         "idea_id":       idea_id,
         "theme":         idea.get("title", ""),
         "content":       copy,
-        "stage":         "fb_queue",
+        "stage":         "content_review",
         "source":        "ideas_bank",
         "image_path":    image_path,
-        "scheduled_for": slot,
     })
     db.set_idea_status(idea_id, "green_lit", {"developed_into": post_id})
-    return jsonify({"status": "approved", "scheduled_for": slot, "post_id": post_id})
+    _upsert_idea_in_json(idea_id, {"status": "green_lit", "developed_into": post_id, "photo_id": photo_id or ""})
+    return jsonify({"status": "approved", "stage": "content_review", "post_id": post_id})
 
 
 @app.route("/api/ideas-bank/<idea_id>/edit-copy", methods=["POST"])
@@ -5375,12 +5470,14 @@ def api_idea_edit_copy(idea_id):
     if not copy:
         return jsonify({"error": "copy is required"}), 400
     db.upsert_idea({"id": idea_id, "copy": copy})
+    _upsert_idea_in_json(idea_id, {"copy": copy})
     return jsonify({"status": "updated"})
 
 
 @app.route("/api/ideas-bank/<idea_id>/needs-graphic", methods=["POST"])
 def api_idea_needs_graphic(idea_id):
     db.set_idea_status(idea_id, "needs_graphic")
+    _upsert_idea_in_json(idea_id, {"status": "needs_graphic"})
     return jsonify({"status": "needs_graphic"})
 
 
@@ -5429,6 +5526,7 @@ def api_idea_suggest_photo(idea_id):
         return jsonify({"error": "no photos available"}), 404
 
     db.upsert_idea({"id": idea_id, "photo_id": best_id})
+    _upsert_idea_in_json(idea_id, {"photo_id": best_id})
     from urllib.parse import quote as _q
     url = "/brand/" + "/".join(_q(p) for p in best_id.split("/"))
     return jsonify({"photo_id": best_id, "url": url})

@@ -31,7 +31,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 GRAPH_BASE = "https://graph.facebook.com/v22.0"
-VAULT_ROOT  = Path("/Users/will/Obsidian-Vaults/BattleShip-Vault")
+VAULT_ROOT  = Path(__file__).parent.parent
 ENV_FILE    = Path.home() / ".battleship.env"
 
 # ── Performance thresholds ────────────────────────────────────────────────────
@@ -66,6 +66,13 @@ AD_COPY = {
 DEFAULT_IMAGE = str(VAULT_ROOT / "brand/random-snaps/IMG_0448.jpeg")
 
 
+def _normalize_ad_account_id(value: str) -> str:
+    value = (value or "").strip()
+    if value.startswith("act_"):
+        return value[4:]
+    return value
+
+
 # ── API helpers ───────────────────────────────────────────────────────────────
 
 def _get(endpoint: str, params: dict, token: str) -> dict:
@@ -96,6 +103,7 @@ def _post(endpoint: str, data: dict, token: str) -> dict:
 
 def create_campaign(ad_account_id: str, name: str, token: str) -> dict:
     """Create a PAUSED traffic campaign (non-CBO, budget lives at ad set level)."""
+    ad_account_id = _normalize_ad_account_id(ad_account_id)
     return _post(f"act_{ad_account_id}/campaigns", {
         "name": name,
         "objective": "OUTCOME_TRAFFIC",
@@ -108,6 +116,7 @@ def create_campaign(ad_account_id: str, name: str, token: str) -> dict:
 def create_adset(ad_account_id: str, campaign_id: str, name: str,
                  daily_budget_pence: int, token: str) -> dict:
     """Create an ad set targeting UK men 40-60 for 7 days."""
+    ad_account_id = _normalize_ad_account_id(ad_account_id)
     targeting = json.dumps({
         "geo_locations": {"countries": ["GB"]},
         "age_min": 40,
@@ -133,6 +142,7 @@ def create_adset(ad_account_id: str, campaign_id: str, name: str,
 
 def upload_image(ad_account_id: str, image_path: str, token: str) -> str:
     """Upload an image file and return its hash."""
+    ad_account_id = _normalize_ad_account_id(ad_account_id)
     with open(image_path, "rb") as f:
         r = requests.post(
             f"{GRAPH_BASE}/act_{ad_account_id}/adimages",
@@ -153,6 +163,7 @@ def create_ad_creative(ad_account_id: str, page_id: str, headline: str,
                        body: str, image_hash: str, link: str,
                        cta: str, token: str) -> dict:
     """Create an ad creative."""
+    ad_account_id = _normalize_ad_account_id(ad_account_id)
     story_spec = json.dumps({
         "page_id": page_id,
         "link_data": {
@@ -175,6 +186,7 @@ def create_ad_creative(ad_account_id: str, page_id: str, headline: str,
 def create_ad(ad_account_id: str, adset_id: str, creative_id: str,
               name: str, token: str) -> dict:
     """Create the ad (starts PAUSED — activated when campaign goes ACTIVE)."""
+    ad_account_id = _normalize_ad_account_id(ad_account_id)
     return _post(f"act_{ad_account_id}/ads", {
         "name":     name,
         "adset_id": adset_id,
@@ -239,6 +251,7 @@ def launch_smoke_test(ad_account_id: str, page_id: str,
 
 def get_ads_with_insights(ad_account_id: str, token: str) -> list[dict]:
     """Return all active/paused ads with 7-day performance data."""
+    ad_account_id = _normalize_ad_account_id(ad_account_id)
     data = _get(f"act_{ad_account_id}/ads", {
         "fields": (
             "id,name,status,adset_id,"
@@ -493,10 +506,22 @@ def launch_pending_ad_variants(secrets: dict, vault_root: Path) -> list[str]:
 
 def run(secrets: dict, vault_root: Path):
     """Daily optimisation run — called from main pipeline."""
-    ad_account_id = (secrets.get("FB_AD_ACCOUNT_ID") or secrets.get("fb_ad_account_id", ""))
+    ad_account_id = _normalize_ad_account_id(
+        secrets.get("FB_AD_ACCOUNT_ID") or secrets.get("fb_ad_account_id", "")
+    )
     token         = (secrets.get("FB_SYSTEM_TOKEN") or secrets.get("fb_system_token", "")
                      or secrets.get("FB_USER_TOKEN") or secrets.get("fb_user_token", "")
                      or secrets.get("FB_PAGE_ACCESS_TOKEN") or secrets.get("fb_page_access_token", ""))
+
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(vault_root))
+        import scripts.db as _db
+        if _db.get_bot_state("fb_ads_paused") == "1":
+            print("  (FB ads paused in dashboard — skipping ads bot)")
+            return
+    except Exception:
+        pass
 
     if not ad_account_id:
         print("  (FB_AD_ACCOUNT_ID not set — skipping ads bot)")
@@ -556,7 +581,7 @@ if __name__ == "__main__":
 
     env = _load_env()
     token         = env.get("fb_system_token") or env.get("fb_user_token") or env.get("fb_page_access_token", "")
-    ad_account_id = env.get("fb_ad_account_id", "")
+    ad_account_id = _normalize_ad_account_id(env.get("fb_ad_account_id", ""))
     page_id       = env.get("fb_page_id", "")
 
     if not token:

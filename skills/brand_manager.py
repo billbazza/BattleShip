@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
-VAULT_ROOT   = Path("/Users/will/Obsidian-Vaults/BattleShip-Vault")
+VAULT_ROOT   = Path(__file__).parent.parent
 BRAND_DIR    = VAULT_ROOT / "brand"
 OUTPUT_DIR   = VAULT_ROOT / "brand/output"
 CATALOGUE_FILE = VAULT_ROOT / "brand/catalogue.json"

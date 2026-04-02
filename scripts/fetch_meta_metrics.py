@@ -29,6 +29,13 @@ ENV_FILE = Path.home() / ".battleship.env"
 GRAPH_BASE = "https://graph.facebook.com/v22.0"
 
 
+def _normalize_ad_account_id(value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        return ""
+    return value if value.startswith("act_") else f"act_{value}"
+
+
 def _load_env() -> dict:
     if not ENV_FILE.exists():
         return {}
@@ -212,10 +219,13 @@ def run():
     page_token = env.get("FB_PAGE_ACCESS_TOKEN", "")
     page_id = env.get("FB_PAGE_ID", "1039975692536580")
     ig_id = env.get("IG_USER_ID", "17841452712961347")
-    ad_account = env.get("FB_AD_ACCOUNT_ID", "act_869755968629816")
+    ad_account = _normalize_ad_account_id(env.get("FB_AD_ACCOUNT_ID", ""))
 
     if not user_token or not page_token:
         print("  ⚠ FB_USER_TOKEN or FB_PAGE_ACCESS_TOKEN not set — skipping Meta sync")
+        return
+    if not ad_account:
+        print("  ⚠ FB_AD_ACCOUNT_ID not set — skipping ad insights sync")
         return
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")

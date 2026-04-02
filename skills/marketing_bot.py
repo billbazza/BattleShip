@@ -100,6 +100,13 @@ GENERATOR_STAFF = [
     ("conversion_lead", "keeps every idea commercially relevant and tied to the product reality"),
 ]
 
+
+def _normalize_ad_account_id(value: str) -> str:
+    value = (value or "").strip()
+    if value.startswith("act_"):
+        return value
+    return f"act_{value}" if value else ""
+
 # ── USP Library ────────────────────────────────────────────────────────────────
 # Source of truth for all copy. Every ad, post hook, and email subject
 # must connect back to at least one of these.
@@ -707,15 +714,16 @@ def update_funnel_from_state(state: dict, strategy: dict):
 
 def update_funnel_from_fb(secrets: dict, strategy: dict):
     """Pull ad impressions + clicks from Meta if ad account is available."""
-    token      = secrets.get("FB_PAGE_ACCESS_TOKEN", "")
-    account_id = secrets.get("fb_ad_account_id") or secrets.get("FB_AD_ACCOUNT_ID", "")
+    token      = secrets.get("FB_USER_TOKEN") or secrets.get("fb_user_token", "")
+    account_id = _normalize_ad_account_id(
+        secrets.get("fb_ad_account_id") or secrets.get("FB_AD_ACCOUNT_ID", "")
+    )
     if not token or not account_id:
         return
 
     r = requests.get(
         f"{GRAPH}/{account_id}/insights",
         params={
-            "fields": "impressions,clicks,reach",
             "date_preset": "last_7d",
             "access_token": token,
         },
@@ -1109,7 +1117,7 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
             f"Hook type: {item.get('hook_type', '').strip()}",
             f"Proof: {item.get('proof_source', '').strip()}",
         ]))
-        ideas_data.setdefault("ideas", []).append({
+        idea = {
             "id":           "idea_" + uuid.uuid4().hex[:8],
             "title":        title,
             "angle":        item.get("angle", ""),
@@ -1125,8 +1133,28 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
             "proof_source": item.get("proof_source", ""),
             "why_now":      item.get("why_now", ""),
             "tags":         tags,
-        })
+        }
+        ideas_data.setdefault("ideas", []).append(idea)
         existing_normalised.add(_normalise_text(title))
+        try:
+            import sys as _sys_gen
+            _sys_gen.path.insert(0, str(VAULT_ROOT))
+            import scripts.db as _db_gen
+            _db_gen.upsert_idea({
+                "id": idea["id"],
+                "title": idea["title"],
+                "angle": idea["angle"],
+                "copy": idea["copy"],
+                "status": idea["status"],
+                "source": idea["source"],
+                "developed_into": "",
+                "notes": idea["notes"],
+                "tags": _serialise_tags(idea.get("tags", [])),
+                "photo_id": idea.get("photo_id") or "",
+                "added_at": idea.get("added", today_str),
+            })
+        except Exception:
+            pass
         added += 1
 
     if added:
@@ -1166,9 +1194,12 @@ def review_ideas_bank(secrets: dict):
     strategy = _load_strategy()
     current_idx = strategy.get("arc_phase_index", 0)
     pending = _db_rb.count_pending_posts_for_arc(current_idx)
+    phase_posts = [p for p in _db_rb.get_posts() if int(p.get("arc_phase", 0) or 0) == current_idx]
 
     if pending > 0:
         print(f"  ℹ️  Arc phase {current_idx + 1} has {pending} pending posts — holding phase")
+    elif not phase_posts:
+        print(f"  ℹ️  Arc phase {current_idx + 1} has no generated posts yet — holding phase")
     else:
         # All posts for current phase are done (or none exist yet) — advance
         if current_idx < len(ARC_PHASES) - 1:

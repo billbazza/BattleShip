@@ -45,7 +45,7 @@ except ImportError:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-VAULT_ROOT   = Path("/Users/will/Obsidian-Vaults/BattleShip-Vault")
+VAULT_ROOT   = Path(__file__).parent.parent
 CLIENTS_DIR  = VAULT_ROOT / "clients"
 LOGS_DIR     = VAULT_ROOT / "logs"
 STATE_FILE   = CLIENTS_DIR / "state.json"
@@ -3546,17 +3546,20 @@ def main():
         from skills.facebook_bot import _post_live, _is_live, post_photo as _post_photo, cross_post_to_instagram as _ig_cross
         from datetime import date as _date
         today_str = str(_date.today())
+        queue_settings = _db.get_queue_settings()
         all_queued = _db.get_posts(stage="fb_queue")
         today_post = next((p for p in all_queued if p.get("scheduled_for") == today_str), None)
         overdue    = [p for p in all_queued if (p.get("scheduled_for") or "9999") < today_str]
 
         # Reschedule overdue posts to next available Mon/Wed/Fri slots (one per slot)
-        if overdue:
+        if overdue and not queue_settings.get("paused"):
             _db.recalculate_schedule(from_date=_date.today() + timedelta(days=1))
             print(f"  📅 Rescheduled {len(overdue)} overdue post(s) to next available slots")
 
         # Post today's item only
-        if not today_post:
+        if queue_settings.get("paused"):
+            print("  ℹ️  FB queue paused — skipping auto-poster")
+        elif not today_post:
             print("  ℹ️  No post scheduled for today")
         elif not _is_live(secrets):
             print("  ℹ️  Dev mode — skipping queue auto-post")
@@ -3594,8 +3597,13 @@ def main():
     # 11. Facebook ads optimisation (daily)
     print("\n📊 Facebook ads optimisation...")
     try:
-        from skills.facebook_ads_bot import run as run_ads
-        run_ads(secrets, VAULT_ROOT)
+        sys.path.insert(0, str(VAULT_ROOT))
+        import scripts.db as _db_ads
+        if _db_ads.get_bot_state("fb_ads_paused") == "1":
+            print("  ℹ️  FB ads paused — skipping ads bot")
+        else:
+            from skills.facebook_ads_bot import run as run_ads
+            run_ads(secrets, VAULT_ROOT)
     except Exception as e:
         print(f"  ⚠️  Ads bot skipped: {e}")
 

@@ -17,7 +17,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-VAULT_ROOT = Path("/Users/will/Obsidian-Vaults/BattleShip-Vault")
+VAULT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(VAULT_ROOT))
 
 REVIEW_STATE_FILE = VAULT_ROOT / "brand" / "Marketing" / "review_state.json"
@@ -73,12 +73,16 @@ def review_post_performance(secrets: dict) -> list[str]:
     today   = datetime.now(timezone.utc).date()
 
     for pid, p in posts.items():
-        age_days = (today - datetime.strptime(p.get("date", "2000-01-01"), "%Y-%m-%d").date()).days
+        date_str = (p.get("date") or p.get("created_time") or "2000-01-01")[:10]
+        try:
+            age_days = (today - datetime.strptime(date_str, "%Y-%m-%d").date()).days
+        except ValueError:
+            continue
         if age_days < 1 or age_days > 7:
             continue
-        reach = p.get("reach", 0)
-        eng   = p.get("likes", 0) + p.get("comments", 0) + p.get("shares", 0)
-        preview = p.get("preview", "")[:50]
+        reach = int(p.get("reach", (p.get("insights") or {}).get("reach", 0)) or 0)
+        eng   = int(p.get("likes", 0) or 0) + int(p.get("comments", 0) or 0) + int(p.get("shares", 0) or 0)
+        preview = (p.get("preview") or p.get("message") or "")[:50]
         if reach >= 100 or eng >= 10:
             alerts.append(f"🔥 Top post ({age_days}d ago, reach={reach}, eng={eng}): \"{preview}\"")
         elif age_days >= 3 and reach < 5 and eng == 0:
@@ -89,21 +93,21 @@ def review_post_performance(secrets: dict) -> list[str]:
 def review_ideas_bank(secrets: dict) -> list[str]:
     """Check ideas bank health — thin bank, stale green-lits, no drafts queued."""
     alerts = []
-    if not IDEAS_FILE.exists():
-        return alerts
-    ideas = json.loads(IDEAS_FILE.read_text()).get("ideas", [])
+    import scripts.db as db
+    ideas = db.get_ideas()
     drafts    = [i for i in ideas if i["status"] == "draft"]
     green_lit = [i for i in ideas if i["status"] == "green_lit"]
 
     if len(drafts) < 2:
         alerts.append(f"💡 Ideas bank low ({len(drafts)} draft ideas) — needs fresh angles")
 
-    # Green-lit ideas older than 3 days with no content_review entry
-    cr_file = VAULT_ROOT / "clients" / "content_review.json"
-    cr_idea_ids = set()
-    if cr_file.exists():
-        cr_data = json.loads(cr_file.read_text())
-        cr_idea_ids = {p.get("idea_id") for p in cr_data.get("posts", [])}
+    # Green-lit ideas with no live draft/review/queue artifact in SQLite.
+    posts = db.get_posts()
+    cr_idea_ids = {
+        p.get("idea_id")
+        for p in posts
+        if p.get("idea_id") and p.get("stage") in ("content_review", "awaiting_graphic", "fb_queue", "posted")
+    }
 
     for idea in green_lit:
         if idea["id"] not in cr_idea_ids:
