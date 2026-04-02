@@ -29,8 +29,10 @@ Standalone:
 import json
 import re
 import sys
+import uuid
 import requests
 import anthropic
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -38,6 +40,65 @@ VAULT_ROOT   = Path(__file__).parent.parent
 GRAPH        = "https://graph.facebook.com/v22.0"
 STRATEGY_FILE = VAULT_ROOT / "clients" / "marketing_strategy.json"
 METRICS_FILE  = VAULT_ROOT / "clients" / "social_metrics.json"
+CONTENT_REVIEW_FILE = VAULT_ROOT / "clients" / "content_review.json"
+
+IDEA_CATEGORIES = [
+    {
+        "id": "problem_agitation",
+        "label": "Problem Agitation",
+        "description": "Name the pain, decline, frustration, or identity hit men over 40 feel.",
+        "keywords": ["tired", "exhausted", "old", "crisis", "fine", "body", "stiff", "drained"],
+    },
+    {
+        "id": "founder_proof",
+        "label": "Founder Proof",
+        "description": "Use Will's own transformation as proof, but only when it adds a fresh lesson.",
+        "keywords": ["i ", "my ", "47", "abs", "doctor", "walking", "gym", "stone", "six-pack"],
+    },
+    {
+        "id": "myth_bust",
+        "label": "Myth Bust",
+        "description": "Attack bad fitness advice, industry lies, or assumptions that keep the audience stuck.",
+        "keywords": ["lie", "lied", "industry", "truth", "myth", "accepting", "normal", "failed"],
+    },
+    {
+        "id": "system_education",
+        "label": "System Education",
+        "description": "Explain a mechanism simply: sleep, cortisol, movement, nutrition, recovery, or habit design.",
+        "keywords": ["science", "system", "sleep", "cortisol", "movement", "nutrition", "zone 2", "protein"],
+    },
+    {
+        "id": "objection_crushing",
+        "label": "Objection Crushing",
+        "description": "Address time, age, price, fear, or gym resistance directly.",
+        "keywords": ["busy", "time", "old", "expensive", "price", "cost", "too late", "no gym"],
+    },
+    {
+        "id": "client_case",
+        "label": "Client Case",
+        "description": "Use a client or composite-client scenario instead of repeating the founder story.",
+        "keywords": ["client", "mark", "guy", "member", "men we work with", "lads"],
+    },
+    {
+        "id": "offer_cta",
+        "label": "Offer CTA",
+        "description": "Explain the programme, what happens next, or who should take the quiz now.",
+        "keywords": ["quiz", "programme", "plan", "reset", "personalised", "12-week"],
+    },
+    {
+        "id": "topical_authority",
+        "label": "Topical Authority",
+        "description": "Use a current conversation, borrowed authority, or cultural reference to create a new entry point.",
+        "keywords": ["ozempic", "doctor", "quote", "industry", "headline", "trend"],
+    },
+]
+
+GENERATOR_STAFF = [
+    ("signal_analyst", "reads recent performance, backlog, and learnings to identify what the bank needs next"),
+    ("audience_editor", "guards voice and makes sure hooks feel specific to sceptical men 40-60"),
+    ("portfolio_manager", "forces variety so the batch behaves like a content slate, not five rewrites"),
+    ("conversion_lead", "keeps every idea commercially relevant and tied to the product reality"),
+]
 
 # ── USP Library ────────────────────────────────────────────────────────────────
 # Source of truth for all copy. Every ad, post hook, and email subject
@@ -247,6 +308,372 @@ def _load_metrics() -> dict:
     return {"posts": {}, "page": {}, "ig": {}}
 
 
+def _load_content_review() -> dict:
+    if CONTENT_REVIEW_FILE.exists():
+        return json.loads(CONTENT_REVIEW_FILE.read_text())
+    return {"posts": []}
+
+
+def _normalise_text(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
+
+
+def _extract_post_date(post: dict) -> str:
+    return (
+        post.get("tracked")
+        or post.get("date")
+        or (post.get("created_time", "")[:10] if post.get("created_time") else "")
+        or ""
+    )
+
+
+def _clip(text: str, limit: int = 160) -> str:
+    text = (text or "").strip().replace("\n", " ")
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
+def _classify_idea_category(*parts: str) -> str:
+    text = _normalise_text(" ".join(p for p in parts if p))
+    scores: dict[str, int] = {}
+    for cat in IDEA_CATEGORIES:
+        score = sum(1 for kw in cat["keywords"] if kw in text)
+        if score:
+            scores[cat["id"]] = score
+    if not scores:
+        return "problem_agitation"
+    return max(scores.items(), key=lambda item: item[1])[0]
+
+
+def _serialise_tags(tags) -> str:
+    if isinstance(tags, list):
+        return json.dumps(tags)
+    if isinstance(tags, str):
+        return tags
+    return "[]"
+
+
+def _load_marketing_learnings() -> list[dict]:
+    try:
+        import sys as _sys, pathlib as _pl
+        _vault = _pl.Path(__file__).parent.parent
+        _sys.path.insert(0, str(_vault))
+        import scripts.db as _db
+        return _db.get_learnings(source="marketing_bot")
+    except Exception:
+        return []
+
+
+def _record_marketing_learning(learning_type: str, text: str, context: str = "") -> None:
+    try:
+        import sys as _sys, pathlib as _pl
+        _vault = _pl.Path(__file__).parent.parent
+        _sys.path.insert(0, str(_vault))
+        import scripts.db as _db
+        _db.record_learning("marketing_bot", learning_type, text, context=context)
+    except Exception:
+        pass
+
+
+def _get_marketing_bot_state(key: str) -> str:
+    try:
+        import sys as _sys, pathlib as _pl
+        _vault = _pl.Path(__file__).parent.parent
+        _sys.path.insert(0, str(_vault))
+        import scripts.db as _db
+        return _db.get_bot_state(key) or ""
+    except Exception:
+        return ""
+
+
+def _set_marketing_bot_state(key: str, value: str) -> None:
+    try:
+        import sys as _sys, pathlib as _pl
+        _vault = _pl.Path(__file__).parent.parent
+        _sys.path.insert(0, str(_vault))
+        import scripts.db as _db
+        _db.set_bot_state(key, value)
+    except Exception:
+        pass
+
+
+def _build_idea_loop_context(ideas_data: dict) -> dict:
+    ideas = ideas_data.get("ideas", [])
+    review_posts = _load_content_review().get("posts", [])
+    metrics_posts = _load_metrics().get("posts", {})
+    learnings = _load_marketing_learnings()
+
+    recent_ideas = sorted(
+        ideas,
+        key=lambda item: ((item.get("added") or ""), (item.get("green_lit") or ""), (item.get("id") or "")),
+        reverse=True,
+    )[:24]
+    category_counts = Counter(
+        _classify_idea_category(i.get("title", ""), i.get("angle", ""), i.get("copy", ""))
+        for i in recent_ideas
+    )
+    posted_review = [p for p in review_posts if p.get("status") == "posted"]
+    recent_review = sorted(posted_review, key=lambda p: p.get("created", ""), reverse=True)[:12]
+
+    performance_rows = []
+    for pid, post in metrics_posts.items():
+        date_str = _extract_post_date(post)
+        if not date_str:
+            continue
+        reach = int(post.get("reach", post.get("insights", {}).get("reach", 0) or 0) or 0)
+        comments = int(post.get("comments", post.get("insights", {}).get("comments", 0) or 0) or 0)
+        likes = int(post.get("likes", post.get("insights", {}).get("likes", 0) or 0) or 0)
+        shares = int(post.get("shares", post.get("insights", {}).get("shares", 0) or 0) or 0)
+        link_clicks = int(post.get("link_clicks", post.get("insights", {}).get("link_clicks", 0) or 0) or 0)
+        score = reach + (comments * 6) + (shares * 8) + (likes * 2) + (link_clicks * 4)
+        preview = post.get("preview") or post.get("message", "")
+        performance_rows.append({
+            "id": pid,
+            "date": date_str,
+            "score": score,
+            "reach": reach,
+            "engagement": likes + comments + shares,
+            "link_clicks": link_clicks,
+            "preview": _clip(preview, 120),
+            "category": _classify_idea_category(preview),
+        })
+
+    performance_rows.sort(key=lambda row: (row["score"], row["date"]), reverse=True)
+    strong_posts = performance_rows[:3]
+    weak_posts = sorted(performance_rows, key=lambda row: (row["score"], row["date"]))[:3]
+
+    pending_review = [p for p in review_posts if p.get("status") in {"pending_review", "draft"}]
+    rejected_posts = [p for p in review_posts if p.get("status") == "rejected"]
+    pending_categories = Counter(_classify_idea_category(p.get("theme", ""), p.get("content", "")) for p in pending_review)
+
+    dominant_categories = [cat for cat, n in category_counts.most_common(2) if n >= 3]
+    missing_categories = [cat["id"] for cat in IDEA_CATEGORIES if category_counts.get(cat["id"], 0) == 0]
+    needs = []
+    if dominant_categories:
+        needs.append(f"Recent bank is dominated by {', '.join(dominant_categories)}.")
+    if missing_categories:
+        needs.append(f"Missing categories in recent bank: {', '.join(missing_categories[:4])}.")
+    if pending_categories:
+        top_pending = pending_categories.most_common(1)[0][0]
+        needs.append(f"Backlog already contains many {top_pending} posts waiting for review.")
+    if rejected_posts:
+        needs.append(f"{len(rejected_posts)} content-review drafts were rejected; avoid generic rehyping.")
+
+    return {
+        "category_counts": dict(category_counts),
+        "dominant_categories": dominant_categories,
+        "missing_categories": missing_categories,
+        "pending_categories": dict(pending_categories),
+        "recent_idea_titles": [i.get("title", "") for i in recent_ideas[:16]],
+        "recent_idea_snapshots": [
+            {
+                "title": i.get("title", ""),
+                "category": _classify_idea_category(i.get("title", ""), i.get("angle", ""), i.get("copy", "")),
+                "status": i.get("status", "draft"),
+                "angle": _clip(i.get("angle", ""), 110),
+            }
+            for i in recent_ideas[:12]
+        ],
+        "strong_posts": strong_posts,
+        "weak_posts": weak_posts,
+        "pending_review_count": len(pending_review),
+        "rejected_review_count": len(rejected_posts),
+        "needs_summary": needs,
+        "recent_learnings": learnings[-8:],
+        "recent_review_examples": [
+            {
+                "theme": p.get("theme", ""),
+                "status": p.get("status", ""),
+                "category": _classify_idea_category(p.get("theme", ""), p.get("content", "")),
+            }
+            for p in recent_review[:8]
+        ],
+    }
+
+
+def _refresh_idea_loop_memory(ideas_data: dict) -> None:
+    loop = _build_idea_loop_context(ideas_data)
+    strong = loop.get("strong_posts", [])
+    weak = loop.get("weak_posts", [])
+    dominant = loop.get("dominant_categories", [])
+
+    summary = {
+        "strong_categories": [row["category"] for row in strong],
+        "weak_categories": [row["category"] for row in weak],
+        "dominant_categories": dominant,
+        "pending_review_count": loop.get("pending_review_count", 0),
+        "rejected_review_count": loop.get("rejected_review_count", 0),
+    }
+    snapshot = json.dumps(summary, sort_keys=True)
+    if _get_marketing_bot_state("marketing_idea_loop_summary") == snapshot:
+        return
+
+    if strong:
+        top = strong[0]
+        _record_marketing_learning(
+            "performance_signal",
+            f"Recent strongest organic pattern: {top['category']}",
+            context=f"{top['preview']} | score={top['score']}",
+        )
+    if weak:
+        bottom = weak[0]
+        _record_marketing_learning(
+            "performance_signal",
+            f"Recent weakest organic pattern: {bottom['category']}",
+            context=f"{bottom['preview']} | score={bottom['score']}",
+        )
+    if "founder_proof" in dominant:
+        _record_marketing_learning(
+            "pattern_saturation",
+            "Founder-proof angle is saturating the bank; force more client/system/objection angles.",
+            context=", ".join(dominant),
+        )
+
+    _set_marketing_bot_state("marketing_idea_loop_summary", snapshot)
+
+
+def _choose_generation_slots(loop: dict, phase: dict, batch_size: int = 5) -> list[dict]:
+    preferred_order = [
+        "problem_agitation",
+        "system_education",
+        "client_case",
+        "objection_crushing",
+        "offer_cta",
+        "myth_bust",
+        "topical_authority",
+        "founder_proof",
+    ]
+    weights = Counter(loop.get("category_counts", {}))
+    pending = Counter(loop.get("pending_categories", {}))
+    chosen: list[dict] = []
+    seen = set()
+
+    def add_slot(cat_id: str, why: str):
+        if cat_id in seen or len(chosen) >= batch_size:
+            return
+        category = next((c for c in IDEA_CATEGORIES if c["id"] == cat_id), None)
+        if not category:
+            return
+        chosen.append({
+            "category": cat_id,
+            "label": category["label"],
+            "brief": category["description"],
+            "why": why,
+        })
+        seen.add(cat_id)
+
+    for cat_id in loop.get("missing_categories", []):
+        add_slot(cat_id, "Category absent from the recent bank.")
+
+    if "founder_proof" in loop.get("dominant_categories", []):
+        for fallback in ["client_case", "system_education", "objection_crushing"]:
+            add_slot(fallback, "Counterweight to repeated founder-story proof.")
+
+    if phase["theme"] in {"The Science (Made Simple)", "The System + Proof"}:
+        add_slot("system_education", f"Arc phase {phase['theme']} needs mechanism-led posts.")
+    if phase["theme"] == "Objection Crushing":
+        add_slot("objection_crushing", "Arc phase explicitly needs objection handling.")
+    if phase["theme"] == "Direct CTA":
+        add_slot("offer_cta", "Arc phase is closing; at least one idea should sell cleanly.")
+
+    ranked = sorted(
+        IDEA_CATEGORIES,
+        key=lambda cat: (weights.get(cat["id"], 0) + pending.get(cat["id"], 0), preferred_order.index(cat["id"]) if cat["id"] in preferred_order else 99),
+    )
+    for cat in ranked:
+        why = "Underrepresented across current ideas and review backlog."
+        if cat["id"] == "founder_proof":
+            why = "Allow one founder-led proof slot only if the slate still needs proof."
+        add_slot(cat["id"], why)
+
+    return chosen[:batch_size]
+
+
+def _render_loop_prompt(loop: dict, phase: dict, slots: list[dict], existing_titles: list[str]) -> str:
+    learnings = loop.get("recent_learnings", [])
+    learnings_text = "\n".join(
+        f"- [{item.get('type', 'note')}] {item.get('text', '')}" + (f" ({item.get('context')})" if item.get("context") else "")
+        for item in learnings
+    ) or "- No explicit learnings logged yet."
+
+    strong_posts = "\n".join(
+        f"- [{row['category']}] {row['preview']} | score={row['score']} reach={row['reach']} eng={row['engagement']} clicks={row['link_clicks']}"
+        for row in loop.get("strong_posts", [])
+    ) or "- No reliable strong-post data yet."
+
+    weak_posts = "\n".join(
+        f"- [{row['category']}] {row['preview']} | score={row['score']} reach={row['reach']} eng={row['engagement']} clicks={row['link_clicks']}"
+        for row in loop.get("weak_posts", [])
+    ) or "- No reliable weak-post data yet."
+
+    recent_bank = "\n".join(
+        f"- [{item['category']}] {item['title']} ({item['status']}) — {item['angle']}"
+        for item in loop.get("recent_idea_snapshots", [])
+    ) or "- No recent idea history."
+
+    slot_lines = "\n".join(
+        f"- {slot['category']}: {slot['brief']} Reason: {slot['why']}"
+        for slot in slots
+    )
+
+    staff_lines = "\n".join(f"- {name}: {brief}" for name, brief in GENERATOR_STAFF)
+    phase_hooks = "\n".join(f"- {hook}" for hook in phase.get("hooks", []))
+    return (
+        "You are the Battleship Reset idea room. Simulate a four-person staff and output one final coordinated slate.\n\n"
+        f"STAFF ROLES\n{staff_lines}\n\n"
+        "BUSINESS\n"
+        "Battleship Reset = 12-week fitness coaching for men 40-60. Voice: Will Barratt, direct, grounded, anti-fluff, anti-bro-marketing.\n"
+        "Original intent: a living business that observes what happened, spots stale patterns, and deliberately introduces new but aligned angles.\n\n"
+        f"CURRENT ARC PHASE\n- {phase['theme']}: {phase['description']}\n"
+        f"Recommended hooks in this phase:\n{phase_hooks}\n\n"
+        "RECENT LOOP SIGNALS\n"
+        + "\n".join(f"- {item}" for item in loop.get("needs_summary", []))
+        + "\n\n"
+        + "TOP / STRONG RECENT POSTS\n"
+        + strong_posts
+        + "\n\nWEAK / FLAT RECENT POSTS\n"
+        + weak_posts
+        + "\n\nRECENT BANK SNAPSHOT\n"
+        + recent_bank
+        + "\n\nRECENT LEARNINGS\n"
+        + learnings_text
+        + "\n\nEXISTING TITLES TO AVOID\n- "
+        + "\n- ".join(existing_titles[:20] or ["None"])
+        + "\n\nSLOTS TO FILL\n"
+        + slot_lines
+        + "\n\nRULES\n"
+        + "- Generate exactly one idea per slot.\n"
+        + "- Do not produce multiple founder-transformation rewrites unless a slot explicitly requires founder_proof.\n"
+        + "- Every idea must feel distinct in category, hook pattern, and proof source.\n"
+        + "- Use concrete proof, scenes, or mechanisms. Avoid generic 'you need a plan' filler.\n"
+        + "- Stay commercially aligned with Battleship Reset. No motivational poster content.\n"
+        + "- If data is weak, infer cautiously from the pattern saturation and backlog signals.\n"
+        + "- Prefer underused categories over safe repeats.\n\n"
+        + "Return raw JSON only as an array with exactly "
+        + str(len(slots))
+        + " objects. Each object must be:\n"
+        + "[{\"title\":\"...\",\"angle\":\"...\",\"copy\":\"...\",\"category\":\"...\",\"hook_type\":\"...\",\"proof_source\":\"...\",\"staff_note\":\"...\",\"why_now\":\"...\",\"tags\":[\"...\",\"...\"]}]\n"
+        + "Copy rules:\n"
+        + "- 130-220 words\n"
+        + "- First line is a statement, not a question\n"
+        + "- Short paragraphs, no bullet points\n"
+        + "- End with one natural CTA to quiz or DM\n"
+        + "- 2-3 hashtags on final line only\n"
+    )
+
+
+def _parse_json_array(raw: str):
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-z]*\n?", "", text).rstrip("`").strip()
+    try:
+        return json.loads(text)
+    except Exception:
+        match = re.search(r"\[.*\]", text, re.DOTALL)
+        if not match:
+            raise
+        return json.loads(match.group())
+
+
 def _current_arc_phase(strategy: dict) -> dict:
     week = strategy.get("campaign_week", 1)
     for phase in ARC_PHASES:
@@ -374,6 +801,13 @@ def run_daily_review(secrets: dict, state: dict):
     if strategy.get("last_review_date") == today:
         print("  ℹ️  Daily review already sent today")
         return
+
+    ideas_file = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
+    if ideas_file.exists():
+        try:
+            _refresh_idea_loop_memory(json.loads(ideas_file.read_text()))
+        except Exception as e:
+            print(f"  ⚠️  Idea loop memory refresh failed: {e}")
 
     # Sync funnel
     update_funnel_from_state(state, strategy)
@@ -622,82 +1056,92 @@ def get_current_arc_guidance() -> dict:
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
-def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file) -> int:
+def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool = False, reason: str = "bank_low") -> int:
     """
-    Weekly Monday batch: generate 5 fresh ideas with full FB post copy as drafts.
-    User reviews in the Ideas Bank — approve/edit/reject before anything goes live.
+    Generate a coordinated slate of draft ideas.
+    The loop now studies recent output, avoids overused categories, and fills
+    deliberate content slots so the bank keeps behaving like a living system.
     Returns number of ideas added.
     """
-    # Monday-only guard (weekday 0)
     today = datetime.now(timezone.utc)
-    if today.weekday() != 0:
+    if not force and today.weekday() != 0:
         return 0
     today_str = today.strftime("%Y-%m-%d")
-    if ideas_data.get("last_generation_date") == today_str:
+    if not force and ideas_data.get("last_generation_date") == today_str:
         print("  ℹ️  Ideas already generated today — skipping")
         return 0
 
     existing_titles = [i.get("title", "") for i in ideas_data.get("ideas", [])]
     strategy = _load_strategy()
     phase    = _current_arc_phase(strategy)
+    loop     = _build_idea_loop_context(ideas_data)
+    slots    = _choose_generation_slots(loop, phase, batch_size=5)
 
     api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
+    if not api_key:
+        print("  ⚠️  No Anthropic key available for idea generation")
+        return 0
     client  = anthropic.Anthropic(api_key=api_key)
     msg = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=4000,
-        messages=[{"role": "user", "content": (
-            f"Generate 5 fresh Facebook post ideas for Battleship Reset — a 12-week fitness coaching "
-            f"programme for men 40-60. Voice: Will Barratt, 47, transformed himself. Direct, honest, no bullshit.\n\n"
-            f"Current content arc phase: {phase['theme']}\n"
-            f"Existing titles to avoid duplicating: {', '.join(existing_titles[:15])}\n\n"
-            f"For each idea provide:\n"
-            f"- title: punchy 5-10 word headline\n"
-            f"- angle: 1-2 sentence hook explaining why it resonates with men 40-60\n"
-            f"- copy: full ready-to-post Facebook post (150-250 words). Rules:\n"
-            f"  · First line is the hook — a bold statement or fact, NOT a question\n"
-            f"  · Short paragraphs, no bullet points, max 1 emoji or none\n"
-            f"  · End with ONE of these CTAs (vary naturally):\n"
-            f"    'If this sounds like you, take the free quiz at battleshipreset.com — takes 2 minutes.'\n"
-            f"    'Answer a few quick questions at battleshipreset.com and get a free personalised plan.'\n"
-            f"    'battleshipreset.com — take the free quiz and find out what your reset looks like.'\n"
-            f"  · 2-3 hashtags on the final line only\n\n"
-            f"Respond as a JSON array with exactly 5 objects: "
-            f"[{{\"title\": \"...\", \"angle\": \"...\", \"copy\": \"...\"}}]\n"
-            f"No markdown fences. Raw JSON only."
-        )}]
+        messages=[{"role": "user", "content": _render_loop_prompt(loop, phase, slots, existing_titles)}]
     )
-    import uuid as _uuid2
     try:
-        raw = msg.content[0].text.strip()
-        if raw.startswith("```"):
-            raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
-        new_ideas = json.loads(raw)
+        new_ideas = _parse_json_array(msg.content[0].text)
     except Exception as e:
         print(f"  ⚠️  Idea generation parse error: {e}")
         return 0
 
     added = 0
-    for item in new_ideas[:5]:
-        if not item.get("title"):
+    existing_normalised = {_normalise_text(title) for title in existing_titles}
+    for item in new_ideas[:len(slots)]:
+        title = item.get("title", "").strip()
+        if not title:
             continue
+        if _normalise_text(title) in existing_normalised:
+            continue
+        category = item.get("category") or _classify_idea_category(title, item.get("angle", ""), item.get("copy", ""))
+        tags = item.get("tags") or [category, phase["theme"].lower().replace(" ", "_")]
+        notes = " | ".join(filter(None, [
+            f"Loop reason: {reason}",
+            item.get("staff_note", "").strip(),
+            f"Hook type: {item.get('hook_type', '').strip()}",
+            f"Proof: {item.get('proof_source', '').strip()}",
+        ]))
         ideas_data.setdefault("ideas", []).append({
-            "id":           "idea_" + _uuid2.uuid4().hex[:8],
-            "title":        item["title"],
+            "id":           "idea_" + uuid.uuid4().hex[:8],
+            "title":        title,
             "angle":        item.get("angle", ""),
             "copy":         item.get("copy", ""),
             "status":       "draft",
             "added":        today_str,
+            "source":       "marketing_bot_loop",
             "developed_into": "",
-            "notes":        "Weekly batch",
+            "notes":        notes,
             "photo_id":     "",
+            "category":     category,
+            "hook_type":    item.get("hook_type", ""),
+            "proof_source": item.get("proof_source", ""),
+            "why_now":      item.get("why_now", ""),
+            "tags":         tags,
         })
+        existing_normalised.add(_normalise_text(title))
         added += 1
 
     if added:
         ideas_data["last_generation_date"] = today_str
+        ideas_data["last_generation_reason"] = reason
+        ideas_data["last_generation_slots"] = slots
         ideas_file.write_text(json.dumps(ideas_data, indent=2))
-        print(f"  ✅ {added} new draft ideas generated — awaiting approval in Ideas Bank")
+        summary = ", ".join(slot["category"] for slot in slots[:added])
+        print(f"  ✅ {added} new draft ideas generated — slate: {summary}")
+        for slot in slots[:added]:
+            _record_marketing_learning(
+                "idea_loop_slot",
+                f"Filled {slot['category']} slot for {phase['theme']}",
+                context=slot["why"],
+            )
     return added
 
 
@@ -735,13 +1179,25 @@ def review_ideas_bank(secrets: dict):
             phase = _current_arc_phase(strategy)
             print(f"  ✅ Arc phase advanced: {old_idx + 1} → {current_idx + 1} ({phase['theme']})")
 
-    undeveloped_drafts = sum(
-        1 for i in ideas
-        if i.get("status") == "draft" and not i.get("developed_into")
-    )
-    if undeveloped_drafts < 3:
-        print(f"  ℹ️  Ideas bank low ({undeveloped_drafts} undeveloped drafts) — generating new ideas")
-        _generate_new_ideas(secrets, ideas_data, ideas_file)
+    draft_ideas = [
+        i for i in ideas
+        if i.get("status") in {"draft", "ideas_bank"} and not i.get("developed_into")
+    ]
+    undeveloped_drafts = len(draft_ideas)
+    loop = _build_idea_loop_context(ideas_data)
+    stale_mix = "founder_proof" in loop.get("dominant_categories", []) and undeveloped_drafts < 6
+
+    if stale_mix:
+        print("  ℹ️  Ideas bank is repetitive — forcing a diversity refill")
+    if undeveloped_drafts < 3 or stale_mix:
+        print(f"  ℹ️  Ideas bank needs refresh ({undeveloped_drafts} usable drafts)")
+        _generate_new_ideas(
+            secrets,
+            ideas_data,
+            ideas_file,
+            force=stale_mix,
+            reason="stale_mix" if stale_mix else "bank_low",
+        )
 
 
 def check_direction(secrets: dict):
@@ -836,7 +1292,13 @@ def _sync_ideas_to_db() -> None:
                 "angle":        idea.get("angle", ""),
                 "copy":         idea.get("copy", ""),
                 "status":       idea.get("status", "draft"),
+                "source":       idea.get("source", "marketing_bot"),
+                "notes":        idea.get("notes", ""),
+                "tags":         _serialise_tags(idea.get("tags", [])),
+                "photo_id":     idea.get("photo_id"),
                 "developed_into": idea.get("developed_into") or "",
+                "added_at":     idea.get("added", idea.get("created", datetime.now(timezone.utc).date().isoformat())),
+                "green_lit_at": idea.get("green_lit") or idea.get("green_lit_at"),
             })
         print(f"  🔄 Synced {len(ideas)} ideas → DB")
     except Exception as e:
