@@ -17,7 +17,7 @@ python3 scripts/battleship_pipeline.py [command]
 | **Dashboard (phone / local WiFi)** | http://Mac-mini.local:5100 |
 | **Business Manager** | http://localhost:5100/business |
 | **Business Manager (external)** | https://webhook.battleshipreset.com/business |
-| **Read-only snapshot** | https://webhook.battleshipreset.com/snapshot?token=bsr2026 |
+| **Read-only snapshot** | Signed `/snapshot` URL only (`SNAPSHOT_SECRET`; set `SNAPSHOT_ALLOW_REMOTE=1` for tunnel access) |
 | **Webhook endpoint** | https://webhook.battleshipreset.com/tally-webhook |
 | **Website** | https://battleshipreset.com |
 | **Intake form** | https://tally.so/r/rjK752 |

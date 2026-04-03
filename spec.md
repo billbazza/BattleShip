@@ -80,7 +80,7 @@ Client replies "I'm in" → flagged in dashboard for Phase 2 setup
 | State | `clients/state.json` | All client records — gitignored |
 | Dashboard | Flask (`scripts/app.py`) | localhost:5100, auto-starts via LaunchAgent |
 | Business Manager | Flask `/business` | KPIs, charts, arc timeline, SEO progress, tech backlog |
-| External snapshot | Flask `/snapshot?token=bsr2026` | Read-only view via Cloudflare tunnel |
+| External snapshot | Flask `/snapshot?expires=...&sig=...` | Read-only view via Cloudflare tunnel; HMAC-signed, short-lived, env-gated |
 | Cron | Every 2 hours | `0 */2 * * *` — battleship_pipeline.py (includes orchestrator) |
 | Repo | github.com/billbazza/BattleShip | `clients/`, secrets, and images gitignored |
 
@@ -230,7 +230,7 @@ Runs at `http://localhost:5100`. Auto-starts via LaunchAgent.
 | `/` | Dashboard — system status panel + all clients |
 | `/client/<acct>` | Client detail — meta, actions, tracker, plan, diagnosis, event log |
 | `/business` | Business Manager — KPIs, revenue chart, funnel, arc timeline, SEO, tech backlog |
-| `/snapshot?token=bsr2026` | Read-only external snapshot (via Cloudflare tunnel) |
+| `/snapshot?expires=...&sig=...` | Read-only external snapshot (via Cloudflare tunnel when `SNAPSHOT_ALLOW_REMOTE=1`) |
 | `/run` | Run pipeline manually, see output |
 | `/api/status` | JSON health check for all services |
 | `/tally-webhook` | Receives Tally form submissions (POST, signature-verified) |
@@ -369,5 +369,5 @@ Loaded into the diagnosis prompt at runtime. Defines:
 | Phase 2 Stripe product (£79/month) | Medium | Create when first Phase 2 client ready |
 | Founding member £199 Stripe link | Medium | For early-bird positioning |
 | Register as sole trader with HMRC | High | gov.uk — free, 10 mins |
-| Dashboard external auth | Low | `/business` and `/snapshot` currently unprotected — token on snapshot is minimal. Flagged in tech backlog. |
+| Dashboard external auth | Medium | `/snapshot` now requires `SNAPSHOT_SECRET` + signed expiry and can be remote-disabled unless `SNAPSHOT_ALLOW_REMOTE=1`; `/business` still needs protection. |
 | Tally webhook signing secret | Low | Add to `~/.battleship.env` once visible in Tally → Integrations → Webhooks |

@@ -67,7 +67,11 @@ STATUS_COLOUR = {
 
 ENV_FILE  = Path.home() / ".battleship.env"
 LOG_FILE  = VAULT_ROOT / "logs" / "pipeline.log"
+SNAPSHOT_AUDIT_LOG = VAULT_ROOT / "logs" / "snapshot_access.log"
 CRON_TAG  = "battleship_pipeline"
+SNAPSHOT_REMOTE_ENV = "SNAPSHOT_ALLOW_REMOTE"
+SNAPSHOT_SECRET_ENV = "SNAPSHOT_SECRET"
+SNAPSHOT_MAX_TTL_SECONDS = 900
 
 def _read_env() -> dict:
     if not ENV_FILE.exists():
@@ -78,6 +82,90 @@ def _read_env() -> dict:
             k, _, v = line.partition("=")
             out[k.strip()] = v.strip()
     return out
+
+
+def _runtime_env() -> dict:
+    env = _read_env()
+    env.update({k: v for k, v in os.environ.items() if v is not None})
+    return env
+
+
+def _env_flag(name: str, default: bool = False, env: dict | None = None) -> bool:
+    value = (env or _runtime_env()).get(name)
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _snapshot_secret(env: dict | None = None) -> str:
+    return ((env or _runtime_env()).get(SNAPSHOT_SECRET_ENV) or "").strip()
+
+
+def _snapshot_signature(expires: int, secret: str, path: str = "/snapshot") -> str:
+    payload = f"{path}:{expires}".encode("utf-8")
+    return hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+
+def _snapshot_client_ip() -> str:
+    forwarded = request.headers.get("CF-Connecting-IP") or request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or ""
+
+
+def _is_local_snapshot_request() -> bool:
+    host = (request.host or "").split(":", 1)[0].lower()
+    return host in {"localhost", "127.0.0.1", "::1", "mac-mini.local"}
+
+
+def _log_snapshot_access(allowed: bool, reason: str, expires: int | None = None):
+    SNAPSHOT_AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "allowed": allowed,
+        "reason": reason,
+        "host": request.host,
+        "path": request.path,
+        "method": request.method,
+        "client_ip": _snapshot_client_ip(),
+        "remote_addr": request.remote_addr,
+        "user_agent": request.headers.get("User-Agent", ""),
+        "expires": expires,
+    }
+    with SNAPSHOT_AUDIT_LOG.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry, sort_keys=True) + "\n")
+
+
+def _verify_snapshot_request() -> tuple[bool, str, int | None]:
+    env = _runtime_env()
+    if not _env_flag(SNAPSHOT_REMOTE_ENV, default=False, env=env) and not _is_local_snapshot_request():
+        return False, "remote_disabled", None
+
+    secret = _snapshot_secret(env)
+    if not secret:
+        return False, "secret_missing", None
+
+    expires_raw = (request.args.get("expires") or "").strip()
+    sig = (request.args.get("sig") or "").strip().lower()
+    if not expires_raw or not sig:
+        return False, "missing_signature", None
+
+    try:
+        expires = int(expires_raw)
+    except ValueError:
+        return False, "invalid_expiry", None
+
+    now = int(datetime.now(timezone.utc).timestamp())
+    if expires < now:
+        return False, "expired", expires
+    if expires - now > SNAPSHOT_MAX_TTL_SECONDS:
+        return False, "expiry_too_far", expires
+
+    expected = _snapshot_signature(expires, secret, path=request.path)
+    if not hmac.compare_digest(sig, expected):
+        return False, "bad_signature", expires
+
+    return True, "authorized", expires
 
 
 def _anthropic_api_key(env: dict | None = None) -> str:
@@ -5432,22 +5520,7 @@ def api_idea_green_light(idea_id):
 @app.route("/api/ideas-bank/<idea_id>/archive", methods=["POST"])
 def api_idea_archive(idea_id):
     db.set_idea_status(idea_id, "archived")
-<<<<<<< Updated upstream
     _upsert_idea_in_json(idea_id, {"status": "archived"})
-=======
-    # Also update ideas-bank.json so _sync_ideas_to_db() doesn't resurrect it
-    try:
-        ideas_file = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
-        if ideas_file.exists():
-            data = json.loads(ideas_file.read_text())
-            for idea in data.get("ideas", []):
-                if idea.get("id") == idea_id:
-                    idea["status"] = "archived"
-                    break
-            ideas_file.write_text(json.dumps(data, indent=2))
-    except Exception:
-        pass
->>>>>>> Stashed changes
     return jsonify({"status": "archived"})
 
 
@@ -5616,12 +5689,15 @@ def business():
 
 @app.route("/snapshot")
 def snapshot():
-    token = request.args.get("token", "")
-    if token != "bsr2026":
-        return Response("403 Forbidden", status=403, mimetype="text/plain")
+    allowed, reason, expires = _verify_snapshot_request()
+    if not allowed:
+        _log_snapshot_access(False, reason, expires=expires)
+        status = 404 if reason == "remote_disabled" else 403
+        return Response("403 Forbidden", status=status, mimetype="text/plain")
     ctx = _build_business_context()
     ctx["is_snapshot"]  = True
     ctx["snapshot_ts"]  = datetime.now().strftime("%Y-%m-%d %H:%M")
+    _log_snapshot_access(True, reason, expires=expires)
     return render_template_string(BUSINESS_PAGE, **ctx)
 
 
