@@ -11,6 +11,7 @@ import sqlite3
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+import os
 
 VAULT_ROOT = Path(__file__).parent.parent
 DB_FILE    = VAULT_ROOT / "clients" / "battleship.db"
@@ -22,6 +23,11 @@ ACTIVE_POST_STAGE_RANK = {
     "content_review": 2,
     "awaiting_graphic": 1,
     "marketing_review": 0,
+}
+_MEDIA_FIELDS_BY_TABLE = {
+    "content_posts": ("image_path",),
+    "photo_candidates": ("path",),
+    "guides": ("pdf_path",),
 }
 
 
@@ -258,6 +264,104 @@ def _new_id(prefix: str = "") -> str:
     return prefix + uuid.uuid4().hex[:8]
 
 
+def _as_posix_rel(path: Path) -> str:
+    return path.as_posix().lstrip("/")
+
+
+def normalize_media_ref(value: str | os.PathLike | None) -> str:
+    """Store repo-owned media references as repo-relative keys, not absolute paths."""
+    if value in (None, ""):
+        return ""
+
+    raw = str(value).strip()
+    if not raw:
+        return ""
+
+    candidate = Path(raw).expanduser()
+
+    if candidate.is_absolute():
+        try:
+            return _as_posix_rel(candidate.resolve(strict=False).relative_to(VAULT_ROOT.resolve()))
+        except ValueError:
+            pass
+
+        marker = f"{VAULT_ROOT.name}/"
+        marker_idx = raw.replace("\\", "/").find(marker)
+        if marker_idx >= 0:
+            return raw.replace("\\", "/")[marker_idx + len(marker):].lstrip("/")
+
+        return raw
+
+    normalized = raw.replace("\\", "/").lstrip("./")
+    if normalized.startswith(VAULT_ROOT.name + "/"):
+        normalized = normalized[len(VAULT_ROOT.name) + 1:]
+    return normalized
+
+
+def resolve_media_path(value: str | os.PathLike | None) -> Path | None:
+    """Resolve a stored media reference to an absolute filesystem path at runtime."""
+    if value in (None, ""):
+        return None
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    candidate = Path(raw).expanduser()
+    if candidate.is_absolute():
+        normalized = normalize_media_ref(raw)
+        if normalized != raw:
+            return VAULT_ROOT / normalized
+        return candidate
+
+    return VAULT_ROOT / normalize_media_ref(raw)
+
+
+def to_brand_asset_path(value: str | os.PathLike | None) -> str:
+    """Return the path segment expected by `/brand/<path:...>` or empty if not a brand asset."""
+    rel = normalize_media_ref(value)
+    if not rel.startswith("brand/"):
+        return ""
+    return rel[len("brand/"):]
+
+
+def _normalize_media_fields(fields: dict, table: str) -> dict:
+    media_fields = _MEDIA_FIELDS_BY_TABLE.get(table, ())
+    if not media_fields:
+        return fields
+
+    normalized = dict(fields)
+    for key in media_fields:
+        if key in normalized:
+            normalized[key] = normalize_media_ref(normalized[key])
+    return normalized
+
+
+def _normalize_row_media_refs(table: str, row: dict) -> dict:
+    media_fields = _MEDIA_FIELDS_BY_TABLE.get(table, ())
+    if not row or not media_fields:
+        return row
+
+    normalized = dict(row)
+    dirty = False
+    for key in media_fields:
+        if key not in normalized:
+            continue
+        value = normalized.get(key, "")
+        new_value = normalize_media_ref(value)
+        if new_value != value:
+            normalized[key] = new_value
+            dirty = True
+
+    if dirty and normalized.get("id"):
+        sets = ", ".join(f"{key}=?" for key in media_fields if key in normalized)
+        values = [normalized[key] for key in media_fields if key in normalized]
+        with _conn() as con:
+            con.execute(f"UPDATE {table} SET {sets} WHERE id=?", [*values, normalized["id"]])
+
+    return normalized
+
+
 # ── Ideas ──────────────────────────────────────────────────────────────────────
 
 def get_ideas(status: str | None = None) -> list[dict]:
@@ -331,7 +435,7 @@ def get_posts(stage: str | None = None) -> list[dict]:
             rows = con.execute(
                 "SELECT * FROM content_posts ORDER BY created_at DESC"
             ).fetchall()
-    return _rows_to_list(rows)
+    return [_normalize_row_media_refs("content_posts", dict(r)) for r in rows]
 
 
 def count_pending_posts_for_arc(arc_phase: int) -> int:
@@ -348,7 +452,7 @@ def count_pending_posts_for_arc(arc_phase: int) -> int:
 def get_post(post_id: str) -> dict | None:
     with _conn() as con:
         row = con.execute("SELECT * FROM content_posts WHERE id=?", (post_id,)).fetchone()
-    return _row_to_dict(row)
+    return _normalize_row_media_refs("content_posts", _row_to_dict(row))
 
 
 def get_active_post_for_idea(idea_id: str) -> dict | None:
@@ -369,10 +473,11 @@ def get_active_post_for_idea(idea_id: str) -> dict | None:
             "LIMIT 1",
             (idea_id,),
         ).fetchone()
-    return _row_to_dict(row) if row else None
+    return _normalize_row_media_refs("content_posts", _row_to_dict(row)) if row else None
 
 
 def insert_post(fields: dict):
+    fields = _normalize_media_fields(fields, "content_posts")
     if "id" not in fields:
         fields["id"] = _new_id("cr_")
     if "created_at" not in fields:
@@ -390,10 +495,10 @@ def insert_post(fields: dict):
                     (fields["idea_id"],),
                 ).fetchone()
                 if row:
-                    return dict(row)
+                    return _normalize_row_media_refs("content_posts", dict(row))
             raise
         row = con.execute("SELECT * FROM content_posts WHERE id=?", (fields["id"],)).fetchone()
-    return dict(row) if row else None
+    return _normalize_row_media_refs("content_posts", dict(row)) if row else None
 
 
 def ensure_active_post(fields: dict, update_existing: dict | None = None) -> tuple[dict, bool]:
@@ -428,6 +533,7 @@ def ensure_active_post(fields: dict, update_existing: dict | None = None) -> tup
 
 
 def update_post(post_id: str, fields: dict):
+    fields = _normalize_media_fields(fields, "content_posts")
     sets = ", ".join(f"{k}=?" for k in fields)
     with _conn() as con:
         con.execute(f"UPDATE content_posts SET {sets} WHERE id=?",
@@ -590,7 +696,7 @@ def mark_email_rejected(eq_id: str):
 def get_photo_candidate(photo_id: str) -> dict | None:
     with _conn() as con:
         row = con.execute("SELECT * FROM photo_candidates WHERE id=?", (photo_id,)).fetchone()
-    return _row_to_dict(row) or None
+    return _normalize_row_media_refs("photo_candidates", _row_to_dict(row)) or None
 
 
 def get_pending_photos() -> list[dict]:
@@ -598,10 +704,11 @@ def get_pending_photos() -> list[dict]:
         rows = con.execute(
             "SELECT * FROM photo_candidates WHERE status='pending' ORDER BY created_at DESC"
         ).fetchall()
-    return _rows_to_list(rows)
+    return [_normalize_row_media_refs("photo_candidates", dict(r)) for r in rows]
 
 
 def insert_photo_candidate(fields: dict) -> str:
+    fields = _normalize_media_fields(fields, "photo_candidates")
     pid = fields.get("id") or _new_id("ph_")
     fields["id"] = pid
     if "created_at" not in fields:
@@ -677,6 +784,7 @@ def get_learnings(source: str | None = None) -> list[dict]:
 # ── Guides ─────────────────────────────────────────────────────────────────────
 
 def upsert_guide(fields: dict):
+    fields = _normalize_media_fields(fields, "guides")
     if "id" not in fields:
         fields["id"] = _new_id("guide_")
     cols = ", ".join(fields.keys())
@@ -698,13 +806,13 @@ def get_guides(status: str | None = None) -> list[dict]:
             rows = con.execute(
                 "SELECT * FROM guides ORDER BY created_at DESC"
             ).fetchall()
-    return _rows_to_list(rows)
+    return [_normalize_row_media_refs("guides", dict(r)) for r in rows]
 
 
 def get_guide(guide_id: str) -> dict | None:
     with _conn() as con:
         row = con.execute("SELECT * FROM guides WHERE id=?", (guide_id,)).fetchone()
-    return _row_to_dict(row)
+    return _normalize_row_media_refs("guides", _row_to_dict(row))
 
 
 def insert_guide_sale(fields: dict) -> str:

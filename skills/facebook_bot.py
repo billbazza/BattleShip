@@ -602,8 +602,16 @@ def cross_post_to_instagram(content: str, image_path: str | None, secrets: dict)
     import re as _re
     caption = _re.sub(r'\*\*(.+?)\*\*', r'\1', content)[:2200]
 
-    if image_path and Path(image_path).exists():
-        image_url = _upload_photo_get_url(Path(image_path), secrets)
+    resolved_path = None
+    if image_path:
+        try:
+            import scripts.db as _db
+            resolved_path = _db.resolve_media_path(image_path)
+        except Exception:
+            resolved_path = Path(image_path)
+
+    if resolved_path and resolved_path.exists():
+        image_url = _upload_photo_get_url(resolved_path, secrets)
         if not image_url:
             print("  ⚠️  Instagram cross-post: could not get CDN URL for image")
             return ""

@@ -60,6 +60,28 @@ def run_pipeline(*args) -> str:
     )
     return (result.stdout + result.stderr).strip()
 
+
+def _media_abs_path(ref: str | None) -> Path | None:
+    return db.resolve_media_path(ref)
+
+
+def _brand_asset_url(ref: str | None) -> str:
+    asset_path = db.to_brand_asset_path(ref)
+    return f"/brand/{asset_path}" if asset_path else ""
+
+
+def _decorate_post_media(post: dict) -> dict:
+    item = dict(post)
+    item["image_url"] = _brand_asset_url(item.get("image_path", ""))
+    return item
+
+
+def _decorate_photo_candidate(photo: dict) -> dict:
+    item = dict(photo)
+    item["path_abs"] = str(_media_abs_path(item.get("path", "")) or "")
+    item["url"] = item.get("url") or _brand_asset_url(item.get("path", ""))
+    return item
+
 STATUS_COLOUR = {
     "diagnosed": "#e8a020",
     "active":    "#2a9d4e",
@@ -2212,8 +2234,8 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           <span style="color:#333;font-size:11px;flex-shrink:0;margin-top:1px">›</span>
         </div>
         <div class="card-expand" id="expand-cr-{{ post.id }}" style="display:none;border-top:1px solid #1a1a1a;padding:9px">
-          {% if post.image_path %}
-          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:140px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
+          {% if post.image_url %}
+          <img src="{{ post.image_url }}" style="width:100%;max-height:140px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
           {% endif %}
           <div id="cr-copy-view-{{ post.id }}" style="font-size:12px;color:#aaa;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:8px;max-height:180px;overflow-y:auto;line-height:1.6">{{ post.content }}</div>
           <div id="crv-edit-wrap-{{ post.id }}" style="display:none;margin-bottom:8px">
@@ -2260,8 +2282,8 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       {% for post in fb_queued_posts %}
       <div id="pq-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:7px;overflow:hidden">
         <div onclick="toggleCard('pq-{{ post.id }}')" style="padding:9px;cursor:pointer;display:flex;gap:8px;align-items:center">
-          {% if post.image_path %}
-          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:36px;height:36px;object-fit:cover;border-radius:2px;flex-shrink:0;border:1px solid #222" onerror="this.style.display='none'">
+          {% if post.image_url %}
+          <img src="{{ post.image_url }}" style="width:36px;height:36px;object-fit:cover;border-radius:2px;flex-shrink:0;border:1px solid #222" onerror="this.style.display='none'">
           {% endif %}
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:5px">
@@ -2272,8 +2294,8 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           </div>
         </div>
         <div class="card-expand" id="expand-pq-{{ post.id }}" style="display:none;border-top:1px solid #1e1e1e;padding:9px">
-          {% if post.image_path %}
-          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:140px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
+          {% if post.image_url %}
+          <img src="{{ post.image_url }}" style="width:100%;max-height:140px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
           {% endif %}
           <div style="font-size:12px;color:#aaa;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:8px;max-height:160px;overflow-y:auto;line-height:1.6">{{ post.content }}</div>
           <button onclick="unqueuePost('{{ post.id }}')" style="width:100%;background:none;border:1px solid #333;color:#555;padding:4px 0;border-radius:3px;font-size:10px;cursor:pointer">← Return to review</button>
@@ -2293,8 +2315,8 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       {% for post in posted_posts[:10] %}
       <div id="pp-{{ post.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:5px;overflow:hidden;opacity:0.85">
         <div onclick="toggleCard('pp-{{ post.id }}')" style="padding:8px 9px;cursor:pointer;display:flex;gap:8px;align-items:center">
-          {% if post.image_path %}
-          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:32px;height:32px;object-fit:cover;border-radius:2px;flex-shrink:0;border:1px solid #222" onerror="this.style.display='none'">
+          {% if post.image_url %}
+          <img src="{{ post.image_url }}" style="width:32px;height:32px;object-fit:cover;border-radius:2px;flex-shrink:0;border:1px solid #222" onerror="this.style.display='none'">
           {% endif %}
           <div style="flex:1;min-width:0">
             <div style="color:#444;font-size:10px">{{ post.posted_at[:10] if post.posted_at else (post.created_at[:10] if post.created_at else '—') }}</div>
@@ -2302,8 +2324,8 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           </div>
         </div>
         <div class="card-expand" id="expand-pp-{{ post.id }}" style="display:none;border-top:1px solid #1a1a1a;padding:9px">
-          {% if post.image_path %}
-          <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:100%;max-height:120px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
+          {% if post.image_url %}
+          <img src="{{ post.image_url }}" style="width:100%;max-height:120px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
           {% endif %}
           <div style="font-size:12px;color:#888;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:6px;max-height:150px;overflow-y:auto;line-height:1.6">{{ post.content }}</div>
           {% if post.fb_post_id %}
@@ -3988,7 +4010,7 @@ def stripe_guide_webhook():
             return jsonify({"ok": True, "matched": False}), 200
 
         guide_id = matched_guide["id"]
-        pdf_path = Path(matched_guide.get("pdf_path", ""))
+        pdf_path = _media_abs_path(matched_guide.get("pdf_path", ""))
 
         # Record the sale
         db.insert_guide_sale({
@@ -4002,7 +4024,7 @@ def stripe_guide_webhook():
         print(f"  💰 Guide sale: {matched_guide['title']} → {customer_email} (£{amount/100:.2f})")
 
         # Email the PDF to the buyer
-        if customer_email and pdf_path.exists():
+        if customer_email and pdf_path and pdf_path.exists():
             smtp_host = env.get("SMTP_HOST", "")
             smtp_user = env.get("SMTP_USER", "")
             smtp_pass = env.get("SMTP_PASS", "")
@@ -4381,8 +4403,8 @@ def _build_business_context():
     pending_emails    = db.get_pending_emails()
     pending_reminders = db.get_reminders(status="pending")
     pivot_notes       = db.get_pivot_notes()
-    pending_photos    = db.get_pending_photos()
-    pending_content   = db.get_posts(stage="content_review")
+    pending_photos    = [_decorate_photo_candidate(p) for p in db.get_pending_photos()]
+    pending_content   = [_decorate_post_media(p) for p in db.get_posts(stage="content_review")]
     ideas_drafts      = db.get_ideas(status="draft")
     all_ideas         = db.get_ideas()
 
@@ -4452,13 +4474,12 @@ def _build_business_context():
                 _best_score = _score
                 _best_id = _key
         if _best_id:
-            _img_path = str(VAULT_ROOT / "brand" / _best_id)
             db.advance_post_stage(_post["id"], "content_review", {
-                "image_path": _img_path,
+                "image_path": f"brand/{_best_id}",
                 "reviewed_at": db._now()
             })
 
-    all_content       = db.get_posts()
+    all_content       = [_decorate_post_media(p) for p in db.get_posts()]
     queue_settings    = db.get_queue_settings()
 
     # Pipeline stage counts
@@ -4470,7 +4491,7 @@ def _build_business_context():
         "posted":           len(db.get_posts(stage="posted")),
         "pending_emails":   len(pending_emails),
     }
-    fb_queued_posts   = db.get_posts(stage="fb_queue")
+    fb_queued_posts   = [_decorate_post_media(p) for p in db.get_posts(stage="fb_queue")]
 
     # ── Roadmap ───────────────────────────────────────────────────────────────
     roadmap_items = []
@@ -4552,7 +4573,7 @@ def _build_business_context():
     catalogue_stats = {"total": 0, "best": 0, "good": 0, "usable": 0, "pending_review_photos": len(pending_photos)}
     catalogue_photos = []  # list of dicts for display in Brand Manager
     # Build set of used image paths from all posts
-    used_paths = {p.get("image_path","") for p in db.get_posts() if p.get("image_path")}
+    used_paths = {p.get("image_path", "") for p in db.get_posts() if p.get("image_path")}
     if catalogue_file.exists():
         cat = json.loads(catalogue_file.read_text())
         catalogue_stats["total"] = len(cat)
@@ -4560,8 +4581,8 @@ def _build_business_context():
             q = v.get("quality", "usable")
             if q in catalogue_stats:
                 catalogue_stats[q] += 1
-            full_path = str(VAULT_ROOT / "brand" / key)
-            use_count = sum(1 for p in used_paths if key in p or p == full_path)
+            full_path = f"brand/{key}"
+            use_count = sum(1 for p in used_paths if p == full_path)
             catalogue_photos.append({
                 "key": key,
                 "url": "/brand/" + key,
@@ -4586,7 +4607,13 @@ def _build_business_context():
         "count": len(_all_guides),
         "published": sum(1 for g in _all_guides if g.get("status") == "published"),
         "total_revenue_gbp": db.get_guide_revenue_total() / 100.0,
-        "guides": _all_guides,
+        "guides": [
+            {
+                **g,
+                "pdf_path_abs": str(_media_abs_path(g.get("pdf_path", "")) or ""),
+            }
+            for g in _all_guides
+        ],
     }
 
     # ── Orchestrator last-run times ───────────────────────────────────────────
@@ -4743,11 +4770,12 @@ def telegram_webhook():
                     c["review_source"] = "telegram"
                     filename           = c.get("filename", photo_id)
                     # Queue for Facebook posting
-                    if c.get("path") and Path(c["path"]).exists():
+                    c_path = _media_abs_path(c.get("path"))
+                    if c_path and c_path.exists():
                         import uuid as _uuid
                         queue_dir = VAULT_ROOT / "clients" / "facebook_queue"
                         queue_dir.mkdir(parents=True, exist_ok=True)
-                        q = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": c["path"],
+                        q = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": db.normalize_media_ref(c.get("path", "")),
                              "caption": c.get("caption_hint", ""), "source": "telegram_review",
                              "queued_at": datetime.now().isoformat(), "status": "pending"}
                         (queue_dir / f"photo_{photo_id}.json").write_text(json.dumps(q, indent=2))
@@ -4846,10 +4874,11 @@ Never say you can't do something — figure out the best response with the data 
             if any(w in tl for w in ("approve", "post it", "yes", "queue")) and pend_photos:
                 c = pend_photos[0]
                 c["status"] = "approved"; c["reviewed_at"] = datetime.now().isoformat(); c["review_source"] = "claude_tg"
-                if c.get("path") and Path(c["path"]).exists():
+                c_path = _media_abs_path(c.get("path"))
+                if c_path and c_path.exists():
                     import uuid as _uuid
                     qd = VAULT_ROOT / "clients" / "facebook_queue"; qd.mkdir(parents=True, exist_ok=True)
-                    q  = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": c["path"], "caption": c.get("caption_hint",""), "source":"claude_tg", "queued_at": datetime.now().isoformat(), "status":"pending"}
+                    q  = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": db.normalize_media_ref(c.get("path", "")), "caption": c.get("caption_hint",""), "source":"claude_tg", "queued_at": datetime.now().isoformat(), "status":"pending"}
                     (qd / f"photo_{c['id']}.json").write_text(json.dumps(q, indent=2))
                 PHOTO_REVIEW_FILE.write_text(json.dumps(pr, indent=2))
 
@@ -4945,13 +4974,13 @@ def api_photos_scan():
     existing = {p["path"] for p in db.get_pending_photos()}
     # Also check non-pending ones via a broader query
     with db._conn() as con:
-        all_paths = {r[0] for r in con.execute("SELECT path FROM photo_candidates").fetchall()}
+        all_paths = {db.normalize_media_ref(r[0]) for r in con.execute("SELECT path FROM photo_candidates").fetchall() if r[0]}
 
     added = 0
     for img in sorted(snap_dir.iterdir()):
         if img.is_dir() or img.suffix not in IMG_EXTS:
             continue
-        full_path = str(img)
+        full_path = db.normalize_media_ref(img)
         if full_path in all_paths:
             continue
         url = "/brand/random-snaps/" + _quote(img.name)
@@ -5008,8 +5037,9 @@ def api_content_post_now(cr_id):
                    ["FB_PAGE_ACCESS_TOKEN", "FB_PAGE_ID", "IG_USER_ID",
                     "FB_USER_TOKEN", "FB_SYSTEM_TOKEN"]}
         image_path = post.get("image_path", "")
-        if image_path and Path(image_path).exists():
-            fb_id = _post_photo(Path(image_path), post["content"], secrets)
+        image_abs_path = _media_abs_path(image_path)
+        if image_abs_path and image_abs_path.exists():
+            fb_id = _post_photo(image_abs_path, post["content"], secrets)
         else:
             fb_id = _post_live_fn(post["content"], secrets)
         db.advance_post_stage(cr_id, "posted", {
@@ -5154,8 +5184,8 @@ def api_content_swap_photo(cr_id):
     body = request.get_json(silent=True) or {}
     photo_id = body.get("photo_id", "")
     # photo_id is a catalogue key or random-snaps relative path
-    abs_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
-    db.update_post(cr_id, {"image_path": abs_path})
+    image_ref = f"brand/{photo_id}" if photo_id else ""
+    db.update_post(cr_id, {"image_path": image_ref})
     return jsonify({"ok": True})
 
 
@@ -5517,7 +5547,7 @@ def api_idea_green_light(idea_id):
     # If idea has pre-written copy (will_submitted), skip Claude generation
     # and go straight to content_review
     if idea.get("copy"):
-        img_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
+        img_path = f"brand/{photo_id}" if photo_id else ""
         if existing_post:
             if img_path and existing_post.get("image_path") != img_path:
                 db.update_post(existing_post["id"], {"image_path": img_path})
@@ -5606,7 +5636,7 @@ def api_idea_approve(idea_id):
         post = existing
         return jsonify({"status": "exists", "post_id": post["id"], "stage": post["stage"]})
     photo_id   = idea.get("photo_id", "")
-    image_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
+    image_path = f"brand/{photo_id}" if photo_id else ""
     post, _created = db.ensure_active_post({
         "idea_id":       idea_id,
         "theme":         idea.get("title", ""),

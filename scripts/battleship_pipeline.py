@@ -3575,9 +3575,9 @@ def main():
         else:
             try:
                 img = today_post.get("image_path", "")
-                from pathlib import Path as _Path
-                if img and _Path(img).exists():
-                    fb_id = _post_photo(_Path(img), today_post["content"], secrets)
+                img_path = _db.resolve_media_path(img)
+                if img_path and img_path.exists():
+                    fb_id = _post_photo(img_path, today_post["content"], secrets)
                 else:
                     fb_id = _post_live(today_post["content"], secrets)
                 _db.advance_post_stage(today_post["id"], "posted", {
@@ -3694,10 +3694,11 @@ def main():
                             c["reviewed_at"] = datetime.now().isoformat()
                             c["review_source"] = "telegram"
                             # Queue for Facebook posting
-                            if c.get("path") and Path(c["path"]).exists():
+                            c_path = _db.resolve_media_path(c.get("path"))
+                            if c_path and c_path.exists():
                                 queue_dir.mkdir(parents=True, exist_ok=True)
                                 import uuid as _uuid
-                                q = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": c["path"],
+                                q = {"id": "fq_" + _uuid.uuid4().hex[:8], "image_path": _db.normalize_media_ref(c.get("path", "")),
                                      "caption": c.get("caption_hint", ""), "source": "telegram_review",
                                      "queued_at": datetime.now().isoformat(), "status": "pending"}
                                 (queue_dir / f"photo_{photo_id}.json").write_text(json.dumps(q, indent=2))
