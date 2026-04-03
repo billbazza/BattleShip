@@ -238,6 +238,14 @@ def upsert_idea(fields: dict):
         con.execute(sql, list(fields.values()))
 
 
+def update_idea(idea_id: str, fields: dict):
+    if not fields:
+        return
+    sets = ", ".join(f"{k}=?" for k in fields)
+    with _conn() as con:
+        con.execute(f"UPDATE ideas SET {sets} WHERE id=?", [*fields.values(), idea_id])
+
+
 def set_idea_status(idea_id: str, status: str, extra: dict | None = None):
     fields = {"status": status, **(extra or {})}
     sets = ", ".join(f"{k}=?" for k in fields)

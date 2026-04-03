@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -5487,7 +5488,9 @@ def api_idea_edit_copy(idea_id):
     copy = body.get("copy", "").strip()
     if not copy:
         return jsonify({"error": "copy is required"}), 400
-    db.upsert_idea({"id": idea_id, "copy": copy})
+    if not db.get_idea(idea_id):
+        return jsonify({"error": "not found"}), 404
+    db.update_idea(idea_id, {"copy": copy})
     _upsert_idea_in_json(idea_id, {"copy": copy})
     return jsonify({"status": "updated"})
 
@@ -5543,7 +5546,7 @@ def api_idea_suggest_photo(idea_id):
     if not best_id:
         return jsonify({"error": "no photos available"}), 404
 
-    db.upsert_idea({"id": idea_id, "photo_id": best_id})
+    db.update_idea(idea_id, {"photo_id": best_id})
     _upsert_idea_in_json(idea_id, {"photo_id": best_id})
     from urllib.parse import quote as _q
     url = "/brand/" + "/".join(_q(p) for p in best_id.split("/"))
