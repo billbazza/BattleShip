@@ -226,12 +226,41 @@ def _make_post_image(post_text: str, theme: str, secrets: dict) -> Path | None:
 
 def _load_schedule() -> dict:
     if SCHEDULE_FILE.exists():
-        return json.loads(SCHEDULE_FILE.read_text())
-    return {"posted_dates": [], "theme_index": 0, "replied_comments": [], "replied_dms": []}
+        schedule = json.loads(SCHEDULE_FILE.read_text())
+    else:
+        schedule = {}
+    schedule.setdefault("posted_dates", [])
+    schedule.setdefault("theme_index", 0)
+    schedule.setdefault("replied_comments", [])
+    schedule.setdefault("replied_dms", [])
+    return schedule
 
 
 def _save_schedule(s: dict):
     SCHEDULE_FILE.write_text(json.dumps(s, indent=2))
+
+
+def _has_posted_date(schedule: dict, date_key: str) -> bool:
+    return date_key in schedule.get("posted_dates", [])
+
+
+def _mark_posted_date(schedule: dict, date_key: str) -> bool:
+    if _has_posted_date(schedule, date_key):
+        return False
+    schedule.setdefault("posted_dates", []).append(date_key)
+    return True
+
+
+def was_posted_on(date_key: str) -> bool:
+    return _has_posted_date(_load_schedule(), date_key)
+
+
+def record_posted_date(date_key: str) -> bool:
+    schedule = _load_schedule()
+    changed = _mark_posted_date(schedule, date_key)
+    if changed:
+        _save_schedule(schedule)
+    return changed
 
 
 # ── Graph API helpers ──────────────────────────────────────────────────────────
@@ -305,27 +334,15 @@ def _send_dm(recipient_id: str, message: str, secrets: dict):
 # ── Core jobs ──────────────────────────────────────────────────────────────────
 
 def post_scheduled_content(secrets: dict):
-    """Generate and post one post live on Mon/Wed/Fri. Skips if fb_queue already covers today."""
+    """Generate and post one post live on Mon/Wed/Fri."""
     today = datetime.now(timezone.utc)
     if today.weekday() not in POST_DAYS:
         return
 
     schedule = _load_schedule()
     date_key = today.strftime("%Y-%m-%d")
-    if date_key in schedule["posted_dates"]:
+    if _has_posted_date(schedule, date_key):
         return  # already posted today
-
-    # If the fb_queue auto-poster has a post scheduled for today, let it handle this slot
-    try:
-        import sys as _sys; _sys.path.insert(0, str(VAULT_ROOT))
-        import scripts.db as _db
-        if any(p.get("scheduled_for") == date_key for p in _db.get_posts(stage="fb_queue")):
-            print(f"  ℹ️  FB queue has a post for today — skipping new content generation")
-            schedule["posted_dates"].append(date_key)
-            _save_schedule(schedule)
-            return
-    except Exception:
-        pass
 
     # Pick theme: ~20% chance of SOVEREIGN, never back-to-back with previous SOVEREIGN post
     import random as _random
@@ -380,7 +397,7 @@ def post_scheduled_content(secrets: dict):
     if not _is_live(secrets):
         print(f"  ℹ️  Dev mode — post generated but not sent live (no FB_PAGE_ACCESS_TOKEN)")
         _save_to_content_review(post, theme, status="pending_review", arc_phase=_arc_idx)
-        schedule["posted_dates"].append(date_key)
+        _mark_posted_date(schedule, date_key)
         if not _use_sovereign:
             schedule["theme_index"] = idx + 1
         _save_schedule(schedule)
@@ -414,7 +431,7 @@ def post_scheduled_content(secrets: dict):
         print(f"  ⚠️  Instagram cross-post failed: {e}")
 
     # Write the date guard after successful post
-    schedule["posted_dates"].append(date_key)
+    _mark_posted_date(schedule, date_key)
     if not _use_sovereign:
         schedule["theme_index"] = idx + 1
     _save_schedule(schedule)
@@ -1626,7 +1643,7 @@ if __name__ == "__main__":
             post_id = _post_live(post, secrets)
             _save_to_content_review(post, theme, status="posted", post_id=post_id, arc_phase=_cli_arc)
             print(f"✓ Posted live (ID: {post_id})")
-            schedule["posted_dates"].append(datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+            _mark_posted_date(schedule, datetime.now(timezone.utc).strftime("%Y-%m-%d"))
         else:
             _save_to_content_review(post, theme, status="pending_review", arc_phase=_cli_arc)
         schedule["theme_index"] = idx + 1
