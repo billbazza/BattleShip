@@ -285,8 +285,9 @@ Be direct. No fluff. Talk like a marketing consultant who charges by the insight
 
 def _load_strategy() -> dict:
     if STRATEGY_FILE.exists():
-        return json.loads(STRATEGY_FILE.read_text())
-    return {
+        strategy = json.loads(STRATEGY_FILE.read_text())
+    else:
+        strategy = {
         "campaign_start": datetime.now(timezone.utc).isoformat(),
         "campaign_week": 1,
         "arc_phase_index": 0,
@@ -302,7 +303,16 @@ def _load_strategy() -> dict:
         "daily_reviews": [],
         "flags_sent": [],
         "last_review_date": "",
-    }
+        }
+
+    strategy.setdefault("funnel", {})
+    strategy["funnel"].setdefault("impressions", 0)
+    strategy["funnel"].setdefault("clicks", 0)
+    strategy["funnel"].setdefault("quiz_starts", 0)
+    strategy["funnel"].setdefault("diagnosed", 0)
+    strategy["funnel"].setdefault("paid", 0)
+    strategy["funnel"].setdefault("retained_week4", 0)
+    return strategy
 
 
 def _save_strategy(s: dict):
@@ -901,7 +911,7 @@ def _parse_json_array(raw: str):
 
 
 def _current_arc_phase(strategy: dict) -> dict:
-    week = strategy.get("campaign_week", 1)
+    week = _campaign_week(strategy)
     for phase in ARC_PHASES:
         if week in phase["weeks"]:
             return phase
@@ -912,6 +922,20 @@ def _campaign_week(strategy: dict) -> int:
     start = datetime.fromisoformat(strategy["campaign_start"])
     delta = datetime.now(timezone.utc) - start
     return max(1, min(12, delta.days // 7 + 1))
+
+
+def _funnel_metrics(funnel: dict) -> dict:
+    impressions = int(funnel.get("impressions", 0) or 0)
+    clicks = int(funnel.get("clicks", 0) or 0)
+    quiz = int(funnel.get("diagnosed", 0) or 0)
+    paid = int(funnel.get("paid", 0) or 0)
+    retained = int(funnel.get("retained_week4", 0) or 0)
+    return {
+        "ctr": round(clicks / impressions * 100, 2) if impressions > 0 else 0,
+        "click_to_quiz": round(quiz / clicks * 100, 1) if clicks > 0 else 0,
+        "quiz_to_paid": round(paid / quiz * 100, 1) if quiz > 0 else 0,
+        "paid_retention": round(retained / paid * 100, 1) if paid > 0 else 0,
+    }
 
 
 # ── Funnel tracking ────────────────────────────────────────────────────────────
@@ -1042,7 +1066,7 @@ def run_daily_review(secrets: dict, state: dict):
     # Sync funnel
     update_funnel_from_state(state, strategy)
     update_funnel_from_fb(secrets, strategy)
-    strategy["campaign_week"] = _campaign_week(strategy)
+    campaign_week = _campaign_week(strategy)
 
     # Get recent post performance
     metrics  = _load_metrics()
@@ -1054,8 +1078,7 @@ def run_daily_review(secrets: dict, state: dict):
 
     # Build performance summary for Claude
     funnel   = strategy["funnel"]
-    ctr      = round(funnel["clicks"] / funnel["impressions"] * 100, 2) if funnel["impressions"] > 0 else 0
-    conv_rate = round(funnel["diagnosed"] / funnel["clicks"] * 100, 1) if funnel["clicks"] > 0 else 0
+    rates = _funnel_metrics(funnel)
 
     # Check if ads are intentionally paused
     ads_paused = False
@@ -1072,12 +1095,14 @@ def run_daily_review(secrets: dict, state: dict):
 
     funnel_text = (
         f"Impressions (7d): {funnel['impressions']}\n"
-        f"Clicks (7d): {funnel['clicks']} (CTR: {ctr}%)\n"
+        f"Clicks (7d): {funnel['clicks']} (CTR: {rates['ctr']}%)\n"
         f"Quiz completions / diagnosed: {funnel['diagnosed']}\n"
         f"Paid clients: {funnel['paid']}\n"
         f"Retained to week 4+: {funnel['retained_week4']}\n"
-        f"Quiz → paid conversion: {conv_rate}%\n"
-        f"Campaign week: {strategy['campaign_week']}/12"
+        f"Click → quiz conversion: {rates['click_to_quiz']}%\n"
+        f"Quiz → paid conversion: {rates['quiz_to_paid']}%\n"
+        f"Paid retention (week 4+): {rates['paid_retention']}%\n"
+        f"Campaign week: {campaign_week}/12"
         f"{ads_note}"
     )
 
@@ -1093,7 +1118,7 @@ def run_daily_review(secrets: dict, state: dict):
         funnel_data=funnel_text,
         post_performance=posts_text,
         arc_phase=phase["theme"],
-        campaign_week=strategy["campaign_week"],
+        campaign_week=campaign_week,
         usps=usps_text,
     )
 
@@ -1113,7 +1138,7 @@ def run_daily_review(secrets: dict, state: dict):
     # Plain text
     plain = (
         f"Daily Marketing Review — {today}\n"
-        f"Campaign week {strategy['campaign_week']} · Arc: {phase['theme']}\n\n"
+        f"Campaign week {campaign_week} · Arc: {phase['theme']}\n\n"
         f"FUNNEL\n{funnel_text}\n\n"
         f"STRATEGY ANALYSIS\n{review_text}\n\n"
         f"TOMORROW'S COPY\n"
@@ -1125,10 +1150,13 @@ def run_daily_review(secrets: dict, state: dict):
     funnel_rows = ""
     metrics_data = [
         ("Impressions (7d)", funnel["impressions"], None),
-        ("Clicks", funnel["clicks"], f"CTR {ctr}%"),
+        ("Clicks", funnel["clicks"], f"CTR {rates['ctr']}%"),
         ("Quiz completions", funnel["diagnosed"], None),
         ("Paid clients", funnel["paid"], None),
         ("Retained week 4+", funnel["retained_week4"], None),
+        ("Click → quiz", f"{rates['click_to_quiz']}%", None),
+        ("Quiz → paid", f"{rates['quiz_to_paid']}%", None),
+        ("Paid retention", f"{rates['paid_retention']}%", None),
     ]
     for label, value, sub in metrics_data:
         sub_html = f'<br><span style="font-size:11px;color:#888;">{sub}</span>' if sub else ""
@@ -1154,7 +1182,7 @@ def run_daily_review(secrets: dict, state: dict):
     from scripts.battleship_pipeline import render_internal_email, send_email
     html = render_internal_email(
         title=f"Daily Review — {today}",
-        subtitle=f"Campaign Week {strategy['campaign_week']} · {phase['theme']}",
+        subtitle=f"Campaign Week {campaign_week} · {phase['theme']}",
         sections=[
             {"heading": "Funnel",
              "body": f'<table width="100%" cellpadding="0" cellspacing="0">{funnel_rows}</table>',
@@ -1194,12 +1222,14 @@ def send_weekly_strategy(secrets: dict, state: dict):
 
     update_funnel_from_state(state, strategy)
     update_funnel_from_fb(secrets, strategy)
+    campaign_week = _campaign_week(strategy)
     phase      = _current_arc_phase(strategy)
     next_phase = ARC_PHASES[min(strategy.get("arc_phase_index", 0) + 1, len(ARC_PHASES) - 1)]
 
     funnel  = strategy["funnel"]
+    rates = _funnel_metrics(funnel)
     weekly_target = 1  # clients per week target
-    on_track = funnel["paid"] >= (strategy["campaign_week"] // 4)
+    on_track = funnel["paid"] >= (campaign_week // 4)
 
     # Generate 3 copy variants for next week
     variants = []
@@ -1209,10 +1239,12 @@ def send_weekly_strategy(secrets: dict, state: dict):
 
     plain = (
         f"Weekly Strategy — {today}\n"
-        f"Campaign week {strategy['campaign_week']}\n"
+        f"Campaign week {campaign_week}\n"
         f"On track for 1 client/week: {'YES' if on_track else 'NO — needs attention'}\n\n"
         f"FUNNEL: {funnel['impressions']} impressions → {funnel['clicks']} clicks → "
-        f"{funnel['diagnosed']} quiz → {funnel['paid']} paid\n\n"
+        f"{funnel['diagnosed']} quiz → {funnel['paid']} paid → {funnel['retained_week4']} retained\n"
+        f"CTR: {rates['ctr']}% | Click → quiz: {rates['click_to_quiz']}% | "
+        f"Quiz → paid: {rates['quiz_to_paid']}% | Paid retention: {rates['paid_retention']}%\n\n"
         f"THIS WEEK: {phase['theme']}\n"
         f"NEXT WEEK: {next_phase['theme']}\n\n"
         f"COPY VARIANTS FOR THIS WEEK:\n"
@@ -1235,6 +1267,7 @@ def send_weekly_strategy(secrets: dict, state: dict):
                 ("Clicks", funnel["clicks"]),
                 ("Quiz", funnel["diagnosed"]),
                 ("Paid", funnel["paid"]),
+                ("Retained", funnel["retained_week4"]),
             ]
         )
         + f'<div style="text-align:center;padding:0 16px;">'
@@ -1259,9 +1292,16 @@ def send_weekly_strategy(secrets: dict, state: dict):
     from scripts.battleship_pipeline import render_internal_email, send_email
     html = render_internal_email(
         title=f"Weekly Strategy — {today}",
-        subtitle=f"Campaign Week {strategy['campaign_week']}",
+        subtitle=f"Campaign Week {campaign_week}",
         sections=[
             {"heading": "Funnel this week", "body": funnel_html, "accent": True},
+            {"heading": "Rates",
+             "body": (
+                 f'<p style="margin:0;font-size:13px;color:#555;">CTR: <strong>{rates["ctr"]}%</strong> | '
+                 f'Click → quiz: <strong>{rates["click_to_quiz"]}%</strong> | '
+                 f'Quiz → paid: <strong>{rates["quiz_to_paid"]}%</strong> | '
+                 f'Paid retention: <strong>{rates["paid_retention"]}%</strong></p>'
+             )},
             {"heading": "Content arc", "body": arc_html},
             {"heading": "Copy variants to use this week", "body": variants_html, "accent": True},
         ],
@@ -1294,7 +1334,7 @@ def get_current_arc_guidance() -> dict:
         "description": phase["description"],
         "hooks":       phase["hooks"],
         "usps":        [u for u in USPS if u["id"] in phase["usps"]],
-        "week":        strategy["campaign_week"],
+        "week":        _campaign_week(strategy),
     }
 
 
@@ -1510,9 +1550,7 @@ def review_ideas_bank(secrets: dict):
     import scripts.db as _db_rb
 
     strategy = _load_strategy()
-    strategy["campaign_week"] = _campaign_week(strategy)
-
-    week = strategy["campaign_week"]
+    week = _campaign_week(strategy)
     week_based_idx = next(
         (i for i, p in enumerate(ARC_PHASES) if week in p["weeks"]),
         len(ARC_PHASES) - 1,
@@ -1738,8 +1776,9 @@ if __name__ == "__main__":
 
     elif args.strategy:
         s = _load_strategy()
+        campaign_week = _campaign_week(s)
         phase = _current_arc_phase(s)
-        print(f"\nCampaign week: {s['campaign_week']}")
+        print(f"\nCampaign week: {campaign_week}")
         print(f"Arc phase: {phase['theme']} — {phase['description']}")
         print(f"Funnel: {s['funnel']}")
         print(f"\nSuggested hooks:")
@@ -1749,13 +1788,16 @@ if __name__ == "__main__":
     elif args.funnel:
         s = _load_strategy()
         f = s["funnel"]
-        ctr = round(f["clicks"] / f["impressions"] * 100, 2) if f["impressions"] else 0
+        rates = _funnel_metrics(f)
         print(f"\nFunnel snapshot:")
         print(f"  Impressions: {f['impressions']}")
-        print(f"  Clicks:      {f['clicks']} (CTR {ctr}%)")
+        print(f"  Clicks:      {f['clicks']} (CTR {rates['ctr']}%)")
         print(f"  Quiz:        {f['diagnosed']}")
         print(f"  Paid:        {f['paid']}")
         print(f"  Retained:    {f['retained_week4']}")
+        print(f"  Click→Quiz:  {rates['click_to_quiz']}%")
+        print(f"  Quiz→Paid:   {rates['quiz_to_paid']}%")
+        print(f"  Retention:   {rates['paid_retention']}%")
 
     elif args.copy:
         result = generate_copy(args.copy, usp_id=args.usp, secrets=secrets)
