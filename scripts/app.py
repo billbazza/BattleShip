@@ -5420,6 +5420,18 @@ def _generate_gl_draft(idea: dict, photo_id: str):
     import threading, anthropic as _anthropic, uuid as _uuid, hashlib as _hs
     def _run():
         try:
+            existing_post = db.get_active_post_for_idea(idea["id"])
+            if existing_post:
+                db.set_idea_status(idea["id"], "green_lit", {
+                    "green_lit_at": db._now(),
+                    "developed_into": existing_post["id"],
+                })
+                _upsert_idea_in_json(idea["id"], {
+                    "status": "green_lit",
+                    "green_lit_at": db._now(),
+                    "developed_into": existing_post["id"],
+                })
+                return
             env     = _read_env()
             api_key = _anthropic_api_key(env)
             if not api_key:
@@ -5467,16 +5479,25 @@ def _generate_gl_draft(idea: dict, photo_id: str):
                 print(f"  ⚠️  Image gen for green-lit idea: {img_err}")
 
             # Save to DB as content_review stage
-            db.insert_post({
+            post, _created = db.ensure_active_post({
                 "idea_id":    idea["id"],
                 "theme":      idea.get("title", "idea"),
                 "content":    post_text,
                 "stage":      "content_review",
                 "source":     "ideas_bank",
                 "image_path": image_path,
+            }, update_existing={
+                "image_path": image_path,
             })
-            db.set_idea_status(idea["id"], "green_lit", {"green_lit_at": db._now()})
-            _upsert_idea_in_json(idea["id"], {"status": "green_lit", "green_lit_at": db._now()})
+            db.set_idea_status(idea["id"], "green_lit", {
+                "green_lit_at": db._now(),
+                "developed_into": post["id"],
+            })
+            _upsert_idea_in_json(idea["id"], {
+                "status": "green_lit",
+                "green_lit_at": db._now(),
+                "developed_into": post["id"],
+            })
             print(f"  ✅ FB draft generated for green-lit idea: {idea.get('title','')[:50]}")
         except Exception as e:
             print(f"  ⚠️  GL draft generation failed: {e}")
@@ -5491,24 +5512,71 @@ def api_idea_green_light(idea_id):
     if not idea:
         return jsonify({"error": "not found"}), 404
 
+    existing_post = db.get_active_post_for_idea(idea_id)
+
     # If idea has pre-written copy (will_submitted), skip Claude generation
     # and go straight to content_review
     if idea.get("copy"):
-        db.set_idea_status(idea_id, "green_lit", {"green_lit_at": db._now(),
-                                                   "photo_id": photo_id})
-        _upsert_idea_in_json(idea_id, {"status": "green_lit", "green_lit_at": db._now(), "photo_id": photo_id or ""})
         img_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
-        db.insert_post({
+        if existing_post:
+            if img_path and existing_post.get("image_path") != img_path:
+                db.update_post(existing_post["id"], {"image_path": img_path})
+                existing_post = db.get_post(existing_post["id"]) or existing_post
+            db.set_idea_status(idea_id, "green_lit", {
+                "green_lit_at": db._now(),
+                "photo_id": photo_id,
+                "developed_into": existing_post["id"],
+            })
+            _upsert_idea_in_json(idea_id, {
+                "status": "green_lit",
+                "green_lit_at": db._now(),
+                "photo_id": photo_id or "",
+                "developed_into": existing_post["id"],
+            })
+            return jsonify({
+                "status": "green_lit",
+                "draft": {"status": "ready", "post_id": existing_post["id"], "existing": True},
+            })
+
+        post, _created = db.ensure_active_post({
             "idea_id":    idea_id,
             "theme":      idea.get("title", "idea"),
             "content":    idea["copy"],
             "stage":      "content_review",
             "source":     "ideas_bank",
             "image_path": img_path,
+        }, update_existing={
+            "image_path": img_path,
         })
-        return jsonify({"status": "green_lit", "draft": {"status": "ready"}})
+        db.set_idea_status(idea_id, "green_lit", {"green_lit_at": db._now(),
+                                                   "photo_id": photo_id,
+                                                   "developed_into": post["id"]})
+        _upsert_idea_in_json(idea_id, {
+            "status": "green_lit",
+            "green_lit_at": db._now(),
+            "photo_id": photo_id or "",
+            "developed_into": post["id"],
+        })
+        return jsonify({"status": "green_lit", "draft": {"status": "ready", "post_id": post["id"]}})
 
     # Otherwise kick off Claude draft generation in background
+    if existing_post:
+        db.set_idea_status(idea_id, "green_lit", {
+            "green_lit_at": db._now(),
+            "photo_id": photo_id,
+            "developed_into": existing_post["id"],
+        })
+        _upsert_idea_in_json(idea_id, {
+            "status": "green_lit",
+            "green_lit_at": db._now(),
+            "photo_id": photo_id or "",
+            "developed_into": existing_post["id"],
+        })
+        return jsonify({
+            "status": "green_lit",
+            "draft": {"status": "ready", "post_id": existing_post["id"], "existing": True},
+        })
+
     db.set_idea_status(idea_id, "green_lit", {"green_lit_at": db._now(),
                                                "photo_id": photo_id})
     _upsert_idea_in_json(idea_id, {"status": "green_lit", "green_lit_at": db._now(), "photo_id": photo_id or ""})
@@ -5533,15 +5601,13 @@ def api_idea_approve(idea_id):
     copy = idea.get("copy", "").strip()
     if not copy:
         return jsonify({"error": "idea has no copy — edit it first"}), 400
-    existing = [p for p in db.get_posts() if p.get("idea_id") == idea_id and p.get("stage") in ("content_review", "awaiting_graphic", "fb_queue", "posted")]
+    existing = db.get_active_post_for_idea(idea_id)
     if existing:
-        post = existing[0]
+        post = existing
         return jsonify({"status": "exists", "post_id": post["id"], "stage": post["stage"]})
     photo_id   = idea.get("photo_id", "")
     image_path = str(VAULT_ROOT / "brand" / photo_id) if photo_id else ""
-    post_id    = db._new_id("cr_")
-    db.insert_post({
-        "id":            post_id,
+    post, _created = db.ensure_active_post({
         "idea_id":       idea_id,
         "theme":         idea.get("title", ""),
         "content":       copy,
@@ -5549,9 +5615,9 @@ def api_idea_approve(idea_id):
         "source":        "ideas_bank",
         "image_path":    image_path,
     })
-    db.set_idea_status(idea_id, "green_lit", {"developed_into": post_id})
-    _upsert_idea_in_json(idea_id, {"status": "green_lit", "developed_into": post_id, "photo_id": photo_id or ""})
-    return jsonify({"status": "approved", "stage": "content_review", "post_id": post_id})
+    db.set_idea_status(idea_id, "green_lit", {"developed_into": post["id"]})
+    _upsert_idea_in_json(idea_id, {"status": "green_lit", "developed_into": post["id"], "photo_id": photo_id or ""})
+    return jsonify({"status": "approved", "stage": "content_review", "post_id": post["id"]})
 
 
 @app.route("/api/ideas-bank/<idea_id>/edit-copy", methods=["POST"])

@@ -16,6 +16,13 @@ VAULT_ROOT = Path(__file__).parent.parent
 DB_FILE    = VAULT_ROOT / "clients" / "battleship.db"
 
 POST_DAYS  = {0, 2, 4}   # Mon=0, Wed=2, Fri=4
+ACTIVE_POST_STAGE_RANK = {
+    "posted": 4,
+    "fb_queue": 3,
+    "content_review": 2,
+    "awaiting_graphic": 1,
+    "marketing_review": 0,
+}
 
 
 # ── Connection ─────────────────────────────────────────────────────────────────
@@ -177,6 +184,12 @@ def init_db():
         con.execute("CREATE INDEX IF NOT EXISTS idx_posts_arc_phase ON content_posts(arc_phase)")
         # Backfill: existing posts without an explicit arc_phase get 0 (phase 1)
         con.execute("UPDATE content_posts SET arc_phase = 0 WHERE arc_phase IS NULL")
+        _archive_duplicate_active_posts(con)
+        con.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_one_active_per_idea "
+            "ON content_posts(idea_id) "
+            "WHERE idea_id IS NOT NULL AND idea_id != '' AND stage != 'archived'"
+        )
 
 
 def _migrate_add_column(con, table: str, column: str, col_def: str):
@@ -185,6 +198,46 @@ def _migrate_add_column(con, table: str, column: str, col_def: str):
         con.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
     except sqlite3.OperationalError:
         pass  # column already exists
+
+
+def _post_stage_rank(stage: str) -> int:
+    return ACTIVE_POST_STAGE_RANK.get(stage or "", -1)
+
+
+def _post_recency_value(post: dict | sqlite3.Row) -> str:
+    return (
+        post["posted_at"]
+        or post["scheduled_for"]
+        or post["reviewed_at"]
+        or post["created_at"]
+        or ""
+    )
+
+
+def _archive_duplicate_active_posts(con):
+    """Collapse existing duplicate active posts per idea before adding the unique index."""
+    rows = con.execute(
+        "SELECT * FROM content_posts "
+        "WHERE idea_id IS NOT NULL AND idea_id != '' AND stage != 'archived'"
+    ).fetchall()
+    by_idea: dict[str, list[sqlite3.Row]] = {}
+    for row in rows:
+        by_idea.setdefault(row["idea_id"], []).append(row)
+
+    for idea_id, posts in by_idea.items():
+        if len(posts) < 2:
+            continue
+        keep = max(
+            posts,
+            key=lambda post: (_post_stage_rank(post["stage"]), _post_recency_value(post), post["id"]),
+        )
+        for post in posts:
+            if post["id"] == keep["id"]:
+                continue
+            con.execute(
+                "UPDATE content_posts SET stage='archived' WHERE id=?",
+                (post["id"],),
+            )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -298,6 +351,27 @@ def get_post(post_id: str) -> dict | None:
     return _row_to_dict(row)
 
 
+def get_active_post_for_idea(idea_id: str) -> dict | None:
+    with _conn() as con:
+        row = con.execute(
+            "SELECT * FROM content_posts "
+            "WHERE idea_id=? AND stage != 'archived' "
+            "ORDER BY "
+            "CASE stage "
+            "WHEN 'posted' THEN 4 "
+            "WHEN 'fb_queue' THEN 3 "
+            "WHEN 'content_review' THEN 2 "
+            "WHEN 'awaiting_graphic' THEN 1 "
+            "WHEN 'marketing_review' THEN 0 "
+            "ELSE -1 END DESC, "
+            "COALESCE(posted_at, scheduled_for, reviewed_at, created_at) DESC, "
+            "created_at DESC, id DESC "
+            "LIMIT 1",
+            (idea_id,),
+        ).fetchone()
+    return _row_to_dict(row) if row else None
+
+
 def insert_post(fields: dict):
     if "id" not in fields:
         fields["id"] = _new_id("cr_")
@@ -306,8 +380,51 @@ def insert_post(fields: dict):
     cols = ", ".join(fields.keys())
     placeholders = ", ".join("?" * len(fields))
     with _conn() as con:
-        con.execute(f"INSERT OR IGNORE INTO content_posts ({cols}) VALUES ({placeholders})",
-                    list(fields.values()))
+        try:
+            con.execute(f"INSERT INTO content_posts ({cols}) VALUES ({placeholders})",
+                        list(fields.values()))
+        except sqlite3.IntegrityError:
+            if fields.get("idea_id") and fields.get("stage") != "archived":
+                row = con.execute(
+                    "SELECT * FROM content_posts WHERE idea_id=? AND stage != 'archived' LIMIT 1",
+                    (fields["idea_id"],),
+                ).fetchone()
+                if row:
+                    return dict(row)
+            raise
+        row = con.execute("SELECT * FROM content_posts WHERE id=?", (fields["id"],)).fetchone()
+    return dict(row) if row else None
+
+
+def ensure_active_post(fields: dict, update_existing: dict | None = None) -> tuple[dict, bool]:
+    """Return the single active post for an idea, creating it if missing."""
+    idea_id = (fields.get("idea_id") or "").strip()
+    if not idea_id:
+        raise ValueError("ensure_active_post requires idea_id")
+
+    existing = get_active_post_for_idea(idea_id)
+    if existing:
+        updates = {}
+        for key, value in (update_existing or {}).items():
+            if value is None:
+                continue
+            if key == "image_path":
+                if value and existing.get("image_path") != value:
+                    updates[key] = value
+            elif not existing.get(key) and value not in ("", None):
+                updates[key] = value
+        if updates:
+            update_post(existing["id"], updates)
+            existing = get_post(existing["id"]) or existing
+        return existing, False
+
+    post = insert_post(fields)
+    if post:
+        return post, True
+    existing = get_active_post_for_idea(idea_id)
+    if existing:
+        return existing, False
+    raise sqlite3.IntegrityError(f"Failed to create active post for idea {idea_id}")
 
 
 def update_post(post_id: str, fields: dict):
