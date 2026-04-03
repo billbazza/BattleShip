@@ -325,6 +325,54 @@ def _normalise_text(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
 
 
+STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "because", "but", "by", "for", "from",
+    "get", "got", "had", "has", "have", "here", "how", "i", "if", "in", "into", "is",
+    "it", "its", "just", "like", "me", "men", "my", "no", "not", "of", "on", "or",
+    "our", "out", "so", "that", "the", "their", "them", "there", "they", "this", "to",
+    "too", "was", "we", "what", "when", "why", "with", "you", "your", "over", "after",
+    "all", "can", "still", "now", "did", "than", "then", "those", "these", "about",
+}
+
+BRAND_SIGNAL_KEYWORDS = {
+    "40", "45", "47", "50", "60", "abs", "age", "body", "bodyfat", "dad", "energy",
+    "exhausted", "fat", "fatigue", "fitness", "gym", "health", "hormones", "men",
+    "metabolism", "midlife", "programme", "program", "quiz", "reset", "sleep", "stone",
+    "strong", "testosterone", "walking", "weight", "battleship",
+}
+
+PROOF_SOURCE_OPTIONS = {
+    "problem_agitation": ["daily-life scene", "identity shift", "quiet symptom pattern"],
+    "founder_proof": ["Will before/after moment", "fitness-age test", "doctor conversation"],
+    "myth_bust": ["industry pattern", "common bad advice", "counterexample from coaching"],
+    "system_education": ["simple mechanism", "body signal explanation", "habit chain"],
+    "objection_crushing": ["time objection", "gym resistance", "price/value reality"],
+    "client_case": ["client vignette", "composite client", "common member pattern"],
+    "offer_cta": ["programme walkthrough", "quiz outcome", "who this is for"],
+    "topical_authority": ["current headline", "cultural reference", "borrowed authority"],
+}
+
+HOOK_TYPE_OPTIONS = {
+    "problem_agitation": ["identity punch", "pain pattern", "hard truth"],
+    "founder_proof": ["proof-led reveal", "before/after contrast", "unexpected result"],
+    "myth_bust": ["contrarian claim", "industry call-out", "belief reversal"],
+    "system_education": ["mechanism explain", "cause-and-effect", "simple framework"],
+    "objection_crushing": ["excuse dismantle", "relief reframe", "practical permission"],
+    "client_case": ["case-study snapshot", "specific man scenario", "day-in-the-life"],
+    "offer_cta": ["direct invitation", "fit qualifier", "next-step clarity"],
+    "topical_authority": ["trend piggyback", "headline response", "borrowed authority"],
+}
+
+CONCEPT_MOTIFS = [
+    ("founder_gym_abs", ["gym", "abs"]),
+    ("doctor_fitness_age", ["doctor", "fitness", "age"]),
+    ("walking_transformation", ["walking", "stone"]),
+    ("midlife_decline", ["midlife", "crisis"]),
+    ("silent_decline", ["exhausted", "sleep"]),
+    ("metabolism_shift", ["body", "responding"]),
+]
+
+
 def _extract_post_date(post: dict) -> str:
     return (
         post.get("tracked")
@@ -337,6 +385,49 @@ def _extract_post_date(post: dict) -> str:
 def _clip(text: str, limit: int = 160) -> str:
     text = (text or "").strip().replace("\n", " ")
     return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
+def _tokenise_text(*parts: str) -> list[str]:
+    text = _normalise_text(" ".join(p for p in parts if p))
+    return [tok for tok in text.split() if tok and tok not in STOPWORDS and not tok.isdigit()]
+
+
+def _concept_signature(*parts: str, limit: int = 4) -> str:
+    tokens = _tokenise_text(*parts)
+    if not tokens:
+        return ""
+    counts = Counter(tokens)
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    return " ".join(tok for tok, _ in ranked[:limit])
+
+
+def _is_relevant_marketing_metric(post: dict) -> bool:
+    preview = post.get("preview") or post.get("message", "")
+    tokens = set(_tokenise_text(preview))
+    return len(tokens & BRAND_SIGNAL_KEYWORDS) >= 2
+
+
+def _proof_source_for_category(cat_id: str, used: set[str]) -> str:
+    for option in PROOF_SOURCE_OPTIONS.get(cat_id, []):
+        if option not in used:
+            return option
+    return (PROOF_SOURCE_OPTIONS.get(cat_id) or ["concrete proof"])[0]
+
+
+def _hook_type_for_category(cat_id: str, used: set[str]) -> str:
+    for option in HOOK_TYPE_OPTIONS.get(cat_id, []):
+        if option not in used:
+            return option
+    return (HOOK_TYPE_OPTIONS.get(cat_id) or ["distinct hook"])[0]
+
+
+def _detect_concept_motifs(*parts: str) -> list[str]:
+    tokens = set(_tokenise_text(*parts))
+    motifs = []
+    for motif_id, required in CONCEPT_MOTIFS:
+        if all(token in tokens for token in required):
+            motifs.append(motif_id)
+    return motifs
 
 
 def _classify_idea_category(*parts: str) -> str:
@@ -422,15 +513,21 @@ def _build_idea_loop_context(ideas_data: dict) -> dict:
     recent_review = sorted(posted_review, key=lambda p: p.get("created", ""), reverse=True)[:12]
 
     performance_rows = []
+    ignored_metrics = 0
     for pid, post in metrics_posts.items():
         date_str = _extract_post_date(post)
         if not date_str:
+            continue
+        if not _is_relevant_marketing_metric(post):
+            ignored_metrics += 1
             continue
         reach = int(post.get("reach", post.get("insights", {}).get("reach", 0) or 0) or 0)
         comments = int(post.get("comments", post.get("insights", {}).get("comments", 0) or 0) or 0)
         likes = int(post.get("likes", post.get("insights", {}).get("likes", 0) or 0) or 0)
         shares = int(post.get("shares", post.get("insights", {}).get("shares", 0) or 0) or 0)
         link_clicks = int(post.get("link_clicks", post.get("insights", {}).get("link_clicks", 0) or 0) or 0)
+        if reach == 0 and comments == 0 and likes == 0 and shares == 0 and link_clicks == 0:
+            continue
         score = reach + (comments * 6) + (shares * 8) + (likes * 2) + (link_clicks * 4)
         preview = post.get("preview") or post.get("message", "")
         performance_rows.append({
@@ -451,6 +548,71 @@ def _build_idea_loop_context(ideas_data: dict) -> dict:
     pending_review = [p for p in review_posts if p.get("status") in {"pending_review", "draft"}]
     rejected_posts = [p for p in review_posts if p.get("status") == "rejected"]
     pending_categories = Counter(_classify_idea_category(p.get("theme", ""), p.get("content", "")) for p in pending_review)
+    pending_signatures = Counter(
+        _concept_signature(p.get("theme", ""), p.get("content", ""))
+        for p in pending_review
+        if _concept_signature(p.get("theme", ""), p.get("content", ""))
+    )
+    rejected_signatures = Counter(
+        _concept_signature(p.get("theme", ""), p.get("content", ""))
+        for p in rejected_posts
+        if _concept_signature(p.get("theme", ""), p.get("content", ""))
+    )
+    recent_signatures = Counter(
+        _concept_signature(i.get("title", ""), i.get("angle", ""), i.get("copy", ""))
+        for i in recent_ideas
+        if _concept_signature(i.get("title", ""), i.get("angle", ""), i.get("copy", ""))
+    )
+    motif_counts = Counter(
+        motif
+        for i in recent_ideas
+        for motif in _detect_concept_motifs(i.get("title", ""), i.get("angle", ""), i.get("copy", ""))
+    )
+    pending_motif_counts = Counter(
+        motif
+        for p in pending_review
+        for motif in _detect_concept_motifs(p.get("theme", ""), p.get("content", ""))
+    )
+    rejected_motif_counts = Counter(
+        motif
+        for p in rejected_posts
+        for motif in _detect_concept_motifs(p.get("theme", ""), p.get("content", ""))
+    )
+    proof_source_counts = Counter(
+        (i.get("proof_source") or "").strip().lower()
+        for i in recent_ideas
+        if (i.get("proof_source") or "").strip()
+    )
+    repeated_idea_ids = Counter(p.get("idea_id") for p in review_posts if p.get("idea_id"))
+    iteration_hotspots = {
+        idea_id: count
+        for idea_id, count in repeated_idea_ids.items()
+        if count >= 2
+    }
+
+    saturated_concepts = []
+    for motif_id, count in motif_counts.most_common():
+        if count >= 2 or pending_motif_counts.get(motif_id, 0) >= 1 or rejected_motif_counts.get(motif_id, 0) >= 1:
+            saturated_concepts.append({
+                "signature": motif_id,
+                "recent_count": count,
+                "pending_count": pending_motif_counts.get(motif_id, 0),
+                "rejected_count": rejected_motif_counts.get(motif_id, 0),
+            })
+        if len(saturated_concepts) >= 6:
+            break
+    for signature, count in recent_signatures.most_common():
+        if count >= 2 or pending_signatures.get(signature, 0) >= 2 or rejected_signatures.get(signature, 0) >= 1:
+            if any(row["signature"] == signature for row in saturated_concepts):
+                continue
+            saturated_concepts.append({
+                "signature": signature,
+                "recent_count": count,
+                "pending_count": pending_signatures.get(signature, 0),
+                "rejected_count": rejected_signatures.get(signature, 0),
+            })
+        if len(saturated_concepts) >= 6:
+            break
 
     dominant_categories = [cat for cat, n in category_counts.most_common(2) if n >= 3]
     missing_categories = [cat["id"] for cat in IDEA_CATEGORIES if category_counts.get(cat["id"], 0) == 0]
@@ -464,19 +626,32 @@ def _build_idea_loop_context(ideas_data: dict) -> dict:
         needs.append(f"Backlog already contains many {top_pending} posts waiting for review.")
     if rejected_posts:
         needs.append(f"{len(rejected_posts)} content-review drafts were rejected; avoid generic rehyping.")
+    if saturated_concepts:
+        needs.append("Repeated concepts are cycling through the bank; new ideas must change proof source and scene, not just wording.")
+    if ignored_metrics:
+        needs.append(f"Ignored {ignored_metrics} unrelated metric rows so business-automation posts do not steer fitness content.")
+    if not performance_rows:
+        needs.append("Organic performance data is weak/unreliable; use review outcomes and saturation more than post metrics.")
 
     return {
         "category_counts": dict(category_counts),
         "dominant_categories": dominant_categories,
         "missing_categories": missing_categories,
         "pending_categories": dict(pending_categories),
+        "pending_signatures": dict(pending_signatures),
+        "rejected_signatures": dict(rejected_signatures),
+        "saturated_concepts": saturated_concepts,
+        "proof_source_counts": dict(proof_source_counts),
+        "iteration_hotspots": iteration_hotspots,
         "recent_idea_titles": [i.get("title", "") for i in recent_ideas[:16]],
+        "recent_signatures": list(recent_signatures.keys())[:20],
         "recent_idea_snapshots": [
             {
                 "title": i.get("title", ""),
                 "category": _classify_idea_category(i.get("title", ""), i.get("angle", ""), i.get("copy", "")),
                 "status": i.get("status", "draft"),
                 "angle": _clip(i.get("angle", ""), 110),
+                "signature": _concept_signature(i.get("title", ""), i.get("angle", ""), i.get("copy", "")),
             }
             for i in recent_ideas[:12]
         ],
@@ -509,6 +684,7 @@ def _refresh_idea_loop_memory(ideas_data: dict) -> None:
         "dominant_categories": dominant,
         "pending_review_count": loop.get("pending_review_count", 0),
         "rejected_review_count": loop.get("rejected_review_count", 0),
+        "saturated_concepts": [row["signature"] for row in loop.get("saturated_concepts", [])[:4]],
     }
     snapshot = json.dumps(summary, sort_keys=True)
     if _get_marketing_bot_state("marketing_idea_loop_summary") == snapshot:
@@ -534,6 +710,13 @@ def _refresh_idea_loop_memory(ideas_data: dict) -> None:
             "Founder-proof angle is saturating the bank; force more client/system/objection angles.",
             context=", ".join(dominant),
         )
+    if loop.get("saturated_concepts"):
+        top_sig = loop["saturated_concepts"][0]
+        _record_marketing_learning(
+            "concept_saturation",
+            f"Avoid rephrasing the same concept: {top_sig['signature']}",
+            context=f"recent={top_sig['recent_count']} pending={top_sig['pending_count']} rejected={top_sig['rejected_count']}",
+        )
 
     _set_marketing_bot_state("marketing_idea_loop_summary", snapshot)
 
@@ -553,6 +736,9 @@ def _choose_generation_slots(loop: dict, phase: dict, batch_size: int = 5) -> li
     pending = Counter(loop.get("pending_categories", {}))
     chosen: list[dict] = []
     seen = set()
+    used_proofs: set[str] = set()
+    used_hooks: set[str] = set()
+    saturated_signatures = [row["signature"] for row in loop.get("saturated_concepts", []) if row.get("signature")]
 
     def add_slot(cat_id: str, why: str):
         if cat_id in seen or len(chosen) >= batch_size:
@@ -560,11 +746,18 @@ def _choose_generation_slots(loop: dict, phase: dict, batch_size: int = 5) -> li
         category = next((c for c in IDEA_CATEGORIES if c["id"] == cat_id), None)
         if not category:
             return
+        proof_source = _proof_source_for_category(cat_id, used_proofs)
+        hook_type = _hook_type_for_category(cat_id, used_hooks)
+        used_proofs.add(proof_source)
+        used_hooks.add(hook_type)
         chosen.append({
             "category": cat_id,
             "label": category["label"],
             "brief": category["description"],
             "why": why,
+            "proof_source": proof_source,
+            "hook_type": hook_type,
+            "avoid_signatures": saturated_signatures[:3],
         })
         seen.add(cat_id)
 
@@ -613,12 +806,17 @@ def _render_loop_prompt(loop: dict, phase: dict, slots: list[dict], existing_tit
     ) or "- No reliable weak-post data yet."
 
     recent_bank = "\n".join(
-        f"- [{item['category']}] {item['title']} ({item['status']}) — {item['angle']}"
+        f"- [{item['category']}] {item['title']} ({item['status']}) — {item['angle']} | signature={item['signature']}"
         for item in loop.get("recent_idea_snapshots", [])
     ) or "- No recent idea history."
 
+    saturated_lines = "\n".join(
+        f"- {row['signature']} (recent={row['recent_count']} pending={row['pending_count']} rejected={row['rejected_count']})"
+        for row in loop.get("saturated_concepts", [])
+    ) or "- No obvious concept loops detected."
+
     slot_lines = "\n".join(
-        f"- {slot['category']}: {slot['brief']} Reason: {slot['why']}"
+        f"- {slot['category']}: {slot['brief']} Reason: {slot['why']} Required proof: {slot['proof_source']} Hook: {slot['hook_type']} Avoid: {', '.join(slot['avoid_signatures']) or 'none'}"
         for slot in slots
     )
 
@@ -639,6 +837,8 @@ def _render_loop_prompt(loop: dict, phase: dict, slots: list[dict], existing_tit
         + strong_posts
         + "\n\nWEAK / FLAT RECENT POSTS\n"
         + weak_posts
+        + "\n\nSATURATED CONCEPTS TO AVOID REPHRASING\n"
+        + saturated_lines
         + "\n\nRECENT BANK SNAPSHOT\n"
         + recent_bank
         + "\n\nRECENT LEARNINGS\n"
@@ -651,6 +851,7 @@ def _render_loop_prompt(loop: dict, phase: dict, slots: list[dict], existing_tit
         + "- Generate exactly one idea per slot.\n"
         + "- Do not produce multiple founder-transformation rewrites unless a slot explicitly requires founder_proof.\n"
         + "- Every idea must feel distinct in category, hook pattern, and proof source.\n"
+        + "- Treat each saturated concept as banned unless you are changing the underlying scene/mechanism/proof, not just the headline words.\n"
         + "- Use concrete proof, scenes, or mechanisms. Avoid generic 'you need a plan' filler.\n"
         + "- Stay commercially aligned with Battleship Reset. No motivational poster content.\n"
         + "- If data is weak, infer cautiously from the pattern saturation and backlog signals.\n"
@@ -666,6 +867,24 @@ def _render_loop_prompt(loop: dict, phase: dict, slots: list[dict], existing_tit
         + "- End with one natural CTA to quiz or DM\n"
         + "- 2-3 hashtags on final line only\n"
     )
+
+
+def _idea_is_stale(item: dict, loop: dict, existing_signatures: set[str]) -> tuple[bool, str]:
+    signature = _concept_signature(item.get("title", ""), item.get("angle", ""), item.get("copy", ""))
+    motifs = set(_detect_concept_motifs(item.get("title", ""), item.get("angle", ""), item.get("copy", "")))
+    if not signature:
+        return False, ""
+    if signature in existing_signatures:
+        return True, f"duplicate signature: {signature}"
+    for banned in loop.get("saturated_concepts", []):
+        banned_sig = banned.get("signature", "")
+        if not banned_sig:
+            continue
+        if signature == banned_sig:
+            return True, f"saturated concept: {signature}"
+        if banned_sig in motifs:
+            return True, f"saturated motif: {banned_sig}"
+    return False, ""
 
 
 def _parse_json_array(raw: str):
@@ -1185,6 +1404,11 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
 
     added = 0
     existing_normalised = {_normalise_text(title) for title in existing_titles}
+    existing_signatures = {
+        _concept_signature(i.get("title", ""), i.get("angle", ""), i.get("copy", ""))
+        for i in ideas_data.get("ideas", [])
+        if _concept_signature(i.get("title", ""), i.get("angle", ""), i.get("copy", ""))
+    }
     for item in new_ideas[:len(slots)]:
         title = item.get("title", "").strip()
         if not title:
@@ -1195,6 +1419,10 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
         new_angle = item.get("angle", "")
         if new_angle and _angle_is_duplicate(new_angle, existing_angles):
             print(f"  ⚠️  Skipping angle duplicate: {title[:50]}")
+            continue
+        stale, stale_reason = _idea_is_stale(item, loop, existing_signatures)
+        if stale:
+            print(f"  ℹ️  Skipping stale idea '{title}': {stale_reason}")
             continue
         category = item.get("category") or _classify_idea_category(title, item.get("angle", ""), item.get("copy", ""))
         tags = item.get("tags") or [category, phase["theme"].lower().replace(" ", "_")]
@@ -1223,7 +1451,9 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
         }
         ideas_data.setdefault("ideas", []).append(idea)
         existing_normalised.add(_normalise_text(title))
-<<<<<<< Updated upstream
+        existing_signatures.add(_concept_signature(title, item.get("angle", ""), item.get("copy", "")))
+        if new_angle:
+            existing_angles.append(new_angle)
         try:
             import sys as _sys_gen
             _sys_gen.path.insert(0, str(VAULT_ROOT))
@@ -1243,9 +1473,6 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
             })
         except Exception:
             pass
-=======
-        existing_angles.append(new_angle)
->>>>>>> Stashed changes
         added += 1
 
     if added:
@@ -1283,22 +1510,8 @@ def review_ideas_bank(secrets: dict):
     import scripts.db as _db_rb
 
     strategy = _load_strategy()
-<<<<<<< Updated upstream
-    current_idx = strategy.get("arc_phase_index", 0)
-    pending = _db_rb.count_pending_posts_for_arc(current_idx)
-    phase_posts = [p for p in _db_rb.get_posts() if int(p.get("arc_phase", 0) or 0) == current_idx]
+    strategy["campaign_week"] = _campaign_week(strategy)
 
-    if pending > 0:
-        print(f"  ℹ️  Arc phase {current_idx + 1} has {pending} pending posts — holding phase")
-    elif not phase_posts:
-        print(f"  ℹ️  Arc phase {current_idx + 1} has no generated posts yet — holding phase")
-    else:
-        # All posts for current phase are done (or none exist yet) — advance
-        if current_idx < len(ARC_PHASES) - 1:
-=======
-    strategy["campaign_week"] = _campaign_week(strategy)  # refresh before checking phase
-
-    # Compute the correct index based on campaign week — this is the source of truth
     week = strategy["campaign_week"]
     week_based_idx = next(
         (i for i, p in enumerate(ARC_PHASES) if week in p["weeks"]),
@@ -1306,21 +1519,21 @@ def review_ideas_bank(secrets: dict):
     )
     current_idx = strategy.get("arc_phase_index", 0)
 
-    # Detect and correct a runaway advance (arc jumped ahead of campaign week)
+    pending = _db_rb.count_pending_posts_for_arc(current_idx)
+    phase_posts = [p for p in _db_rb.get_posts() if int(p.get("arc_phase", 0) or 0) == current_idx]
+
     if current_idx > week_based_idx:
         print(f"  ⚠️  Arc phase index ({current_idx + 1}) ahead of campaign week {week} — resetting to {week_based_idx + 1}")
         current_idx = week_based_idx
         strategy["arc_phase_index"] = current_idx
         _save_strategy(strategy)
 
-    # Only advance when the campaign week has moved us into the next phase
-    # AND there are no pending posts still in queue from the current phase
     if week_based_idx > current_idx:
-        pending = _db_rb.count_pending_posts_for_arc(current_idx)
         if pending > 0:
             print(f"  ℹ️  Campaign week {week} ready for phase {week_based_idx + 1} but {pending} phase-{current_idx + 1} posts still queued — holding")
+        elif not phase_posts:
+            print(f"  ℹ️  Arc phase {current_idx + 1} has no generated posts yet — holding phase")
         else:
->>>>>>> Stashed changes
             old_idx = current_idx
             current_idx = week_based_idx
             strategy["arc_phase_index"] = current_idx

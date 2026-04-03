@@ -139,12 +139,13 @@ def maybe_generate_new_ideas(secrets: dict, state: dict) -> bool:
     """
     ideas = json.loads(IDEAS_FILE.read_text()).get("ideas", []) if IDEAS_FILE.exists() else []
     drafts = [i for i in ideas if i.get("status") in {"draft", "ideas_bank"}]
-    recent_titles = [i.get("title", "") for i in ideas[-12:]]
-    repeated_gym_abs = sum(
-        1 for title in recent_titles
-        if any(token in title.lower() for token in ["gym", "abs", "47", "doctor", "walking"])
-    )
-    stale_mix = repeated_gym_abs >= 5
+    stale_mix = False
+    try:
+        from skills.marketing_bot import _build_idea_loop_context
+        loop = _build_idea_loop_context({"ideas": ideas})
+        stale_mix = bool(loop.get("saturated_concepts")) or "founder_proof" in loop.get("dominant_categories", [])
+    except Exception:
+        pass
     if len(drafts) >= 3 and not stale_mix:
         return False
 
