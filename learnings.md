@@ -61,11 +61,23 @@ Week 4 is 31 March 2026. To have paying clients by then, the following must exis
 
 *Add new daily entries above the weekly summary table.*
 
-## 2026-04-02 – Day 24
+## 2026-04-01 – Day 23
 
-- [2026-04-02] [meta] Verified current backend-only Meta paths in code. Facebook image posting runs through `skills/facebook_bot.py` with `FB_PAGE_ACCESS_TOKEN`; Instagram image publishing uses the FB CDN upload path first; ad creation runs through `skills/facebook_ads_bot.py` and the dashboard API routes in `scripts/app.py`.
-- [2026-04-02] [ops] The correct control split is automation vs spend. Missing tokens should skip safely. `fb_ads_paused` is the explicit kill-switch for spend. Meta review/dev-mode responses should be treated as per-attempt API failures, not as a global pipeline blocker.
-- [2026-04-02] [docs] Active marketing docs updated to remove stale “Meta Standard Access is blocking campaign creation” language. Historical notes remain valid for 25 Mar 2026, but they no longer describe the current pipeline.
+- [2026-04-01] [ops] When a health check fires as a false positive for 4+ consecutive days and then fires for a real P1 error, the real error gets dismissed on autopilot. Signal calibration debt compounds — fix health check severity before the next genuine critical hits.
+- [2026-04-01] [engineering] A FOREIGN KEY constraint error on SQLite upsert means the parent record doesn't exist before the child insert. When posts are regenerated with new fields or IDs, the ideas table foreign key chain must be satisfied in the same transaction. Always write parent rows before child rows — or use INSERT OR IGNORE on the parent first.
+- [2026-04-01] [strategy] Week 4 first-client target is formally missed. The compounding cost of zero paid traffic is now 23 days of opportunity loss on a validated 100% funnel. Every additional day without a live campaign is not neutral — it is negative carry. Launching a £10/day Meta campaign today is worth more than any optimisation, content, or pipeline task.
+
+## 2026-03-28 – Day 19
+
+- [2026-03-28] [ops] A health check FAIL that fires as a false positive for 4+ consecutive days is worse than no health check — it trains the operator to ignore alerts entirely. Severity filtering (CRITICAL vs WARN vs INFO) is a prerequisite for a health signal that can be trusted. Schedule this fix before the pipeline gets bigger.
+- [2026-03-28] [strategy] 32 ad ideas in queue + proven 100% funnel conversion + £0 ad spend = the worst possible combination. Idea generation and funnel optimisation have zero ROI until traffic runs. The only task that unlocks everything downstream is getting one manual campaign live in Ads Manager.
+- [2026-03-28] [timing] Three consecutive daily logs have listed the same top priority (launch Meta paid campaign) with no execution. When the same task appears as #1 for 3+ days without completion, it is not a prioritisation problem — it is a decision or access blocker that needs to be named explicitly and escalated, not re-queued.
+
+## 2026-03-27 – Day 18
+
+- [2026-03-27] [ops] Health check FAIL is now a recurring false positive — all triggering errors are low-severity Meta 400s (expired campaign IDs, IG scope mismatch). The health check threshold must distinguish CRITICAL (pipeline stops) from WARN (expected API noise). A FAIL state that doesn't reflect a real blockage erodes trust in the signal entirely.
+- [2026-03-27] [strategy] When a Week N deadline is 4 days away with zero traffic and zero leads, the correct response is to formally accept the miss, document the specific cause, and set the revised target — not to scramble. Clear-eyed post-mortems compound faster than denial.
+- [2026-03-27] [funnel] 100% quiz-to-paid conversion across all completions means offer and price point are validated. The only untested hypothesis is paid traffic at scale. Until a campaign runs with meaningful budget (£10+/day for 7+ days), no other funnel optimisation is a higher-leverage use of time.
 
 ## 2026-03-26 – Day 17
 

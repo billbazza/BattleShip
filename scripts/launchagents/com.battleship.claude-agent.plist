@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.battleship.claude-agent.plist
+  Fires claude-agent-daily.sh once at 06:00 every morning.
+  All logic lives in the .sh file — edit that, not this.
+
+  Install / reinstall:
+    VAULT=/Users/will/Obsidian-Vaults/BattleShip-Vault
+    cp "$VAULT/scripts/launchagents/com.battleship.claude-agent.plist" ~/Library/LaunchAgents/
+    chmod 644 ~/Library/LaunchAgents/com.battleship.claude-agent.plist
+    launchctl bootout  gui/$(id -u)/com.battleship.claude-agent 2>/dev/null || true
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.battleship.claude-agent.plist
+
+  Test immediately (runs right now, does not affect tomorrow's schedule):
+    launchctl kickstart -k gui/$(id -u)/com.battleship.claude-agent
+    tail -f ~/Library/Logs/battleship-claude-agent.log
+
+  Logs: ~/Library/Logs/battleship-claude-agent.log
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.battleship.claude-agent</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-l</string>
+        <string>/Users/will/Obsidian-Vaults/BattleShip-Vault/scripts/launchagents/claude-agent-daily.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault</string>
+
+    <!-- Fire once daily at 06:00 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>6</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Log directory must already exist — the .sh script creates it -->
+    <key>StandardOutPath</key>
+    <string>/Users/will/Library/Logs/battleship-claude-agent.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/will/Library/Logs/battleship-claude-agent.log</string>
+
+    <!-- Only fire on schedule, not on login -->
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

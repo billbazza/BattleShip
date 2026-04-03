@@ -1,14 +1,14 @@
 {
   "campaign_start": "2026-03-15T09:49:57.561005+00:00",
-  "campaign_week": 2,
-  "arc_phase_index": 3,
+  "campaign_week": 3,
+  "arc_phase_index": 0,
   "funnel": {
     "impressions": 0,
     "clicks": 0,
     "quiz_starts": 0,
-    "diagnosed": 2,
-    "paid": 2,
-    "retained_week4": 0
+    "diagnosed": 3,
+    "paid": 3,
+    "retained_week4": 1
   },
   "copy_tests": [
     {
@@ -112,13 +112,42 @@
     {
       "date": "2026-03-26",
       "review": "# Battleship Reset \u2014 Week 2 Campaign Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**The offer converts when it reaches qualified people.**\n2 quiz completions, 2 paid clients. That's a 100% quiz-to-paid conversion rate. The product, the price point, and the positioning are working at the point of contact. Don't touch the offer. Don't change the price. Don't second-guess the programme structure.\n\nThat's the one signal worth protecting right now.\n\n---\n\n## 2. WHAT'S NOT WORKING\n\n**Zero impressions. Zero clic"
+    },
+    {
+      "date": "2026-03-27",
+      "review": "# Battleship Reset \u2014 Week 2 Strategy Brief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Organic conversion is elite.** 2 diagnosed \u2192 2 paid = 100% quiz-to-paid conversion. That's not luck \u2014 the quiz is qualifying correctly and the offer is landing in a 1:1 context. Whatever you're saying in that post-quiz conversation, bottle it. This is your biggest asset right now.\n\n**The offer is believable to people who actually see it.** Zero drop-off at the decision point means price isn't the objection, trust isn't the "
+    },
+    {
+      "date": "2026-03-28",
+      "review": "# Battleship Reset \u2014 Week 2 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Word of mouth / direct conversion is elite.**\n2 diagnoses, 2 paid clients, 100% close rate on qualified leads. That's not luck \u2014 that's a compelling offer meeting a receptive audience. The problem is the pipe, not the tap.\n\n**The offer itself is sound.**\nNobody with zero impressions gets 2 paying clients in week 2 unless the core proposition resonates. Price point, positioning, or your personal credibility is doing heavy"
+    },
+    {
+      "date": "2026-03-29",
+      "review": "# Battleship Reset \u2014 Week 2 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Word of mouth / direct conversion is unusually strong.**\n2 quiz completions, 2 paid clients = 100% quiz-to-paid conversion. That's not a funnel problem \u2014 that's a trust problem being solved before people even reach the funnel. These clients almost certainly came in warm (personal referral, existing relationship, or direct DM). That's your proof of concept. The offer converts when the right person sees it.\n\n**Retention is"
+    },
+    {
+      "date": "2026-03-30",
+      "review": "# Battleship Reset \u2014 Week 3 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Word of mouth / direct outreach is your entire engine right now.**\n2 quiz completions, 2 paid clients, 100% close rate on diagnosed leads. That's not luck \u2014 that's either a compelling conversation or a strong personal network doing the heavy lifting. Either way, the offer converts when a warm human being encounters it. The product is not the problem.\n\n**One client retained to Week 4+.** Early, but meaningful. Retention p"
+    },
+    {
+      "date": "2026-03-31",
+      "review": "# Battleship Reset \u2014 Week 3 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Organic/direct conversion is exceptional.** 2 quiz completions \u2192 2 paid clients = 100% close rate on diagnosed leads. That's not luck \u2014 that's either strong personal trust, a compelling offer, or both. Whatever you said or wrote to get those two people into the quiz and through to payment, that process works. Protect it.\n\n**You have a proof asset.** One client retained to week 4+. That's a real person getting real result"
+    },
+    {
+      "date": "2026-04-01",
+      "review": "# Battleship Reset \u2014 Week 3 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Word of mouth / direct conversion is exceptional.**\n2 quiz completions, 2 paid clients. That's 100% quiz-to-paid when someone actually reaches the quiz through a warm channel. You're not losing people at the close \u2014 you're losing them before they ever find you. The product and pitch are working on warm traffic. Don't touch the offer or the close.\n\n**Retention is holding (so far).**\n1 of 2 retained past week 4. That's 50%"
+    },
+    {
+      "date": "2026-04-02",
+      "review": "# Battleship Reset \u2014 Week 3 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Organic/word-of-mouth conversion is exceptional.**\n3 quiz completions \u2192 3 paid clients = 100% close rate on diagnosed leads. That's not luck \u2014 that's proof the offer resonates hard with the right person when they self-select in. The quiz is doing its job as a quality filter, not just a volume play.\n\n**Early retention exists** \u2014 1 client at Week 4+ confirms the product itself has legs. Someone is staying. That matters mor"
     }
   ],
   "flags_sent": [
     "strategy_2026-11",
-    "strategy_2026-12"
+    "strategy_2026-12",
+    "strategy_2026-13"
   ],
-  "last_review_date": "2026-03-26",
+  "last_review_date": "2026-04-02",
   "last_ad_metrics": {
     "impressions": 0,
     "reach": 0,
@@ -131,6 +160,6 @@
     "ctr": 0.0,
     "cpm": 0.0,
     "cpc": 0.0,
-    "fetched_at": "2026-03-26T10:56:18.958739+00:00"
+    "fetched_at": "2026-04-02T05:56:11.097228+00:00"
   }
 }

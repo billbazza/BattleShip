@@ -71,13 +71,12 @@
       "id": "rem_003",
       "added_by": "orchestrator",
       "type": "tech",
-      "title": "Verify Meta backend tokens",
-      "description": "Backend posting and ad creation are live. Keep `FB_PAGE_ACCESS_TOKEN`, `FB_SYSTEM_TOKEN` or `FB_USER_TOKEN`, `FB_PAGE_ID`, and `FB_AD_ACCOUNT_ID` valid. Use `fb_ads_paused` to stop spend instead of treating Meta review state as a blocker.",
+      "title": "Apply for Meta Standard Access",
+      "description": "Full API campaign creation is blocked until Meta approves Standard Access for the Battleship-Reset app. Go to developers.facebook.com \u2192 Your App \u2192 App Review \u2192 Request Standard Access for ads_management. Requires business verification.",
       "priority": "high",
       "created_at": "2026-03-15",
-      "status": "done",
-      "done_at": "2026-04-02",
-      "content_url": "/content/brand/Marketing/meta-backend-path.md"
+      "status": "pending",
+      "content_url": null
     },
     {
       "id": "rem_0d77eae6",

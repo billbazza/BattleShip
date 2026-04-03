@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-03-26T07:00:00.215708",
-  "today": "2026-03-26",
+  "generated_at": "2026-04-02T07:00:03.672780",
+  "today": "2026-04-02",
   "pulse": {
     "mrr": 0.0,
     "gap": 3000.0,
-    "spend": 28536.77,
+    "spend": 29925.93,
     "leads_week": 0,
     "ad_spend_7d": 0.0
   },
   "agents": {
     "brand": {
-      "summary": "30 FB followers (+0 vs yesterday), 0 IG. Reach: 0, clicks: 0. Posts this week: 1. Queue: 10. To review: 2.",
-      "next_action": "Post due Mon/Wed/Fri. Next content should be Phase: Why You've Failed"
+      "summary": "30 FB followers (+0 vs yesterday), 0 IG. Reach: 0, clicks: 0. Posts this week: 4. Queue: 13. To review: 0.",
+      "next_action": "Post due Mon/Wed/Fri. Next content should be Phase: Problem Agitation"
     },
     "seo": {
-      "summary": "8/9 GBP tasks complete (89%).",
-      "next_action": "Tasks pending your action: 1"
+      "summary": "9/9 GBP tasks complete (100%).",
+      "next_action": "On track."
     },
     "tech": {
       "summary": "5 active workaround(s), 0 blocked gap(s).",
@@ -23,60 +23,20 @@
     },
     "ads": {
       "summary": "7d: 0 impressions, 0 clicks, \u00a30.00 spend.",
-      "next_action": "Messages campaign ends 19 Mar \u2014 decide whether to renew."
+      "next_action": "Monitor CPL trend."
     },
     "clients": {
-      "summary": "2 active, 0 diagnosed, 8 total. 0 lead(s) this week.",
+      "summary": "3 active, 0 diagnosed, 9 total. 0 lead(s) this week.",
       "next_action": "Need 34 more paying clients to hit \u00a33k MRR."
     }
   },
   "horizon": {
     "today": "Review what the form should actually ask",
-    "five_days": "Publish 5 content pieces. Generate 0 leads. Arc: Why You've Failed.",
+    "five_days": "Publish 7 content pieces. Generate 3 leads. Arc: Problem Agitation.",
     "thirty_days": "Target: 0 new client(s)/week. Close gap of \u00a33000 \u2192 need 34 paying clients."
   },
-  "photo_candidates": [
-    {
-      "id": "photo_fd810643",
-      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/crisis_infographic.jpg",
-      "filename": "crisis_infographic.jpg",
-      "source": "drop_folder",
-      "caption_hint": "New photo from drop folder",
-      "quality": "best",
-      "notes": "Manually dropped for review",
-      "status": "pending",
-      "created_at": "2026-03-26T07:00:00.215691",
-      "reviewed_at": null,
-      "review_source": null
-    },
-    {
-      "id": "photo_ad3d5a4f",
-      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/ec6442c3-ea04-4573-a657-bb1701dbe5ec.jpg",
-      "filename": "ec6442c3-ea04-4573-a657-bb1701dbe5ec.jpg",
-      "source": "drop_folder",
-      "caption_hint": "New photo from drop folder",
-      "quality": "best",
-      "notes": "Manually dropped for review",
-      "status": "pending",
-      "created_at": "2026-03-26T07:00:00.215700",
-      "reviewed_at": null,
-      "review_source": null
-    },
-    {
-      "id": "photo_5a1ada7b",
-      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/fitness-age.jpeg",
-      "filename": "fitness-age.jpeg",
-      "source": "drop_folder",
-      "caption_hint": "New photo from drop folder",
-      "quality": "best",
-      "notes": "Manually dropped for review",
-      "status": "pending",
-      "created_at": "2026-03-26T07:00:00.215705",
-      "reviewed_at": null,
-      "review_source": null
-    }
-  ],
-  "campaign_week": 2,
-  "phase_label": "Foundation",
+  "photo_candidates": [],
+  "campaign_week": 3,
+  "phase_label": "Visibility",
   "stuck_clients": []
 }

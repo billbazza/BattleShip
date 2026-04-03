@@ -110,10 +110,10 @@
       "id": "gap_009",
       "reported_by": "orchestrator",
       "title": "Active Ad Campaign",
-      "description": "2 active campaign(s). 5651 impressions, £17.42 spend (7d). Backend Graph API path is live for image upload, campaign creation, and ad creation.",
+      "description": "2 active campaign(s). 5651 impressions, £17.42 spend (7d). Meta Standard Access still pending for full API campaign creation.",
       "estimated_monthly_cost_gbp": 0,
-      "paid_solution": "No paid unblock required. Keep backend tokens valid and use `fb_ads_paused` as the spend-control switch.",
-      "free_alternative": "Token wired in env. `fetch_meta_metrics.py` syncs daily. Campaign stats visible in Business Manager and dashboard.",
+      "paid_solution": "facebook_ads_bot.py is built and ready — unblocked when Meta approves Standard Access.",
+      "free_alternative": "Token wired in env. fetch_meta_metrics.py syncs daily. Campaign stats visible in Business Manager.",
       "revenue_unlock_gbp": 0,
       "status": "done",
       "impact": "high",
@@ -138,5 +138,5 @@
     }
   ],
   "created": "2026-03-15T09:39:13.108511+00:00",
-  "last_updated": "2026-03-26T10:56:18.960676+00:00"
+  "last_updated": "2026-04-02T05:56:11.099206+00:00"
 }

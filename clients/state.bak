@@ -12,10 +12,12 @@
     "u0b9rmva8apqjidzu0b9p0p6ee47vajc",
     "test-001",
     "RGXeG4K",
-    "Nq57qjb"
+    "Nq57qjb",
+    "Z99ObVz"
   ],
   "processed_checkin_ids": [
-    "gsheet-row-2"
+    "gsheet-row-2",
+    "gsheet-row-3"
   ],
   "clients": {
     "BSR-2026-0008": {
@@ -25,12 +27,18 @@
       "email": "kevincorti@yahoo.co.uk",
       "intake_date": "",
       "status": "active",
-      "current_week": 1,
+      "current_week": 3,
       "enrolled_date": "2026-03-17",
       "emails_sent": [
         "diagnosis",
         "onboarding",
-        "edu_sleep"
+        "edu_sleep",
+        "day3_nudge",
+        "edu_fatloss_1",
+        "edu_mfp",
+        "reengage_w2",
+        "reengage_w3",
+        "edu_zone2"
       ],
       "tags": {
         "main_goal": "Break plateau, reach 90kg, improve body composition and hill fitness by summer",
@@ -84,7 +92,7 @@
           }
         ]
       },
-      "last_checkin_request": null,
+      "last_checkin_request": "2026-03-29T01:04:42.819995+00:00",
       "last_checkin_received": null,
       "notion_page_id": null,
       "notion_url": null,
@@ -115,18 +123,31 @@
       "payment_amount": 0,
       "payment_note": "Complimentary \u2014 Will's brother",
       "test": true,
-      "test_note": "Will's brother \u2014 test client"
+      "test_note": "Will's brother \u2014 test client",
+      "last_tester_feedback": "2026-03-29T01:04:54.581549+00:00"
     },
     "BSR-2026-0004": {
       "account_no": "BSR-2026-0004",
       "folder": "BSR-2026-0004-tom",
       "name": "Tom",
       "email": "tom.barratt121@gmail.com",
-      "intake_date": "2026-03-11T17:27:01Z",
+      "intake_date": "2026-03-11",
       "status": "active",
-      "current_week": 1,
-      "enrolled_date": null,
-      "emails_sent": [],
+      "current_week": 4,
+      "enrolled_date": "2026-03-11",
+      "emails_sent": [
+        "diagnosis",
+        "onboarding",
+        "edu_sleep",
+        "edu_fatloss_1",
+        "edu_mfp",
+        "reengage_w2",
+        "reengage_w3",
+        "edu_zone2",
+        "reengage_w3_2",
+        "reengage_w4_2",
+        "edu_8020"
+      ],
       "tags": {
         "main_goal": "lose_belly_fat",
         "constraints": [
@@ -151,14 +172,15 @@
         "sessions_per_week": 3,
         "level": "restart"
       },
-      "last_checkin_request": null,
+      "last_checkin_request": "2026-03-29T01:04:42.819995+00:00",
       "last_checkin_received": null,
       "notion_page_id": null,
       "notion_url": null,
       "_reconciled": true,
       "_reconciled_at": "2026-03-18T08:58:12.032594+00:00",
       "test": true,
-      "test_note": "Legacy test entry \u2014 reconciled from folder"
+      "test_note": "Legacy test entry \u2014 reconciled from folder",
+      "last_tester_feedback": "2026-03-29T01:04:57.084654+00:00"
     },
     "BSR-2026-0007": {
       "account_no": "BSR-2026-0007",
@@ -166,7 +188,7 @@
       "name": "Newperson",
       "email": "williamgbarratt@gmail.com",
       "intake_date": "",
-      "status": "active",
+      "status": "archived",
       "current_week": 1,
       "enrolled_date": null,
       "emails_sent": [],
@@ -224,11 +246,302 @@
       "_reconciled": true,
       "_reconciled_at": "2026-03-18T08:58:12.034073+00:00",
       "test": true,
-      "test_note": "Legacy test entry \u2014 reconciled from folder"
+      "test_note": "Legacy test entry \u2014 reconciled from folder",
+      "archived_reason": "test/placeholder entry \u2014 archived to clean portal"
+    },
+    "BSR-2026-0001": {
+      "account_no": "BSR-2026-0001",
+      "folder": "BSR-2026-0001-kendo",
+      "name": "Kendo",
+      "email": "lockets-pectin4l@icloud.com",
+      "intake_date": "2026-03-11T15:43:27Z",
+      "status": "archived",
+      "current_week": 1,
+      "enrolled_date": null,
+      "emails_sent": [],
+      "tags": {
+        "main_goal": "belly_fat_reduction_and_weight_loss",
+        "constraints": [
+          "5\u20136hr sleep",
+          "late evening eating",
+          "saturday_morning_blocked",
+          "shoulder_rotator_cuff",
+          "back_problems",
+          "kings_cross_commute",
+          "kids_schedule"
+        ],
+        "risk_flags": {
+          "sleep": "high_risk \u2014 5\u20136hrs elevating cortisol and hunger hormones, directly impeding fat loss",
+          "stress": "low \u2014 self-reported 4/10",
+          "injuries": [
+            "shoulder/rotator_cuff",
+            "lower_back"
+          ],
+          "bp": "not_flagged"
+        },
+        "equipment": [
+          "local_pool",
+          "walking_shoes",
+          "workplace_gym"
+        ],
+        "sessions_per_week": 3,
+        "level": "restart"
+      },
+      "last_checkin_request": null,
+      "last_checkin_received": null,
+      "notion_page_id": null,
+      "notion_url": null,
+      "_reconciled": true,
+      "_reconciled_at": "2026-03-19T07:42:46.371028+00:00",
+      "archived_reason": "test/placeholder entry \u2014 archived to clean portal"
+    },
+    "BSR-2026-0002": {
+      "account_no": "BSR-2026-0002",
+      "folder": "BSR-2026-0002-keith",
+      "name": "Keith",
+      "email": "yarns.daub.0d@icloud.com",
+      "intake_date": "2026-03-11T15:55:31Z",
+      "status": "archived",
+      "current_week": 1,
+      "enrolled_date": null,
+      "emails_sent": [],
+      "tags": {
+        "main_goal": "general_reset",
+        "constraints": [
+          "desk_job",
+          "bus_commuter",
+          "1-2hrs_per_week",
+          "high_stress",
+          "low_sleep_quality"
+        ],
+        "risk_flags": {
+          "sleep": "6-7hrs_but_stress_8_likely_degrading_quality",
+          "stress": "8/10_chronic_cortisol_risk",
+          "injuries": [
+            "poor_fitness_baseline"
+          ],
+          "bp": "not_flagged"
+        },
+        "equipment": [
+          "local_pool",
+          "walking_running_shoes",
+          "workplace_gym"
+        ],
+        "sessions_per_week": 3,
+        "level": "restart"
+      },
+      "last_checkin_request": null,
+      "last_checkin_received": null,
+      "notion_page_id": null,
+      "notion_url": null,
+      "_reconciled": true,
+      "_reconciled_at": "2026-03-19T07:42:46.371564+00:00",
+      "archived_reason": "test/placeholder entry \u2014 archived to clean portal"
+    },
+    "BSR-2026-0003": {
+      "account_no": "BSR-2026-0003",
+      "folder": "BSR-2026-0003-baratt",
+      "name": "Baratt",
+      "email": "barhomebridge@icloud.com",
+      "intake_date": "2026-03-11T17:12:21Z",
+      "status": "archived",
+      "current_week": 1,
+      "enrolled_date": null,
+      "emails_sent": [],
+      "tags": {
+        "main_goal": "improve_blood_markers",
+        "constraints": [
+          "no_home_equipment",
+          "drives_everywhere",
+          "late_evening_meals",
+          "weekend_food_breakdown",
+          "alcohol_deeply_habitual"
+        ],
+        "risk_flags": {
+          "sleep": "adequate_7_8hrs",
+          "stress": "low_4/10",
+          "injuries": [
+            "bad_knees",
+            "hip_problems",
+            "type2_or_prediabetes"
+          ],
+          "bp": "gp_flagged_bp_and_cholesterol"
+        },
+        "equipment": [
+          "none"
+        ],
+        "sessions_per_week": 3,
+        "level": "restart"
+      },
+      "last_checkin_request": null,
+      "last_checkin_received": null,
+      "notion_page_id": null,
+      "notion_url": null,
+      "_reconciled": true,
+      "_reconciled_at": "2026-03-19T07:42:46.371875+00:00",
+      "archived_reason": "test/placeholder entry \u2014 archived to clean portal"
+    },
+    "BSR-2026-0005": {
+      "account_no": "BSR-2026-0005",
+      "folder": "BSR-2026-0005-martha",
+      "name": "Martha",
+      "email": "martha.tcb@icloud.com",
+      "intake_date": "2026-03-11T17:26:21Z",
+      "status": "archived",
+      "current_week": 1,
+      "enrolled_date": null,
+      "emails_sent": [],
+      "tags": {
+        "main_goal": "improve_blood_markers",
+        "constraints": [
+          "knee_injury",
+          "limited_to_1_2hrs_week",
+          "lunchtime_only_weekdays",
+          "school_pickup_restrictions",
+          "Saturday_most_reliable"
+        ],
+        "risk_flags": {
+          "sleep": "reports_7_8hrs_but_wakes_tired_flagged_as_frustration",
+          "stress": "6_out_of_10_moderate",
+          "injuries": [
+            "bad_knees"
+          ],
+          "bp": "primary_goal_is_blood_marker_improvement_no_GP_flag_confirmed"
+        },
+        "equipment": [
+          "bodyweight_only",
+          "outdoor_walking_route"
+        ],
+        "sessions_per_week": 3,
+        "level": "restart"
+      },
+      "last_checkin_request": null,
+      "last_checkin_received": null,
+      "notion_page_id": null,
+      "notion_url": null,
+      "_reconciled": true,
+      "_reconciled_at": "2026-03-19T07:42:46.372139+00:00",
+      "archived_reason": "test/placeholder entry \u2014 archived to clean portal"
+    },
+    "BSR-2026-0006": {
+      "account_no": "BSR-2026-0006",
+      "folder": "BSR-2026-0006-client",
+      "name": "Client",
+      "email": "",
+      "intake_date": "",
+      "status": "archived",
+      "current_week": 1,
+      "enrolled_date": null,
+      "emails_sent": [],
+      "tags": {},
+      "last_checkin_request": null,
+      "last_checkin_received": null,
+      "notion_page_id": null,
+      "notion_url": null,
+      "_reconciled": true,
+      "_reconciled_at": "2026-03-19T07:42:46.372431+00:00",
+      "archived_reason": "test/placeholder entry \u2014 archived to clean portal"
+    },
+    "BSR-2026-0009": {
+      "account_no": "BSR-2026-0009",
+      "folder": "BSR-2026-0009-barnaby-steel",
+      "name": "barnaby steel",
+      "email": "barneysteel@me.com",
+      "intake_date": "",
+      "status": "active",
+      "current_week": 1,
+      "enrolled_date": "2026-04-01",
+      "emails_sent": [
+        "diagnosis",
+        "onboarding",
+        "edu_sleep"
+      ],
+      "tags": {
+        "main_goal": "Build sustainable strength and fitness for long-term health",
+        "constraints": [
+          "Unpredictable schedule",
+          "Children's needs",
+          "Desk-based work",
+          "No current equipment",
+          "2\u20133 hours/week available (willing to extend to 3\u20135)"
+        ],
+        "risk_flags": {
+          "sleep": "not flagged",
+          "stress": "7/10 \u2014 elevated, cortisol likely a factor",
+          "injuries": [
+            "Both elbows broken \u2014 tendons displaced, pain and soreness on push-ups and weighted movements, form limitations",
+            "Shoulders \u2014 no pain but certain positions cause dislocations",
+            "Previous torn calf muscle \u2014 fully healed but interrupted prior training routine"
+          ],
+          "bp": "not flagged"
+        },
+        "equipment": [
+          "Bodyweight only",
+          "Dog \u2014 longer walking route available",
+          "8-minute commute walk (extendable)"
+        ],
+        "sessions_per_week": 3,
+        "level": "restart",
+        "weight_lbs": 172,
+        "height_inches": 71,
+        "overweight_level": "moderate",
+        "success_metrics": [
+          {
+            "metric": "chin-up reps",
+            "how": "test weekly \u2014 max reps from dead hang, same bar",
+            "unit": "reps"
+          },
+          {
+            "metric": "energy level",
+            "how": "self-rate each morning before coffee",
+            "unit": "1\u201310"
+          },
+          {
+            "metric": "extended dog walk \u2014 weekly total",
+            "how": "track days completed at 25+ minutes",
+            "unit": "days per week"
+          },
+          {
+            "metric": "stress / mood",
+            "how": "end of day self-rate \u2014 one number, one sentence if anything stands out",
+            "unit": "1\u201310"
+          }
+        ]
+      },
+      "last_checkin_request": null,
+      "last_checkin_received": null,
+      "notion_page_id": null,
+      "notion_url": null,
+      "complimentary": true,
+      "goal": "Build sustainable strength and fitness for long-term health",
+      "success_metrics": [
+        {
+          "metric": "chin-up reps",
+          "how": "test weekly \u2014 max reps from dead hang, same bar",
+          "unit": "reps"
+        },
+        {
+          "metric": "energy level",
+          "how": "self-rate each morning before coffee",
+          "unit": "1\u201310"
+        },
+        {
+          "metric": "extended dog walk \u2014 weekly total",
+          "how": "track days completed at 25+ minutes",
+          "unit": "days per week"
+        },
+        {
+          "metric": "stress / mood",
+          "how": "end of day self-rate \u2014 one number, one sentence if anything stands out",
+          "unit": "1\u201310"
+        }
+      ]
     }
   },
-  "next_client_number": 9,
+  "next_client_number": 10,
   "sent_digests": [
-    "digest_2026-11"
+    "digest_2026-11",
+    "digest_2026-12",
+    "digest_2026-13"
   ]
 }

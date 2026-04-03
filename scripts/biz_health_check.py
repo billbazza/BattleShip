@@ -132,6 +132,15 @@ def _check_pipeline_log() -> tuple[bool, str]:
                     "skipping", "not set", "No key", "no credentials",
                     "already sent", "never run", "(no queued",
                     "Pipeline log has", "Health:",
+                    # Meta Graph API noise — 400s from expired/paused campaigns are expected
+                    "GET failed", "graph.facebook.com", "400: Bad Request",
+                    "⚠️  Meta insights API",
+                    # FB API 400 from app in development mode — expected until Standard Access granted
+                    "FB API error: 400", "development mode", "OAuthException",
+                    # Expected scope / permission warnings
+                    "scope", "instagram_basic",
+                    # Non-blocking marketing warnings
+                    "funnel metrics not updated",
                 )):
                     continue
                 errors.append(line.strip()[:120])

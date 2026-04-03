@@ -1,6 +1,6 @@
 {
-  "last_send_date": "2026-03-25",
-  "issue_number": 1,
+  "last_send_date": "2026-03-31",
+  "issue_number": 2,
   "subscriber_count": 0,
   "issues": [
     {
@@ -12,6 +12,18 @@
       "dry_run": false,
       "stats_synced": false,
       "beehiiv_url": "https://battleshipr.beehiiv.com/p/the-operator",
+      "open_rate": null,
+      "click_rate": null,
+      "sends": 0
+    },
+    {
+      "issue_number": 2,
+      "subject": "why one big bet is a trap",
+      "theme": "compounding income \u2014 why small streams beat one big bet",
+      "post_id": "eq_9c5a0e41",
+      "sent_at": "2026-03-31T01:32:28.598945+00:00",
+      "dry_run": false,
+      "stats_synced": false,
       "open_rate": null,
       "click_rate": null,
       "sends": 0
@@ -37,5 +49,5 @@
       "click_count": 0
     }
   ],
-  "theme_index": 1
+  "theme_index": 2
 }

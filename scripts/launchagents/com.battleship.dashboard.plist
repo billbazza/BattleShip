@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Reconstructed from codebase 2026-03-24.
+     Verify against ~/Library/LaunchAgents/com.battleship.dashboard.plist
+     and update ProgramArguments / EnvironmentVariables if different. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.battleship.dashboard</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.11/bin/python3</string>
+        <string>/Users/will/Obsidian-Vaults/BattleShip-Vault/scripts/app.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault</string>
+
+    <!-- Restart automatically if it crashes -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Start on login -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault/logs/app.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault/logs/app.log</string>
+
+    <!-- Throttle restart on repeated crashes (30 s cool-down) -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+</dict>
+</plist>

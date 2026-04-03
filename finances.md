@@ -28,7 +28,8 @@
 | 2026-03-14 | Meta Ads — Facebook ad spend (funds added) | £35.00 | GBP | Advertising | Transaction ID: 26011846625167481. Account: 869755968629816. |
 | 2026-03-15 | Meta Ads — Facebook ad spend | £14.50 | GBP | Advertising | Transaction ID: 26033440609674747-26122887960730014. Account ID: 869755968629816. Date range: 14–15 Mar 2026. Two campaigns: Tally form (£12.34, 4649 impressions), Battleship Reset (£2.16, 291 impressions). |
 | 2026-03-20 | Meta Ads — Facebook ad spend | £2.97 | GBP | Advertising | Account ID: 869755968629816. Campaign: [14/03/2026] promoting tally.so/r/rjK752. 739 impressions. Transaction ID: 26081976608154482-26178879275130882 |
-**Total Spend to date: £136.94**
+| 2026-03-23 | Meta Ads — Facebook ad spend | £7.08 | GBP | Advertising | Campaign: Promoting tally.so/r/rjK752, 2626 impressions, 22-23 Mar 2026. Transaction ID: 26165378216480987-26037320525953421. Ref: 8ZYBHG9HA2. Visa ···· 1033. |
+**Total Spend to date: £1519.02**
 **Committed upcoming: £0 (Typeform £220 avoided — using Tally free tier)**
 **Projected Month 1 costs: ~£300 confirmed/committed + ads TBD**
 

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Reconstructed from codebase 2026-03-24.
+     IMPORTANT: The cloudflared tunnel run command requires your tunnel UUID.
+     Verify the exact ProgramArguments against ~/Library/LaunchAgents/com.battleship.tunnel.plist
+     and replace TUNNEL_UUID_HERE with your actual tunnel ID if different. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.battleship.tunnel</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/cloudflared</string>
+        <string>tunnel</string>
+        <string>run</string>
+        <string>battleship</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault</string>
+
+    <!-- Restart automatically if the tunnel drops -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Start on login -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault/logs/tunnel.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault/logs/tunnel.log</string>
+
+    <!-- Throttle restart on repeated crashes (10 s cool-down) -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>

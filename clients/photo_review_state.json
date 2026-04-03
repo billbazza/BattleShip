@@ -447,6 +447,186 @@
       "created_at": "2026-03-26T07:00:00.215705",
       "reviewed_at": null,
       "review_source": null
+    },
+    {
+      "id": "photo_2a0844ce",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/image-2.jpg",
+      "filename": "image-2.jpg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-27T07:00:05.128717",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_b0c12b62",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/image.jpg",
+      "filename": "image.jpg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-27T07:00:05.128729",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_8bea2a90",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/image1.jpg",
+      "filename": "image1.jpg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-27T07:00:05.128735",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_7ae0b6e1",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/lifestyle-choice.jpeg",
+      "filename": "lifestyle-choice.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-28T07:00:04.161290",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_7d88b46d",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/ozempic_infographic.jpg",
+      "filename": "ozempic_infographic.jpg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-28T07:00:04.161313",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_13b4e5a0",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/sign-fat-cunt.jpg",
+      "filename": "sign-fat-cunt.jpg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-28T07:00:04.161322",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_ec765786",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/sign-fat-twat.jpg",
+      "filename": "sign-fat-twat.jpg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-29T07:00:05.086062",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_9b45a267",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/random-snaps/spicy-salami-roti-wraps-garlic-yogart-and-chilisauce.jpeg",
+      "filename": "spicy-salami-roti-wraps-garlic-yogart-and-chilisauce.jpeg",
+      "source": "drop_folder",
+      "caption_hint": "New photo from drop folder",
+      "quality": "best",
+      "notes": "Manually dropped for review",
+      "status": "pending",
+      "created_at": "2026-03-29T07:00:05.086072",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_aff9cec9",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/IMG_2453.jpeg",
+      "filename": "IMG_2453.jpeg",
+      "source": "catalogue",
+      "caption_hint": "Strong ad candidate (best). Outdoor field photo. Best face photo for marketing. Natural light.",
+      "quality": "best",
+      "notes": "Outdoor field photo. Best face photo for marketing. Natural light.",
+      "use_cases": [
+        "ad",
+        "profile",
+        "hero",
+        "social_post"
+      ],
+      "period": "after",
+      "status": "pending",
+      "created_at": "2026-03-29T07:00:05.086575",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_f793c91d",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/IMG_2887.jpeg",
+      "filename": "IMG_2887.jpeg",
+      "source": "catalogue",
+      "caption_hint": "Strong ad candidate (best). Very lean body shot. 5mo walking + 4mo gym. Peak result photo.",
+      "quality": "best",
+      "notes": "Very lean body shot. 5mo walking + 4mo gym. Peak result photo.",
+      "use_cases": [
+        "before_after",
+        "ad",
+        "hero"
+      ],
+      "period": "after",
+      "status": "pending",
+      "created_at": "2026-03-30T07:00:05.154162",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_08e7c5a6",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/IMG_3372.jpeg",
+      "filename": "IMG_3372.jpeg",
+      "source": "catalogue",
+      "caption_hint": "After shot \u2014 Outdoor selfie, sunglasses + AirPods, blue sky. Relaxed, active lifestyle shot.",
+      "quality": "good",
+      "notes": "Outdoor selfie, sunglasses + AirPods, blue sky. Relaxed, active lifestyle shot.",
+      "use_cases": [
+        "social_post",
+        "lifestyle_post"
+      ],
+      "period": "after",
+      "status": "pending",
+      "created_at": "2026-03-30T07:00:05.154550",
+      "reviewed_at": null,
+      "review_source": null
+    },
+    {
+      "id": "photo_9d98cb5b",
+      "path": "/Users/will/Obsidian-Vaults/BattleShip-Vault/brand/IMG_3373.jpeg",
+      "filename": "IMG_3373.jpeg",
+      "source": "catalogue",
+      "caption_hint": "Strong ad candidate (good). Same outdoor session as 3372 but smiling \u2014 most approachable lifestyle shot in t",
+      "quality": "good",
+      "notes": "Same outdoor session as 3372 but smiling \u2014 most approachable lifestyle shot in the library.",
+      "use_cases": [
+        "social_post",
+        "lifestyle_post",
+        "ad"
+      ],
+      "period": "after",
+      "status": "pending",
+      "created_at": "2026-03-30T07:00:05.154586",
+      "reviewed_at": null,
+      "review_source": null
     }
   ]
 }

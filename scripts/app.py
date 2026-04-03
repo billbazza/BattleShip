@@ -2175,7 +2175,10 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           <img src="/brand/{{ post.image_path.split('/brand/')[-1] if '/brand/' in post.image_path else '' }}" style="width:36px;height:36px;object-fit:cover;border-radius:2px;flex-shrink:0;border:1px solid #222" onerror="this.style.display='none'">
           {% endif %}
           <div style="flex:1;min-width:0">
-            <div style="color:#2a9d4e;font-size:10px;font-weight:600">{{ post.scheduled_for or '—' }}</div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="color:#2a9d4e;font-size:10px;font-weight:600">{{ post.scheduled_for or '—' }}</span>
+              {% if post.source == 'sovereign' %}<span style="background:#1a1200;color:#e8a020;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:0.5px">SOV</span>{% endif %}
+            </div>
             <div style="color:#ccc;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ post.theme[:40] }}</div>
           </div>
         </div>
@@ -5428,7 +5431,22 @@ def api_idea_green_light(idea_id):
 @app.route("/api/ideas-bank/<idea_id>/archive", methods=["POST"])
 def api_idea_archive(idea_id):
     db.set_idea_status(idea_id, "archived")
+<<<<<<< Updated upstream
     _upsert_idea_in_json(idea_id, {"status": "archived"})
+=======
+    # Also update ideas-bank.json so _sync_ideas_to_db() doesn't resurrect it
+    try:
+        ideas_file = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
+        if ideas_file.exists():
+            data = json.loads(ideas_file.read_text())
+            for idea in data.get("ideas", []):
+                if idea.get("id") == idea_id:
+                    idea["status"] = "archived"
+                    break
+            ideas_file.write_text(json.dumps(data, indent=2))
+    except Exception:
+        pass
+>>>>>>> Stashed changes
     return jsonify({"status": "archived"})
 
 

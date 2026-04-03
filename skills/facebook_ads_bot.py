@@ -9,10 +9,8 @@ SETUP REQUIRED (one-time):
     FB_AD_ACCOUNT_ID=<number from Ads Manager — no "act_" prefix>
     FB_USER_TOKEN=<user access token with ads_management + ads_read scopes>
 
-  Backend ad creation uses the Graph API directly from this bot.
-  Runtime gating is spend-control only:
-    - `fb_ads_paused` bot state stops all automated spend changes
-    - missing account/token/page credentials skips work safely
+  Meta app (Battleship-Reset) needs these permissions:
+    ads_management, ads_read, business_management
 
 USAGE:
   # Launch smoke test (£7/day for 7 days):
@@ -426,6 +424,7 @@ def launch_pending_ad_variants(secrets: dict, vault_root: Path) -> list[str]:
 
     log = []
     daily_budget_pence = 300  # £3/day
+    dev_mode_blocked   = False  # set True on first 1885183 error, skip remaining ideas
 
     # Get image via brand_manager
     try:
@@ -436,6 +435,9 @@ def launch_pending_ad_variants(secrets: dict, vault_root: Path) -> list[str]:
         get_best_image = None
 
     for idea in candidates:
+        if dev_mode_blocked:
+            break
+
         title = idea.get("title", "")
         angle = idea.get("angle", "")
         print(f"  🚀 Creating ad for green-lit idea: {title[:60]}")
@@ -483,19 +485,24 @@ def launch_pending_ad_variants(secrets: dict, vault_root: Path) -> list[str]:
             print(f"  ✅ Ad created (PAUSED): campaign={cid} ad={adid}")
 
         except Exception as e:
-            # Do not treat Meta review/dev-mode responses as a pipeline-wide blocker.
-            # Leave the idea unpromoted so it can be retried on the next run.
+            # Detect Meta dev-mode block (subcode 1885183) — stop all attempts, log once
             _subcode = 0
             try:
                 _subcode = e.response.json().get("error", {}).get("error_subcode", 0)  # type: ignore[attr-defined]
             except Exception:
                 pass
             if _subcode == 1885183 or "development mode" in str(e).lower():
-                log.append(
-                    f"  ⚠️  Ad creation rejected by Meta for \"{title[:40]}\" "
-                    f"(subcode {_subcode or 'unknown'}) — will retry next run"
-                )
-                print(f"  ⚠️  Meta rejected ad creation for '{title[:40]}' — leaving queued for retry")
+                dev_mode_blocked = True
+                log.append(f"  ℹ️  {len(candidates)} idea(s) ready — Meta Standard Access pending (app in dev mode)")
+                print(f"  ℹ️  Meta app in dev mode — ad variants queued until Standard Access approved")
+                # Persist flag so future runs skip immediately without hitting the API
+                try:
+                    import sys as _sys_dm
+                    _sys_dm.path.insert(0, str(vault_root))
+                    import scripts.db as _db_dm
+                    _db_dm.set_bot_state("meta_dev_mode_blocked", "true")
+                except Exception:
+                    pass
             else:
                 log.append(f"  ⚠️  Ad creation failed for \"{title[:40]}\": {e}")
                 print(f"  ⚠️  Ad creation failed for '{title[:40]}': {e}")
@@ -529,6 +536,19 @@ def run(secrets: dict, vault_root: Path):
         return
     if not token:
         print("  (FB token not set — skipping ads bot)")
+        return
+
+    # Check if Meta app is known to be in dev mode — skip ad creation until cleared
+    _meta_dev_blocked = False
+    try:
+        import sys as _sys_r
+        _sys_r.path.insert(0, str(vault_root))
+        import scripts.db as _db_r
+        _meta_dev_blocked = _db_r.get_bot_state("meta_dev_mode_blocked") == "true"
+    except Exception:
+        pass
+    if _meta_dev_blocked:
+        print("  ℹ️  Meta app in dev mode — ad creation skipped until Standard Access granted")
         return
 
     actions = optimise(ad_account_id, token)

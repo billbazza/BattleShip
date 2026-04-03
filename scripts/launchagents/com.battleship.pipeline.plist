@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Reconstructed from codebase 2026-03-24.
+     Schedule: every 2 hours on the hour (matches COMMANDS.md cron: 0 */2 * * *).
+     Verify against ~/Library/LaunchAgents/com.battleship.pipeline.plist if different. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.battleship.pipeline</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.11/bin/python3</string>
+        <string>/Users/will/Obsidian-Vaults/BattleShip-Vault/scripts/battleship_pipeline.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault</string>
+
+    <!-- Run on load (catches any missed run after a reboot) -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Every 2 hours: 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22 -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>2</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>14</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>20</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>22</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault/logs/pipeline.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/will/Obsidian-Vaults/BattleShip-Vault/logs/pipeline.log</string>
+</dict>
+</plist>

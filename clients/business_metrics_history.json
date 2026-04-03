@@ -131,6 +131,83 @@
       "ig_followers": 0,
       "ad_impressions": 0,
       "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-27",
+      "mrr": 0.0,
+      "spend": 136.94,
+      "net": -136.94,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-28",
+      "mrr": 0.0,
+      "spend": 1519.02,
+      "net": -1519.02,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-29",
+      "mrr": 0.0,
+      "spend": 1519.02,
+      "net": -1519.02,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-30",
+      "mrr": 0.0,
+      "spend": 1519.02,
+      "net": -1519.02,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-03-31",
+      "mrr": 0.0,
+      "spend": 1519.02,
+      "net": -1519.02,
+      "active_clients": 2,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-04-01",
+      "mrr": 0.0,
+      "spend": 1519.02,
+      "net": -1519.02,
+      "active_clients": 3,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-04-02",
+      "mrr": 0.0,
+      "spend": 1519.02,
+      "net": -1519.02,
+      "active_clients": 3,
+      "fb_followers": 30,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
     }
   ]
 }

@@ -50,7 +50,11 @@ POST_THEMES = [
     "What 12 weeks actually does. Not a transformation photo — a realistic description of what changes: waist, energy, sleep, confidence, blood pressure.",
     "The gym is optional. A post for men who don't want to join a gym. Dumbbells, bands, bodyweight — what's actually possible at home.",
     "Progressive overload explained simply. Why adding one rep or 2.5kg per week is the entire secret to getting stronger. No complexity needed.",
-    # Guide promo posts (SOVEREIGN Stream A) — value-first, not hard sell
+]
+
+# SOVEREIGN content — AI/business themes. Mixed into the rotation at random (~1-in-5),
+# never back-to-back. Reusable — cycles through all 3 before repeating.
+SOVEREIGN_THEMES = [
     "I built an AI system that runs my entire coaching business — intake forms, personalised plans, payment, email sequences, content scheduling — all autonomous on a Mac Mini. Here's what I learned about the gap between 'AI will change everything' and 'AI actually changed something for me'. End with: I wrote the whole process into a guide — link in comments.",
     "Everyone's talking about Claude Code and AI agents. I've been running one for 3 months straight, managing a real business, not a demo. Here's the honest version of what it can and can't do. End with: I put the step-by-step into a guide for non-developers — link in comments.",
     "My Mac Mini has been running 24/7 for a month. Not mining crypto — running AI automation that handles client onboarding, content scheduling, and email follow-ups. The setup cost less than a night out. End with: I wrote up the full setup in a guide — link in comments.",
@@ -323,8 +327,20 @@ def post_scheduled_content(secrets: dict):
     except Exception:
         pass
 
-    idx   = schedule["theme_index"] % len(POST_THEMES)
-    theme = POST_THEMES[idx]
+    # Pick theme: ~20% chance of SOVEREIGN, never back-to-back with previous SOVEREIGN post
+    import random as _random
+    _last_was_sovereign = schedule.get("last_was_sovereign", False)
+    _use_sovereign = (not _last_was_sovereign) and (_random.random() < 0.20)
+
+    if _use_sovereign:
+        sov_idx = schedule.get("sovereign_theme_index", 0) % len(SOVEREIGN_THEMES)
+        theme   = SOVEREIGN_THEMES[sov_idx]
+        schedule["sovereign_theme_index"] = sov_idx + 1
+        schedule["last_was_sovereign"]    = True
+    else:
+        idx   = schedule["theme_index"] % len(POST_THEMES)
+        theme = POST_THEMES[idx]
+        schedule["last_was_sovereign"] = False
 
     # Pull arc guidance from marketing bot to keep organic content aligned
     arc_hint = ""
@@ -365,7 +381,8 @@ def post_scheduled_content(secrets: dict):
         print(f"  ℹ️  Dev mode — post generated but not sent live (no FB_PAGE_ACCESS_TOKEN)")
         _save_to_content_review(post, theme, status="pending_review", arc_phase=_arc_idx)
         schedule["posted_dates"].append(date_key)
-        schedule["theme_index"] = idx + 1
+        if not _use_sovereign:
+            schedule["theme_index"] = idx + 1
         _save_schedule(schedule)
         return
 
@@ -398,7 +415,8 @@ def post_scheduled_content(secrets: dict):
 
     # Write the date guard after successful post
     schedule["posted_dates"].append(date_key)
-    schedule["theme_index"] = idx + 1
+    if not _use_sovereign:
+        schedule["theme_index"] = idx + 1
     _save_schedule(schedule)
 
 

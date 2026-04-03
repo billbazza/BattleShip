@@ -246,6 +246,17 @@ def set_idea_status(idea_id: str, status: str, extra: dict | None = None):
                     [*fields.values(), idea_id])
 
 
+def delete_ideas_not_in(keep_ids: list[str]) -> int:
+    """Delete all ideas whose IDs are not in the keep_ids list. Returns count deleted."""
+    with _conn() as con:
+        placeholders = ",".join("?" * len(keep_ids)) if keep_ids else "''"
+        result = con.execute(
+            f"DELETE FROM ideas WHERE id NOT IN ({placeholders})",
+            keep_ids if keep_ids else []
+        )
+        return result.rowcount
+
+
 # ── Content Posts ──────────────────────────────────────────────────────────────
 
 def get_posts(stage: str | None = None) -> list[dict]:
@@ -323,16 +334,17 @@ def set_queue_paused(paused: bool):
 
 
 def recalculate_schedule(from_date: date | None = None):
-    """Reassign Mon/Wed/Fri slots for all queued posts from from_date onwards.
-    Prevents a burst of posts when queue is resumed after a pause."""
+    """Reassign Mon/Wed/Fri slots for BSR queued posts from from_date onwards.
+    SOVEREIGN posts (source='sovereign') keep their own schedule and are skipped."""
     start = from_date or date.today()
     posts = get_posts(stage="fb_queue")
-    # Sort by existing scheduled_for so relative order is preserved
-    posts.sort(key=lambda p: p.get("scheduled_for") or "9999")
+    # Only reschedule BSR posts — sovereign posts manage their own dates
+    bsr_posts = [p for p in posts if p.get("source") != "sovereign"]
+    bsr_posts.sort(key=lambda p: p.get("scheduled_for") or "9999")
 
     d = start
     with _conn() as con:
-        for post in posts:
+        for post in bsr_posts:
             while d.weekday() not in POST_DAYS:
                 d += timedelta(days=1)
             con.execute("UPDATE content_posts SET scheduled_for=? WHERE id=?",

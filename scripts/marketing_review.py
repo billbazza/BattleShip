@@ -116,6 +116,22 @@ def review_ideas_bank(secrets: dict) -> list[str]:
     return alerts
 
 
+def _angle_is_duplicate(new_angle: str, existing: list[str]) -> bool:
+    """Keyword overlap check — reject if new angle shares 4+ meaningful words with any existing angle."""
+    _stop = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+             "of", "with", "is", "are", "you", "your", "my", "i", "it", "this",
+             "that", "they", "he", "she", "we", "not", "no", "do", "don't",
+             "men", "man", "40", "50", "60", "after", "over", "about", "why",
+             "how", "what", "when", "who", "will", "can", "just", "like", "be"}
+    new_words = {w.lower().strip(".,?!'\"") for w in new_angle.split() if w.lower() not in _stop and len(w) > 3}
+    for ex in existing:
+        ex_words = {w.lower().strip(".,?!'\"") for w in ex.split() if w.lower() not in _stop and len(w) > 3}
+        overlap = new_words & ex_words
+        if len(overlap) >= 4:
+            return True
+    return False
+
+
 def maybe_generate_new_ideas(secrets: dict, state: dict) -> bool:
     """
     If ideas bank is thin or stale and it's been >12h since last idea gen, ask

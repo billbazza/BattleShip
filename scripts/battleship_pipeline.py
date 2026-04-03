@@ -3546,6 +3546,7 @@ def main():
         from skills.facebook_bot import _post_live, _is_live, post_photo as _post_photo, cross_post_to_instagram as _ig_cross
         from datetime import date as _date
         today_str = str(_date.today())
+<<<<<<< Updated upstream
         queue_settings = _db.get_queue_settings()
         all_queued = _db.get_posts(stage="fb_queue")
         today_post = next((p for p in all_queued if p.get("scheduled_for") == today_str), None)
@@ -3561,27 +3562,43 @@ def main():
             print("  ℹ️  FB queue paused — skipping auto-poster")
         elif not today_post:
             print("  ℹ️  No post scheduled for today")
+=======
+        all_queued  = _db.get_posts(stage="fb_queue")
+        today_posts = [p for p in all_queued if p.get("scheduled_for") == today_str]
+        overdue     = [p for p in all_queued if (p.get("scheduled_for") or "9999") < today_str]
+
+        # Reschedule overdue BSR posts — sovereign posts keep their own schedule
+        if overdue:
+            _db.recalculate_schedule(from_date=_date.today() + timedelta(days=1))
+            print(f"  📅 Rescheduled {len(overdue)} overdue post(s) to next available slots")
+
+        # Post all items scheduled for today (BSR + SOV dual posts allowed)
+        if not today_posts:
+            print("  ℹ️  No posts scheduled for today")
+>>>>>>> Stashed changes
         elif not _is_live(secrets):
-            print("  ℹ️  Dev mode — skipping queue auto-post")
+            print(f"  ℹ️  Dev mode — skipping {len(today_posts)} queued post(s)")
         else:
-            try:
-                img = today_post.get("image_path", "")
-                from pathlib import Path as _Path
-                if img and _Path(img).exists():
-                    fb_id = _post_photo(_Path(img), today_post["content"], secrets)
-                else:
-                    fb_id = _post_live(today_post["content"], secrets)
-                _db.advance_post_stage(today_post["id"], "posted", {
-                    "fb_post_id": fb_id,
-                    "posted_at":  datetime.now(timezone.utc).isoformat(),
-                })
-                print(f"  ✅ Posted from queue: {today_post['theme'][:50]} → {fb_id}")
+            for today_post in today_posts:
                 try:
-                    _ig_cross(today_post["content"], img or None, secrets)
-                except Exception:
-                    pass
-            except Exception as e:
-                print(f"  ⚠️  Failed to post today's queued item: {e}")
+                    img = today_post.get("image_path", "")
+                    from pathlib import Path as _Path
+                    if img and _Path(img).exists():
+                        fb_id = _post_photo(_Path(img), today_post["content"], secrets)
+                    else:
+                        fb_id = _post_live(today_post["content"], secrets)
+                    _db.advance_post_stage(today_post["id"], "posted", {
+                        "fb_post_id": fb_id,
+                        "posted_at":  datetime.now(timezone.utc).isoformat(),
+                    })
+                    tag = " [SOV]" if today_post.get("source") == "sovereign" else ""
+                    print(f"  ✅ Posted{tag}: {today_post['theme'][:50]} → {fb_id}")
+                    try:
+                        _ig_cross(today_post["content"], img or None, secrets)
+                    except Exception:
+                        pass
+                except Exception as e:
+                    print(f"  ⚠️  Failed to post: {today_post.get('theme','')[:40]}: {e}")
     except Exception as e:
         print(f"  ⚠️  FB queue auto-poster skipped: {e}")
 
@@ -3594,8 +3611,9 @@ def main():
     except Exception as e:
         print(f"  ⚠️  Facebook bot skipped: {e}")
 
-    # 11. Facebook ads optimisation (daily)
+    # 11. Facebook ads optimisation (daily) — DISABLED
     print("\n📊 Facebook ads optimisation...")
+<<<<<<< Updated upstream
     try:
         sys.path.insert(0, str(VAULT_ROOT))
         import scripts.db as _db_ads
@@ -3606,6 +3624,14 @@ def main():
             run_ads(secrets, VAULT_ROOT)
     except Exception as e:
         print(f"  ⚠️  Ads bot skipped: {e}")
+=======
+    print("  ⏸️  DISABLED — manual ad management only")
+    # try:
+    #     from skills.facebook_ads_bot import run as run_ads
+    #     run_ads(secrets, VAULT_ROOT)
+    # except Exception as e:
+    #     print(f"  ⚠️  Ads bot skipped: {e}")
+>>>>>>> Stashed changes
 
     # 12. Meta metrics sync (page fans, IG followers, ad spend/impressions)
     print("\n📊 Meta metrics sync...")

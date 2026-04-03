@@ -4,9 +4,14 @@
     "2026-03-18",
     "2026-03-20",
     "2026-03-23",
-    "2026-03-25"
+    "2026-03-25",
+    "2026-03-27",
+    "2026-03-30",
+    "2026-04-01"
   ],
-  "theme_index": 1,
+  "theme_index": 3,
   "replied_comments": [],
-  "replied_dms": []
+  "replied_dms": [],
+  "last_was_sovereign": true,
+  "sovereign_theme_index": 1
 }

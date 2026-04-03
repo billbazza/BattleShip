@@ -730,10 +730,13 @@ def update_funnel_from_fb(secrets: dict, strategy: dict):
         timeout=15,
     )
     if r.ok:
-        data = r.json().get("data", [{}])[0]
+        rows = r.json().get("data", [])
+        data = rows[0] if rows else {}
         strategy["funnel"]["impressions"] = int(data.get("impressions", 0))
         strategy["funnel"]["clicks"]      = int(data.get("clicks", 0))
         print(f"  ✅ Ad funnel updated: {strategy['funnel']['impressions']} impressions, {strategy['funnel']['clicks']} clicks")
+    else:
+        print(f"  ⚠️  Meta insights API {r.status_code} — funnel metrics not updated")
 
 
 # ── Copy generation ────────────────────────────────────────────────────────────
@@ -835,6 +838,19 @@ def run_daily_review(secrets: dict, state: dict):
     ctr      = round(funnel["clicks"] / funnel["impressions"] * 100, 2) if funnel["impressions"] > 0 else 0
     conv_rate = round(funnel["diagnosed"] / funnel["clicks"] * 100, 1) if funnel["clicks"] > 0 else 0
 
+    # Check if ads are intentionally paused
+    ads_paused = False
+    ads_paused_reason = ""
+    try:
+        import sys as _sys_ap; _sys_ap.path.insert(0, str(VAULT_ROOT))
+        import scripts.db as _db_ap
+        ads_paused_reason = _db_ap.get_bot_state("ads_paused_reason") or ""
+        ads_paused = bool(ads_paused_reason)
+    except Exception:
+        pass
+
+    ads_note = f"\nNOTE: Paid ads intentionally paused ({ads_paused_reason}) — zero impressions is expected, do not flag as a problem." if ads_paused else ""
+
     funnel_text = (
         f"Impressions (7d): {funnel['impressions']}\n"
         f"Clicks (7d): {funnel['clicks']} (CTR: {ctr}%)\n"
@@ -843,6 +859,7 @@ def run_daily_review(secrets: dict, state: dict):
         f"Retained to week 4+: {funnel['retained_week4']}\n"
         f"Quiz → paid conversion: {conv_rate}%\n"
         f"Campaign week: {strategy['campaign_week']}/12"
+        f"{ads_note}"
     )
 
     posts_text = "\n".join(
@@ -1079,11 +1096,61 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
         print("  ℹ️  Ideas already generated today — skipping")
         return 0
 
-    existing_titles = [i.get("title", "") for i in ideas_data.get("ideas", [])]
+    # Build rich context: titles + angles from all non-archived ideas
+    existing_ideas = [i for i in ideas_data.get("ideas", []) if i.get("status") != "archived"]
+    existing_titles = [i.get("title", "") for i in existing_ideas]
+    existing_angles = [i.get("angle", "") for i in existing_ideas if i.get("angle")]
+
+    # Also include themes from published DB posts
+    try:
+        import sys as _sys_gi
+        _sys_gi.path.insert(0, str(VAULT_ROOT))
+        import scripts.db as _db_gi
+        _db_gi.init_db()
+        for p in _db_gi.get_posts():
+            t = p.get("theme", "")
+            if t and t not in existing_titles:
+                existing_titles.append(t)
+    except Exception:
+        pass
+
+    # Identify which themes are saturated (3+ ideas on same core topic)
+    _theme_keywords = {
+        "no-gym": ["gym", "abs", "set foot"],
+        "fitness-age": ["fitness age", "17", "body is 30", "younger than"],
+        "exhaustion": ["exhausted", "tired", "can't sleep", "energy"],
+        "hormones": ["testosterone", "hormone", "metabolism", "belly"],
+        "body-stopped": ["stopped responding", "stopped respond", "wrong programme"],
+        "midlife": ["midlife", "midlife crisis", "45", "47", "50"],
+        "weight": ["weight", "stone", "fat", "belly appeared"],
+    }
+    saturated_themes = []
+    for theme_name, kws in _theme_keywords.items():
+        count = sum(1 for t in existing_titles + existing_angles
+                    if any(k.lower() in t.lower() for k in kws))
+        if count >= 3:
+            saturated_themes.append(theme_name)
+
+    # Collect published ideas (developed_into set) as potential inspiration seeds
+    published_ideas = [i for i in existing_ideas if i.get("developed_into")]
+    seed_lines = ""
+    if published_ideas:
+        seed_lines = (
+            "\n\nSUCCESSFUL published ideas (use as INSPIRATION ONLY — "
+            "build completely new angles from these proven themes, do NOT restate them):\n"
+            + "\n".join(f"- {i['title']}: {i.get('angle','')}" for i in published_ideas[-8:])
+        )
+
     strategy = _load_strategy()
     phase    = _current_arc_phase(strategy)
     loop     = _build_idea_loop_context(ideas_data)
     slots    = _choose_generation_slots(loop, phase, batch_size=5)
+
+    # Build the used-angles block for the prompt
+    used_block = "\n".join(
+        f"- TITLE: {i.get('title','')} | ANGLE: {i.get('angle','')}"
+        for i in existing_ideas if i.get("title")
+    )
 
     api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
     if not api_key:
@@ -1101,6 +1168,21 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
         print(f"  ⚠️  Idea generation parse error: {e}")
         return 0
 
+    def _angle_is_duplicate(new_angle: str, existing: list[str]) -> bool:
+        """Keyword overlap check — reject if new angle shares 4+ meaningful words with any existing angle."""
+        _stop = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+                 "of", "with", "is", "are", "you", "your", "my", "i", "it", "this",
+                 "that", "they", "he", "she", "we", "not", "no", "do", "don't",
+                 "men", "man", "40", "50", "60", "after", "over", "about", "why",
+                 "how", "what", "when", "who", "will", "can", "just", "like", "be"}
+        new_words = {w.lower().strip(".,?!'\"") for w in new_angle.split() if w.lower() not in _stop and len(w) > 3}
+        for ex in existing:
+            ex_words = {w.lower().strip(".,?!'\"") for w in ex.split() if w.lower() not in _stop and len(w) > 3}
+            overlap = new_words & ex_words
+            if len(overlap) >= 4:
+                return True
+        return False
+
     added = 0
     existing_normalised = {_normalise_text(title) for title in existing_titles}
     for item in new_ideas[:len(slots)]:
@@ -1108,6 +1190,11 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
         if not title:
             continue
         if _normalise_text(title) in existing_normalised:
+            print(f"  ⚠️  Skipping title duplicate: {title[:50]}")
+            continue
+        new_angle = item.get("angle", "")
+        if new_angle and _angle_is_duplicate(new_angle, existing_angles):
+            print(f"  ⚠️  Skipping angle duplicate: {title[:50]}")
             continue
         category = item.get("category") or _classify_idea_category(title, item.get("angle", ""), item.get("copy", ""))
         tags = item.get("tags") or [category, phase["theme"].lower().replace(" ", "_")]
@@ -1120,7 +1207,7 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
         idea = {
             "id":           "idea_" + uuid.uuid4().hex[:8],
             "title":        title,
-            "angle":        item.get("angle", ""),
+            "angle":        new_angle,
             "copy":         item.get("copy", ""),
             "status":       "draft",
             "added":        today_str,
@@ -1136,6 +1223,7 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
         }
         ideas_data.setdefault("ideas", []).append(idea)
         existing_normalised.add(_normalise_text(title))
+<<<<<<< Updated upstream
         try:
             import sys as _sys_gen
             _sys_gen.path.insert(0, str(VAULT_ROOT))
@@ -1155,6 +1243,9 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
             })
         except Exception:
             pass
+=======
+        existing_angles.append(new_angle)
+>>>>>>> Stashed changes
         added += 1
 
     if added:
@@ -1186,12 +1277,13 @@ def review_ideas_bank(secrets: dict):
     ideas_data = json.loads(ideas_file.read_text())
     ideas      = ideas_data.get("ideas", [])
 
-    # ── Arc gate: only advance phase when all posts for current phase are done ──
+    # ── Arc gate: phase is driven by campaign week, never runs ahead of the calendar ──
     import sys as _sys_rb
     _sys_rb.path.insert(0, str(VAULT_ROOT))
     import scripts.db as _db_rb
 
     strategy = _load_strategy()
+<<<<<<< Updated upstream
     current_idx = strategy.get("arc_phase_index", 0)
     pending = _db_rb.count_pending_posts_for_arc(current_idx)
     phase_posts = [p for p in _db_rb.get_posts() if int(p.get("arc_phase", 0) or 0) == current_idx]
@@ -1203,12 +1295,40 @@ def review_ideas_bank(secrets: dict):
     else:
         # All posts for current phase are done (or none exist yet) — advance
         if current_idx < len(ARC_PHASES) - 1:
+=======
+    strategy["campaign_week"] = _campaign_week(strategy)  # refresh before checking phase
+
+    # Compute the correct index based on campaign week — this is the source of truth
+    week = strategy["campaign_week"]
+    week_based_idx = next(
+        (i for i, p in enumerate(ARC_PHASES) if week in p["weeks"]),
+        len(ARC_PHASES) - 1,
+    )
+    current_idx = strategy.get("arc_phase_index", 0)
+
+    # Detect and correct a runaway advance (arc jumped ahead of campaign week)
+    if current_idx > week_based_idx:
+        print(f"  ⚠️  Arc phase index ({current_idx + 1}) ahead of campaign week {week} — resetting to {week_based_idx + 1}")
+        current_idx = week_based_idx
+        strategy["arc_phase_index"] = current_idx
+        _save_strategy(strategy)
+
+    # Only advance when the campaign week has moved us into the next phase
+    # AND there are no pending posts still in queue from the current phase
+    if week_based_idx > current_idx:
+        pending = _db_rb.count_pending_posts_for_arc(current_idx)
+        if pending > 0:
+            print(f"  ℹ️  Campaign week {week} ready for phase {week_based_idx + 1} but {pending} phase-{current_idx + 1} posts still queued — holding")
+        else:
+>>>>>>> Stashed changes
             old_idx = current_idx
-            current_idx += 1
+            current_idx = week_based_idx
             strategy["arc_phase_index"] = current_idx
             _save_strategy(strategy)
             phase = _current_arc_phase(strategy)
             print(f"  ✅ Arc phase advanced: {old_idx + 1} → {current_idx + 1} ({phase['theme']})")
+    else:
+        print(f"  ℹ️  Arc phase {current_idx + 1} ({ARC_PHASES[current_idx]['theme']}) — campaign week {week}")
 
     draft_ideas = [
         i for i in ideas
@@ -1305,7 +1425,8 @@ def check_direction(secrets: dict):
 
 
 def _sync_ideas_to_db() -> None:
-    """Sync ideas-bank.json → SQLite so the dashboard stays current."""
+    """Sync ideas-bank.json → SQLite. Never downgrades a status (archived stays archived). Removes DB ideas not in JSON."""
+    _STATUS_RANK = {"draft": 0, "green_lit": 1, "ideas_bank": 1, "archived": 2}
     try:
         import sys as _sys
         _sys.path.insert(0, str(VAULT_ROOT))
@@ -1313,39 +1434,61 @@ def _sync_ideas_to_db() -> None:
         ideas_file = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
         if not ideas_file.exists():
             return
-        ideas = json.loads(ideas_file.read_text()).get("ideas", [])
+        data  = json.loads(ideas_file.read_text())
+        ideas = data.get("ideas", [])
+        json_ids = {i["id"] for i in ideas if i.get("id")}
+        json_dirty = False
         for idea in ideas:
             if not idea.get("id"):
                 continue
+            json_status = idea.get("status", "draft")
+            existing    = _db.get_idea(idea["id"])
+            if existing:
+                db_status = existing.get("status", "draft")
+                if _STATUS_RANK.get(db_status, 0) > _STATUS_RANK.get(json_status, 0):
+                    # DB has a more final status — propagate back to JSON, skip DB write
+                    idea["status"] = db_status
+                    json_dirty = True
+                    continue
             _db.upsert_idea({
-                "id":           idea["id"],
-                "title":        idea.get("title", ""),
-                "angle":        idea.get("angle", ""),
-                "copy":         idea.get("copy", ""),
-                "status":       idea.get("status", "draft"),
-                "source":       idea.get("source", "marketing_bot"),
-                "notes":        idea.get("notes", ""),
-                "tags":         _serialise_tags(idea.get("tags", [])),
-                "photo_id":     idea.get("photo_id"),
+                "id":             idea["id"],
+                "title":          idea.get("title", ""),
+                "angle":          idea.get("angle", ""),
+                "copy":           idea.get("copy", ""),
+                "status":         json_status,
+                "source":         idea.get("source", "marketing_bot"),
+                "notes":          idea.get("notes", ""),
+                "tags":           _serialise_tags(idea.get("tags", [])),
+                "photo_id":       idea.get("photo_id"),
                 "developed_into": idea.get("developed_into") or "",
                 "added_at":     idea.get("added", idea.get("created", datetime.now(timezone.utc).date().isoformat())),
                 "green_lit_at": idea.get("green_lit") or idea.get("green_lit_at"),
             })
-        print(f"  🔄 Synced {len(ideas)} ideas → DB")
+        # Remove DB ideas that no longer exist in JSON
+        deleted = _db.delete_ideas_not_in(list(json_ids))
+        if json_dirty:
+            ideas_file.write_text(json.dumps(data, indent=2))
+        print(f"  🔄 Synced {len(ideas)} ideas → DB ({deleted} removed)")
     except Exception as e:
         print(f"  ⚠️  ideas DB sync failed: {e}")
 
 
 def run(secrets: dict, state: dict, vault_root: Path = VAULT_ROOT):
-    """Called from battleship_pipeline.py main()."""
-    try:
-        run_daily_review(secrets, state)
-        send_weekly_strategy(secrets, state)
-        review_ideas_bank(secrets)
-        check_direction(secrets)
-        _sync_ideas_to_db()
-    except Exception as e:
-        print(f"  ⚠️  Marketing bot error: {e}")
+    """Called from battleship_pipeline.py main(). Each step runs independently."""
+    steps = [
+        ("daily review",    lambda: run_daily_review(secrets, state)),
+        ("weekly strategy", lambda: send_weekly_strategy(secrets, state)),
+        ("ideas bank",      lambda: review_ideas_bank(secrets)),
+        ("check direction", lambda: check_direction(secrets)),
+        ("sync ideas→db",   lambda: _sync_ideas_to_db()),
+    ]
+    for name, fn in steps:
+        try:
+            fn()
+        except Exception as e:
+            import traceback
+            print(f"  ❌ Marketing bot — {name} failed: {e}")
+            print(traceback.format_exc()[-600:])
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────────

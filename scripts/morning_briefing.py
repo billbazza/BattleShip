@@ -365,9 +365,7 @@ def _build_briefing_data() -> dict:
         },
         "tech": {
             "summary": f"{len(active_workarounds)} active workaround(s), {len(blocked_gaps)} blocked gap(s).",
-            "next_action": (
-                "Review blocked tech gaps in dashboard."
-                if blocked_gaps else
+            "next_action": "Apply for Meta Standard Access" if any("standard" in str(g).lower() for g in blocked_gaps) else (
                 "No action needed — monitor at £" + str(min((g.get("unlock_at_mrr", 999) for g in blocked_gaps), default=999)) + " MRR."
             ),
         },
