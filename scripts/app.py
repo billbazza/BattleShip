@@ -7,7 +7,6 @@ import hashlib
 import hmac
 import json
 import os
-import re
 import socket
 import subprocess
 import sys
@@ -18,6 +17,8 @@ from pathlib import Path
 from flask import Flask, redirect, render_template_string, request, url_for, jsonify, Response
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+import llm_client  # noqa: E402
+import runtime_config  # noqa: E402
 from skills.tracker_generator import generate_tracker_for_client  # noqa: E402
 import scripts.db as db  # noqa: E402
 
@@ -31,7 +32,6 @@ PYTHON              = sys.executable
 # Non-DB data paths (still JSON — bots write these)
 MARKETING_STRATEGY_FILE  = CLIENTS_DIR / "marketing_strategy.json"
 SOCIAL_METRICS_FILE      = CLIENTS_DIR / "social_metrics.json"
-IDEAS_BANK_FILE         = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
 SEO_STATE_FILE           = VAULT_ROOT / "brand" / "Marketing" / "SEO" / "seo_state.json"
 TECH_BACKLOG_FILE        = VAULT_ROOT / "brand" / "Marketing" / "tech_backlog.json"
 ROADMAP_FILE             = VAULT_ROOT / "roadmap.md"
@@ -82,12 +82,40 @@ def _decorate_photo_candidate(photo: dict) -> dict:
     item["url"] = item.get("url") or _brand_asset_url(item.get("path", ""))
     return item
 
+
+def _decorate_idea_media(idea: dict) -> dict:
+    item = dict(idea)
+    photo_id = (item.get("photo_id") or "").strip()
+    item["image_url"] = f"/brand/{photo_id}" if photo_id else ""
+    return item
+
+
+def _idea_graphic_text(idea: dict) -> str:
+    for field in ("title", "copy", "angle", "notes"):
+        raw = (idea.get(field) or "").strip()
+        if not raw:
+            continue
+        line = raw.splitlines()[0].strip()
+        if not line:
+            continue
+        line = re.sub(r"\s+", " ", line)
+        return line[:140].rstrip()
+    return "Battleship Reset"
+
+
+def _generate_idea_quote_card(idea: dict) -> str:
+    from skills.brand_manager import create_quote_card
+
+    quote_text = _idea_graphic_text(idea)
+    output_name = f"idea_quote_{idea.get('id', 'draft')}.jpg"
+    output_path = create_quote_card(quote_text, output_name=output_name)
+    return str(output_path.relative_to(VAULT_ROOT / "brand").as_posix())
+
 STATUS_COLOUR = {
     "diagnosed": "#e8a020",
     "active":    "#2a9d4e",
 }
 
-ENV_FILE  = Path.home() / ".battleship.env"
 LOG_FILE  = VAULT_ROOT / "logs" / "pipeline.log"
 SNAPSHOT_AUDIT_LOG = VAULT_ROOT / "logs" / "snapshot_access.log"
 CRON_TAG  = "battleship_pipeline"
@@ -96,20 +124,10 @@ SNAPSHOT_SECRET_ENV = "SNAPSHOT_SECRET"
 SNAPSHOT_MAX_TTL_SECONDS = 900
 
 def _read_env() -> dict:
-    if not ENV_FILE.exists():
-        return {}
-    out = {}
-    for line in ENV_FILE.read_text().splitlines():
-        if "=" in line and not line.startswith("#"):
-            k, _, v = line.partition("=")
-            out[k.strip()] = v.strip()
-    return out
-
+    return runtime_config.export()
 
 def _runtime_env() -> dict:
-    env = _read_env()
-    env.update({k: v for k, v in os.environ.items() if v is not None})
-    return env
+    return _read_env()
 
 
 def _env_flag(name: str, default: bool = False, env: dict | None = None) -> bool:
@@ -190,9 +208,8 @@ def _verify_snapshot_request() -> tuple[bool, str, int | None]:
     return True, "authorized", expires
 
 
-def _anthropic_api_key(env: dict | None = None) -> str:
-    env = env or _read_env()
-    return env.get("ANTHROPIC_API_KEY") or env.get("ANTHROPIC_KEY", "")
+def _llm_ready(env: dict | None = None) -> bool:
+    return bool(llm_client.provider_order(overrides=env or _read_env()))
 
 
 def _normalize_ad_account_id(value: str) -> str:
@@ -267,7 +284,6 @@ def _sync_ideas_json_to_db():
         })
     if changed:
         _save_ideas_bank(data)
-
 def _ok(msg=""):   return {"status": "ok",   "label": msg or "OK"}
 def _warn(msg=""):  return {"status": "warn", "label": msg or "—"}
 def _err(msg=""):   return {"status": "err",  "label": msg or "Error"}
@@ -313,8 +329,8 @@ def get_system_status() -> dict:
     except Exception:
         stat["cron"] = _warn("Not scheduled")
 
-    # Claude API
-    stat["claude"] = _ok("Key set") if _anthropic_api_key(env) else _err("No key")
+    # LLM provider
+    stat["llm"] = _ok("OpenAI/xAI configured") if _llm_ready(env) else _err("No provider")
 
     # Stripe
     stat["stripe"] = _ok("Live key") if (env.get("STRIPE_KEY") or "").startswith("sk_live") else \
@@ -2177,6 +2193,9 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           <span style="color:#333;font-size:11px;flex-shrink:0;margin-top:1px">›</span>
         </div>
         <div class="card-expand" id="expand-idea-{{ idea.id }}" style="display:none;border-top:1px solid #1a1a1a;padding:8px">
+          {% if idea.image_url %}
+          <img src="{{ idea.image_url }}" style="width:100%;max-height:140px;object-fit:cover;border-radius:3px;border:1px solid #222;margin-bottom:8px" onerror="this.style.display='none'">
+          {% endif %}
           <!-- Copy preview -->
           <div id="idea-copy-view-{{ idea.id }}" style="font-size:12px;color:#aaa;white-space:pre-wrap;background:#0a0a0a;padding:8px;border-radius:3px;margin-bottom:8px;max-height:180px;overflow-y:auto;line-height:1.6">{{ idea.copy if idea.copy else idea.angle }}</div>
           <!-- Inline edit area (hidden by default) -->
@@ -2186,6 +2205,7 @@ BUSINESS_PAGE = """<!DOCTYPE html>
           <!-- Action buttons -->
           <div id="idea-actions-{{ idea.id }}" style="display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="approveIdea('{{ idea.id }}')" style="background:#1a3a1a;border:1px solid #2a9d4e;color:#2a9d4e;padding:4px 12px;border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">✓ Approve</button>
+            <button onclick="requestGraphicForIdea('{{ idea.id }}')" style="background:none;border:1px solid #e8a020;color:#e8a020;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer">Generate graphic</button>
             <button id="edit-idea-btn-{{ idea.id }}" onclick="toggleIdeaEdit('{{ idea.id }}')" style="background:none;border:1px solid #444;color:#888;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer">Edit</button>
             <button onclick="archiveIdea('{{ idea.id }}')" style="background:none;border:1px solid #2a1a1a;color:#555;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer">Reject</button>
           </div>
@@ -3238,14 +3258,17 @@ function postNow(id) {
 }
 function requestGraphicForIdea(id) {
   fetch('/api/ideas-bank/' + id + '/needs-graphic', {method:'POST'})
-    .then(() => {
-      const el = document.getElementById('idea-mkt-' + id) || document.getElementById('idea-' + id);
-      if (el) el.style.opacity = '0.5';
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        alert('Graphic generation failed: ' + data.error);
+        return;
+      }
       const toast = document.createElement('div');
-      toast.textContent = '🎨 Flagged — add graphic to brand/random-snaps/ then pick it from the Awaiting Graphic column.';
-      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2a1800;border:1px solid #e8a020;color:#e8a020;padding:12px 20px;border-radius:6px;font-size:13px;z-index:99999;max-width:90vw;text-align:center';
+      toast.textContent = '🎨 Quote card generated — refreshing Ideas Bank.';
+      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2a6f4e;color:#fff;padding:12px 20px;border-radius:6px;font-size:13px;z-index:99999;max-width:90vw;text-align:center';
       document.body.appendChild(toast);
-      setTimeout(() => { toast.remove(); location.reload(); }, 2500);
+      setTimeout(() => { toast.remove(); location.reload(); }, 1200);
     });
 }
 var _graphicPostId = null;
@@ -3449,16 +3472,6 @@ function toggleCard(id) {
   const expand = document.getElementById('expand-' + id);
   if (!expand) return;
   expand.style.display = expand.style.display === 'none' ? 'block' : 'none';
-}
-function requestGraphicForIdea(ideaId) {
-  fetch('/api/ideas-bank/' + ideaId + '/needs-graphic', {method:'POST'})
-    .then(r => r.json())
-    .then(() => {
-      const card = document.getElementById('idea-' + ideaId);
-      if (card) card.style.borderColor = '#3a2800';
-      const expand = document.getElementById('expand-idea-' + ideaId);
-      if (expand) expand.innerHTML = '<div style="background:#1a0800;border-left:2px solid #e8a020;padding:8px 10px;border-radius:0 3px 3px 0;font-size:11px;color:#e8a020">📸 Marked as needing a graphic. Drop an image into <b>brand/random-snaps/</b> — it will auto-advance on next page load.</div>';
-    });
 }
 function toggleBot(id) {
   const body  = document.getElementById('body-' + id);
@@ -4142,11 +4155,9 @@ def api_sim_week(week):
 @app.route("/api/brand-confidence-review", methods=["POST"])
 def api_brand_confidence_review():
     """Brand Bot assesses programme cadence & value for money."""
-    import anthropic as _anthropic
     secrets = _load_secrets()
-    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY", "")
-    if not api_key:
-        return jsonify({"error": "Anthropic API key not set"}), 500
+    if not llm_client.provider_order(overrides=secrets):
+        return jsonify({"error": "No OpenAI/xAI provider configured"}), 500
 
     brand_guidelines = db.get_bot_state("brand_guidelines") or ""
     learnings = db.get_learnings("marketing_bot")
@@ -4205,14 +4216,12 @@ Respond in this exact JSON format (no markdown, raw JSON only):
 }}"""
 
     try:
-        client = _anthropic.Anthropic(api_key=api_key)
-        msg = client.messages.create(
-            model="claude-sonnet-4-6",
+        text = llm_client.generate_text(
+            prompt,
             max_tokens=800,
-            messages=[{"role": "user", "content": prompt}]
+            overrides=secrets,
         )
         import json as _json
-        text = msg.content[0].text.strip()
         # Strip any accidental markdown fences
         if text.startswith("```"):
             text = text.split("```")[1]
@@ -4301,8 +4310,6 @@ def _build_business_context():
     ads_bot_log    = db.get_bot_state("ads_bot_last_run") or ""
     ads_bot_run_at = db.get_bot_state("ads_bot_last_run_at") or ""
 
-    _sync_ideas_json_to_db()
-
     # ── Marketing arc ─────────────────────────────────────────────────────────
     arc_phases = [
         "Problem Agitation",
@@ -4313,11 +4320,18 @@ def _build_business_context():
         "Direct CTA",
     ]
     arc_phase_index = int(strategy.get("arc_phase_index", 0))
-    try:
-        campaign_start = datetime.fromisoformat(strategy.get("campaign_start", ""))
-        campaign_week = max(1, min(12, (datetime.now(timezone.utc) - campaign_start).days // 7 + 1))
-    except Exception:
-        campaign_week = int(strategy.get("campaign_week", 1) or 1)
+    # Business week = weeks since first client's intake_date
+    _all_intake_dates = [
+        cs.get("intake_date", "")[:10]
+        for cs in state.get("clients", {}).values()
+        if cs.get("intake_date", "")
+    ]
+    if _all_intake_dates:
+        _first_intake = min(_all_intake_dates)
+        _days_since = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(_first_intake, "%Y-%m-%d")).days
+        campaign_week = max(1, (_days_since // 7) + 1)
+    else:
+        campaign_week = int(strategy.get("campaign_week", 1))
 
     # ── SEO ───────────────────────────────────────────────────────────────────
     SEO_TASK_DETAIL = [
@@ -4405,8 +4419,8 @@ def _build_business_context():
     pivot_notes       = db.get_pivot_notes()
     pending_photos    = [_decorate_photo_candidate(p) for p in db.get_pending_photos()]
     pending_content   = [_decorate_post_media(p) for p in db.get_posts(stage="content_review")]
-    ideas_drafts      = db.get_ideas(status="draft")
-    all_ideas         = db.get_ideas()
+    ideas_drafts      = [_decorate_idea_media(i) for i in db.get_ideas(status="draft")]
+    all_ideas         = [_decorate_idea_media(i) for i in db.get_ideas()]
 
     # Auto-suggest photos for draft ideas that don't have one yet
     _cat_file = VAULT_ROOT / "brand" / "catalogue.json"
@@ -4445,8 +4459,8 @@ def _build_business_context():
                 db.set_idea_status(_idea["id"], _idea.get("status","draft"), {"photo_id": _best_id})
                 _auto_suggested = True
     if _auto_suggested:
-        all_ideas    = db.get_ideas()          # reload with photo_ids populated
-        ideas_drafts = db.get_ideas(status="draft")  # also reload for kanban
+        all_ideas    = [_decorate_idea_media(i) for i in db.get_ideas()]          # reload with photo_ids populated
+        ideas_drafts = [_decorate_idea_media(i) for i in db.get_ideas(status="draft")]  # also reload for kanban
 
     # Auto-advance awaiting_graphic posts that now have a catalogue match
     _awaiting_posts = db.get_posts(stage="awaiting_graphic")
@@ -4803,7 +4817,6 @@ def telegram_webhook():
         import threading as _threading
         def _handle_in_background(text=text):
           try:
-            import anthropic as _anthropic
             env    = _read_env()
             state  = load_state()
             pr     = _load_json_safe(PHOTO_REVIEW_FILE, {"candidates": []})
@@ -4860,14 +4873,12 @@ If Will asks you to do something (approve a photo, add a reminder, etc.) say you
 Don't use markdown headers. Use plain text with occasional bold using HTML <b>tags</b>.
 Never say you can't do something — figure out the best response with the data you have."""
 
-            ai = _anthropic.Anthropic(api_key=_anthropic_api_key(env))
-            resp = ai.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=1024,
+            reply = llm_client.generate_text(
+                text,
                 system=context,
-                messages=[{"role": "user", "content": text}]
+                max_tokens=1024,
+                overrides=env,
             )
-            reply = resp.content[0].text.strip()
 
             # Execute simple actions Claude might decide on
             tl = text.lower()
@@ -4885,7 +4896,7 @@ Never say you can't do something — figure out the best response with the data 
             _tg_reply(reply)
 
           except Exception as e:
-            print(f"  ⚠️  Claude Telegram handler failed: {e}")
+            print(f"  ⚠️  LLM Telegram handler failed: {e}")
             _tg_reply(f"⚠️ Error: {str(e)[:120]}")
 
         _threading.Thread(target=_handle_in_background, daemon=True).start()
@@ -5022,8 +5033,6 @@ def api_content_post_now(cr_id):
     post = db.get_post(cr_id)
     if not post:
         return jsonify({"ok": False, "error": "not found"}), 404
-    if db.get_queue_settings().get("paused"):
-        return jsonify({"ok": False, "error": "FB queue is paused"}), 409
     env     = _read_env()
     token   = env.get("FB_PAGE_ACCESS_TOKEN", "")
     page_id = env.get("FB_PAGE_ID", "")
@@ -5115,11 +5124,8 @@ def api_content_send_back(cr_id):
     # Trigger immediate revision via Claude
     try:
         env = _read_env()
-        api_key = env.get("ANTHROPIC_API_KEY") or env.get("ANTHROPIC_KEY", "")
-        if not api_key:
-            raise ValueError("No API key")
-        import anthropic as _anthropic
-        _client = _anthropic.Anthropic(api_key=api_key)
+        if not llm_client.provider_order(overrides=env):
+            raise ValueError("No OpenAI/xAI provider configured")
         REVISION_PROMPT = (
             "You are the content writer for Battleship Reset — a 12-week fitness coaching programme for UK men 40-60.\n\n"
             "A post was sent back for revision with this feedback:\n\"{comment}\"\n\n"
@@ -5129,14 +5135,13 @@ def api_content_send_back(cr_id):
             "Length: 150-250 words. Hook first line. End with soft CTA or question.\n"
             "2-3 hashtags at end only.\n\nReturn only the revised post text, nothing else."
         )
-        msg = _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=600,
-            messages=[{"role": "user", "content": REVISION_PROMPT.format(
+        revised = llm_client.generate_text(
+            REVISION_PROMPT.format(
                 comment=comment, original=post["content"]
-            )}],
+            ),
+            max_tokens=600,
+            overrides=env,
         )
-        revised = msg.content[0].text.strip()
         db.update_post(cr_id, {
             "content":           revised,
             "stage":             "content_review",
@@ -5224,12 +5229,10 @@ def api_fb_ads_resume():
 def api_ads_campaigns():
     """Fetch live campaigns from Meta Graph API."""
     env   = _read_env()
-    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_USER_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
-    acct  = _normalize_ad_account_id(env.get("FB_AD_ACCOUNT_ID", ""))
+    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    acct  = "act_" + env.get("FB_AD_ACCOUNT_ID", "869755968629816")
     if not token:
         return jsonify({"ok": False, "error": "No token"}), 400
-    if not acct:
-        return jsonify({"ok": False, "error": "No ad account configured"}), 400
     import requests as _req
     r = _req.get(
         f"https://graph.facebook.com/v22.0/{acct}/campaigns",
@@ -5265,7 +5268,7 @@ def api_ads_campaigns():
 @app.route("/api/ads/campaigns/<campaign_id>/pause", methods=["POST"])
 def api_ads_campaign_pause(campaign_id):
     env   = _read_env()
-    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_USER_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
     import requests as _req
     r = _req.post(
         f"https://graph.facebook.com/v22.0/{campaign_id}",
@@ -5278,7 +5281,7 @@ def api_ads_campaign_pause(campaign_id):
 @app.route("/api/ads/campaigns/<campaign_id>/resume", methods=["POST"])
 def api_ads_campaign_resume(campaign_id):
     env   = _read_env()
-    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_USER_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    token = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
     import requests as _req
     r = _req.post(
         f"https://graph.facebook.com/v22.0/{campaign_id}",
@@ -5293,23 +5296,14 @@ def api_ads_boost_post():
     """Create a simple page post boost campaign."""
     body  = request.get_json(silent=True) or {}
     post_id     = body.get("post_id", "")
-    try:
-        daily_budget_gbp = float(body.get("daily_budget", 5))
-        days = int(body.get("days", 7))
-    except (TypeError, ValueError):
-        return jsonify({"ok": False, "error": "Invalid budget or duration"}), 400
-    if db.get_bot_state("fb_ads_paused") == "1":
-        return jsonify({"ok": False, "error": "FB ads are paused"}), 409
-    if daily_budget_gbp < 1 or daily_budget_gbp > 50:
-        return jsonify({"ok": False, "error": "daily_budget must be between £1 and £50"}), 400
-    if days < 1 or days > 14:
-        return jsonify({"ok": False, "error": "days must be between 1 and 14"}), 400
+    daily_budget_gbp = float(body.get("daily_budget", 5))
+    days        = int(body.get("days", 7))
     env         = _read_env()
-    token       = env.get("FB_SYSTEM_TOKEN") or env.get("FB_USER_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
-    acct        = _normalize_ad_account_id(env.get("FB_AD_ACCOUNT_ID", ""))
+    token       = env.get("FB_SYSTEM_TOKEN") or env.get("FB_PAGE_ACCESS_TOKEN", "")
+    acct        = "act_" + env.get("FB_AD_ACCOUNT_ID", "869755968629816")
     page_id     = env.get("FB_PAGE_ID", "")
-    if not token or not post_id or not acct:
-        return jsonify({"ok": False, "error": "Missing token, post_id, or ad account"}), 400
+    if not token or not post_id:
+        return jsonify({"ok": False, "error": "Missing token or post_id"}), 400
     import requests as _req
     from datetime import date, timedelta
     daily_budget_cents = int(daily_budget_gbp * 100)
@@ -5447,7 +5441,7 @@ def api_photo_candidates():
 
 def _generate_gl_draft(idea: dict, photo_id: str):
     """Background thread: generate Claude FB post + image card for a green-lit idea."""
-    import threading, anthropic as _anthropic, uuid as _uuid, hashlib as _hs
+    import threading, uuid as _uuid, hashlib as _hs
     def _run():
         try:
             existing_post = db.get_active_post_for_idea(idea["id"])
@@ -5463,10 +5457,8 @@ def _generate_gl_draft(idea: dict, photo_id: str):
                 })
                 return
             env     = _read_env()
-            api_key = _anthropic_api_key(env)
-            if not api_key:
+            if not llm_client.provider_order(overrides=env):
                 return
-            client  = _anthropic.Anthropic(api_key=api_key)
             prompt  = (
                 f"You are a direct-response copywriter for Battleship Reset — "
                 f"a 12-week home fitness programme for men 40+. "
@@ -5483,9 +5475,11 @@ def _generate_gl_draft(idea: dict, photo_id: str):
                 f"- Total length: 150-250 words\n"
                 f"Return only the post text, nothing else."
             )
-            msg       = client.messages.create(model="claude-sonnet-4-6", max_tokens=500,
-                                               messages=[{"role": "user", "content": prompt}])
-            post_text = msg.content[0].text.strip()
+            post_text = llm_client.generate_text(
+                prompt,
+                max_tokens=500,
+                overrides=env,
+            )
 
             # Generate image card
             image_path = ""
@@ -5609,7 +5603,6 @@ def api_idea_green_light(idea_id):
 
     db.set_idea_status(idea_id, "green_lit", {"green_lit_at": db._now(),
                                                "photo_id": photo_id})
-    _upsert_idea_in_json(idea_id, {"status": "green_lit", "green_lit_at": db._now(), "photo_id": photo_id or ""})
     idea["photo_id"] = photo_id or ""
     _generate_gl_draft(idea, photo_id or "")
     return jsonify({"status": "green_lit", "draft": {"status": "generating"}})
@@ -5624,7 +5617,7 @@ def api_idea_archive(idea_id):
 
 @app.route("/api/ideas-bank/<idea_id>/approve", methods=["POST"])
 def api_idea_approve(idea_id):
-    """Approve an idea with copy by creating a content_review draft, not a queued post."""
+    """Approve a draft idea — creates an fb_queue post directly, no review gate."""
     idea = db.get_idea(idea_id)
     if not idea:
         return jsonify({"error": "not found"}), 404
@@ -5641,13 +5634,23 @@ def api_idea_approve(idea_id):
         "idea_id":       idea_id,
         "theme":         idea.get("title", ""),
         "content":       copy,
-        "stage":         "content_review",
+        "stage":         "fb_queue",
         "source":        "ideas_bank",
         "image_path":    image_path,
+        "scheduled_for": db.next_available_slot(),
     })
     db.set_idea_status(idea_id, "green_lit", {"developed_into": post["id"]})
-    _upsert_idea_in_json(idea_id, {"status": "green_lit", "developed_into": post["id"], "photo_id": photo_id or ""})
-    return jsonify({"status": "approved", "stage": "content_review", "post_id": post["id"]})
+    _upsert_idea_in_json(idea_id, {
+        "status": "green_lit",
+        "developed_into": post["id"],
+        "photo_id": photo_id or "",
+    })
+    return jsonify({
+        "status": "approved",
+        "stage": post["stage"],
+        "scheduled_for": post.get("scheduled_for"),
+        "post_id": post["id"],
+    })
 
 
 @app.route("/api/ideas-bank/<idea_id>/edit-copy", methods=["POST"])
@@ -5657,18 +5660,30 @@ def api_idea_edit_copy(idea_id):
     copy = body.get("copy", "").strip()
     if not copy:
         return jsonify({"error": "copy is required"}), 400
-    if not db.get_idea(idea_id):
-        return jsonify({"error": "not found"}), 404
-    db.update_idea(idea_id, {"copy": copy})
-    _upsert_idea_in_json(idea_id, {"copy": copy})
+    db.upsert_idea({"id": idea_id, "copy": copy})
     return jsonify({"status": "updated"})
 
 
 @app.route("/api/ideas-bank/<idea_id>/needs-graphic", methods=["POST"])
 def api_idea_needs_graphic(idea_id):
-    db.set_idea_status(idea_id, "needs_graphic")
-    _upsert_idea_in_json(idea_id, {"status": "needs_graphic"})
-    return jsonify({"status": "needs_graphic"})
+    idea = db.get_idea(idea_id)
+    if not idea:
+        return jsonify({"error": "not found"}), 404
+
+    try:
+        photo_id = _generate_idea_quote_card(idea)
+        status = idea.get("status") or "draft"
+        db.set_idea_status(idea_id, status, {"photo_id": photo_id})
+        _upsert_idea_in_json(idea_id, {"photo_id": photo_id})
+        return jsonify({
+            "status": status,
+            "photo_id": photo_id,
+            "url": f"/brand/{photo_id}",
+            "generated": True,
+        })
+    except Exception as exc:
+        db.set_idea_status(idea_id, "needs_graphic")
+        return jsonify({"status": "needs_graphic", "generated": False, "error": str(exc)}), 500
 
 
 @app.route("/api/ideas-bank/<idea_id>/suggest-photo", methods=["POST"])
@@ -5715,8 +5730,7 @@ def api_idea_suggest_photo(idea_id):
     if not best_id:
         return jsonify({"error": "no photos available"}), 404
 
-    db.update_idea(idea_id, {"photo_id": best_id})
-    _upsert_idea_in_json(idea_id, {"photo_id": best_id})
+    db.upsert_idea({"id": idea_id, "photo_id": best_id})
     from urllib.parse import quote as _q
     url = "/brand/" + "/".join(_q(p) for p in best_id.split("/"))
     return jsonify({"photo_id": best_id, "url": url})
@@ -5859,7 +5873,7 @@ _PRIVACY_BODY = """
 <ul>
   <li><strong>Stripe</strong> — payment processing (stripe.com/privacy)</li>
   <li><strong>Google</strong> — check-in forms and workspace (policies.google.com/privacy)</li>
-  <li><strong>Anthropic / Claude API</strong> — used to generate personalised coaching content from your intake data (anthropic.com/privacy)</li>
+  <li><strong>OpenAI / xAI API</strong> — used to generate personalised coaching content from your intake data (openai.com / x.ai)</li>
   <li><strong>Meta (Facebook/Instagram)</strong> — social media management (facebook.com/policy)</li>
 </ul>
 <p>We do not sell your data to any third party.</p>

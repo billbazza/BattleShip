@@ -73,6 +73,12 @@ Week 4 is 31 March 2026. To have paying clients by then, the following must exis
 - [2026-03-28] [strategy] 32 ad ideas in queue + proven 100% funnel conversion + £0 ad spend = the worst possible combination. Idea generation and funnel optimisation have zero ROI until traffic runs. The only task that unlocks everything downstream is getting one manual campaign live in Ads Manager.
 - [2026-03-28] [timing] Three consecutive daily logs have listed the same top priority (launch Meta paid campaign) with no execution. When the same task appears as #1 for 3+ days without completion, it is not a prioritisation problem — it is a decision or access blocker that needs to be named explicitly and escalated, not re-queued.
 
+## 2026-04-08 – Day 19
+
+- [2026-04-08] [ops] When a shared LLM account exists in macOS Keychain already, the fastest recovery path from an expired vendor account is to centralise provider selection in one runtime wrapper and point every bot at it. Letting each module own its own SDK client and secret lookup turns a one-step cutover into a repo-wide outage.
+- [2026-04-08] [data] JSON→SQLite cleanup steps must respect downstream foreign keys. If an `ideas` row already has linked `content_posts`, sync should treat it as protected history rather than trying to hard-delete it just because it dropped out of the JSON bank.
+- [2026-04-08] [ux] If a dashboard button says `Generate graphic`, it should produce the asset directly and keep the idea visible in the same lane. Sending the card to a separate `needs_graphic` state turns a one-click creative action into a confusing queue hop.
+
 ## 2026-03-27 – Day 18
 
 - [2026-03-27] [ops] Health check FAIL is now a recurring false positive — all triggering errors are low-severity Meta 400s (expired campaign IDs, IG scope mismatch). The health check threshold must distinguish CRITICAL (pipeline stops) from WARN (expected API noise). A FAIL state that doesn't reflect a real blockage erodes trust in the signal entirely.
