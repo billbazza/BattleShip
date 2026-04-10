@@ -5,7 +5,7 @@ Automates campaign creation, daily performance monitoring, and budget optimisati
 via the Meta Marketing API.
 
 SETUP REQUIRED (one-time):
-  ~/.battleship.env:
+  Keychain or env overrides:
     FB_AD_ACCOUNT_ID=<number from Ads Manager — no "act_" prefix>
     FB_USER_TOKEN=<user access token with ads_management + ads_read scopes>
 
@@ -23,16 +23,17 @@ USAGE:
   python3 skills/facebook_ads_bot.py --report
 """
 
-import requests
 import json
 import sys
 import argparse
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+import requests
+import runtime_config
+
 GRAPH_BASE = "https://graph.facebook.com/v22.0"
 VAULT_ROOT  = Path(__file__).parent.parent
-ENV_FILE    = Path.home() / ".battleship.env"
 
 # ── Performance thresholds ────────────────────────────────────────────────────
 # Evaluated only after 500+ impressions — no premature pausing
@@ -578,16 +579,9 @@ def run(secrets: dict, vault_root: Path):
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def _load_env() -> dict:
-    if not ENV_FILE.exists():
-        return {}
-    result = {}
-    for line in ENV_FILE.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, _, v = line.partition("=")
-        result[k.strip().lower()] = v.strip()
-    return result
+    return {k.lower(): v for k, v in runtime_config.export(
+        {"FB_SYSTEM_TOKEN", "FB_USER_TOKEN", "FB_PAGE_ACCESS_TOKEN", "FB_AD_ACCOUNT_ID", "FB_PAGE_ID"}
+    ).items()}
 
 
 if __name__ == "__main__":
@@ -606,10 +600,10 @@ if __name__ == "__main__":
     page_id       = env.get("fb_page_id", "")
 
     if not token:
-        print("❌ FB_USER_TOKEN not set in ~/.battleship.env")
+        print("❌ FB_USER_TOKEN not available in Keychain/env")
         sys.exit(1)
     if not ad_account_id:
-        print("❌ FB_AD_ACCOUNT_ID not set in ~/.battleship.env")
+        print("❌ FB_AD_ACCOUNT_ID not available in Keychain/env")
         sys.exit(1)
 
     if args.smoke_test:

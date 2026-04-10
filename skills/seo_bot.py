@@ -22,7 +22,8 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-import anthropic
+import llm_client
+import runtime_config
 
 VAULT_ROOT  = Path(__file__).parent.parent
 SEO_DIR     = VAULT_ROOT / "brand" / "Marketing" / "SEO"
@@ -123,18 +124,16 @@ Website: battleshipreset.com
 """
 
 
-def _claude_generate(prompt: str, api_key: str, max_tokens: int = 1000) -> str:
-    client = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
+def _claude_generate(prompt: str, secrets: dict | None = None, max_tokens: int = 1000) -> str:
+    return llm_client.generate_text(
+        prompt,
         max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}],
+        overrides=secrets,
     )
-    return msg.content[0].text.strip()
 
 
-def _task_generate(task_id: int, api_key: str, arc_guidance: dict | None = None) -> str:
-    """Generate output content for a given task using Claude."""
+def _task_generate(task_id: int, secrets: dict | None = None, arc_guidance: dict | None = None) -> str:
+    """Generate output content for a given task using the shared LLM wrapper."""
     task = GBP_TASKS[task_id]
     arc_context = ""
     if arc_guidance:
@@ -249,7 +248,7 @@ Note any photos that need editing (resize, crop) and provide the exact GBP image
     }
 
     prompt = prompts.get(task_id, f"Generate SEO content for task: {task['description']}")
-    return _claude_generate(prompt, api_key, max_tokens=1500)
+    return _claude_generate(prompt, secrets, max_tokens=1500)
 
 
 # ── State management ──────────────────────────────────────────────────────────
@@ -289,12 +288,10 @@ def run_task(task_id: int, secrets: dict, arc_guidance: dict | None = None) -> d
     Returns dict with task result for email digest.
     """
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")
-
     task    = GBP_TASKS[task_id]
     print(f"  📍 SEO Task {task_id}: {task['name']}")
 
-    content = _task_generate(task_id, api_key, arc_guidance)
+    content = _task_generate(task_id, secrets, arc_guidance)
 
     # Save output
     out_file = OUTPUTS_DIR / task["output_file"]
@@ -360,8 +357,6 @@ def confirm_task_complete(task_id: int):
 
 def generate_weekly_gbp_post(secrets: dict, arc_guidance: dict | None = None) -> str:
     """Generate this week's GBP post, aligned to the content arc."""
-    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")
-
     arc_context = ""
     if arc_guidance:
         arc_context = f"This week's content theme: {arc_guidance.get('phase', '')} — {arc_guidance.get('theme', '')}\nFocus message: {arc_guidance.get('focus_message', '')}"
@@ -388,7 +383,7 @@ BODY: [the post]
 CTA: [call to action]
 HASHTAGS: [5-8 relevant]"""
 
-    content  = _claude_generate(prompt, api_key, max_tokens=600)
+    content  = _claude_generate(prompt, secrets, max_tokens=600)
 
     # Save post
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -458,13 +453,7 @@ def run(secrets: dict, state: dict, pnl: dict | None = None, arc_guidance: dict 
 if __name__ == "__main__":
     import argparse, sys
 
-    env_file = Path.home() / ".battleship.env"
-    secrets: dict = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if "=" in line and not line.startswith("#"):
-                k, v = line.split("=", 1)
-                secrets[k.strip()] = v.strip()
+    secrets = runtime_config.export()
 
     parser = argparse.ArgumentParser(description="Battleship SEO Bot")
     parser.add_argument("--status",      action="store_true", help="Show current SEO progress")

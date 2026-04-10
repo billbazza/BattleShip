@@ -13,6 +13,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import runtime_config
+
 try:
     import urllib.request as _req
     import urllib.parse as _parse
@@ -24,8 +26,6 @@ CLIENTS_DIR = VAULT_ROOT / "clients"
 SOCIAL_METRICS_FILE = CLIENTS_DIR / "social_metrics.json"
 MARKETING_STRATEGY_FILE = CLIENTS_DIR / "marketing_strategy.json"
 TECH_BACKLOG_FILE = VAULT_ROOT / "brand" / "Marketing" / "tech_backlog.json"
-ENV_FILE = Path.home() / ".battleship.env"
-
 GRAPH_BASE = "https://graph.facebook.com/v22.0"
 
 
@@ -37,14 +37,7 @@ def _normalize_ad_account_id(value: str) -> str:
 
 
 def _load_env() -> dict:
-    if not ENV_FILE.exists():
-        return {}
-    out = {}
-    for line in ENV_FILE.read_text().splitlines():
-        if "=" in line and not line.startswith("#"):
-            k, _, v = line.partition("=")
-            out[k.strip()] = v.strip()
-    return out
+    return runtime_config.export({"FB_PAGE_ACCESS_TOKEN", "FB_PAGE_ID", "FB_SYSTEM_TOKEN", "FB_AD_ACCOUNT_ID", "IG_USER_ID"})
 
 
 def _get(url: str) -> dict:

@@ -15,12 +15,15 @@ echo "  App: Battleship-Reset  |  Account: act_869755968629816"
 echo "=================================================="
 echo ""
 
-# Load secrets from ~/.battleship.env
-if [[ ! -f "$HOME/.battleship.env" ]]; then
-  echo "ERROR: ~/.battleship.env not found" && exit 1
+SERVICE="${BATTLESHIP_KEYCHAIN_SERVICE:-polymarket-scanner}"
+FB_PAGE_ID="$(security find-generic-password -w -s "$SERVICE" -a FB_PAGE_ID 2>/dev/null || true)"
+FB_PAGE_ACCESS_TOKEN="$(security find-generic-password -w -s "$SERVICE" -a FB_PAGE_ACCESS_TOKEN 2>/dev/null || true)"
+
+if [[ -z "$FB_PAGE_ID" || -z "$FB_PAGE_ACCESS_TOKEN" ]]; then
+  echo "ERROR: FB_PAGE_ID / FB_PAGE_ACCESS_TOKEN not found in Keychain service '$SERVICE'" && exit 1
 fi
-# shellcheck disable=SC1090
-set -a; source "$HOME/.battleship.env"; set +a
+
+export FB_PAGE_ID FB_PAGE_ACCESS_TOKEN
 
 sleep 2
 

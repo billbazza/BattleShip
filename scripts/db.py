@@ -412,11 +412,19 @@ def set_idea_status(idea_id: str, status: str, extra: dict | None = None):
 
 
 def delete_ideas_not_in(keep_ids: list[str]) -> int:
-    """Delete all ideas whose IDs are not in the keep_ids list. Returns count deleted."""
+    """Delete unreferenced ideas missing from keep_ids. Returns count deleted."""
     with _conn() as con:
         placeholders = ",".join("?" * len(keep_ids)) if keep_ids else "''"
         result = con.execute(
-            f"DELETE FROM ideas WHERE id NOT IN ({placeholders})",
+            f"""
+            DELETE FROM ideas
+            WHERE id NOT IN ({placeholders})
+              AND id NOT IN (
+                  SELECT DISTINCT idea_id
+                  FROM content_posts
+                  WHERE idea_id IS NOT NULL AND idea_id != ''
+              )
+            """,
             keep_ids if keep_ids else []
         )
         return result.rowcount
@@ -659,12 +667,44 @@ def get_pivot_notes(limit: int = 10) -> list[dict]:
 
 # ── Email Queue ────────────────────────────────────────────────────────────────
 
+def _normalise_email_text(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
+def _is_placeholder_newsletter_email(email: dict) -> bool:
+    if email.get("source") != "newsletter":
+        return False
+    subject = _normalise_email_text(email.get("subject"))
+    body = _normalise_email_text(email.get("body"))
+    html_body = _normalise_email_text(email.get("html_body"))
+    placeholder_bodies = {"", "body", "<p>body</p>"}
+    return subject in {"", "subject"} and (body in placeholder_bodies or html_body in placeholder_bodies)
+
+
+def reject_placeholder_newsletters() -> int:
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT id, subject, body, html_body, source FROM email_queue "
+            "WHERE status='pending' AND source='newsletter'"
+        ).fetchall()
+        rejected_ids = [
+            row["id"] for row in rows
+            if _is_placeholder_newsletter_email(dict(row))
+        ]
+        if rejected_ids:
+            con.executemany(
+                "UPDATE email_queue SET status='rejected' WHERE id=?",
+                [(eq_id,) for eq_id in rejected_ids],
+            )
+    return len(rejected_ids)
+
 def get_pending_emails() -> list[dict]:
     with _conn() as con:
         rows = con.execute(
             "SELECT * FROM email_queue WHERE status='pending' ORDER BY created_at ASC"
         ).fetchall()
-    return _rows_to_list(rows)
+    emails = _rows_to_list(rows)
+    return [email for email in emails if not _is_placeholder_newsletter_email(email)]
 
 
 def insert_email(fields: dict) -> str:
@@ -672,6 +712,8 @@ def insert_email(fields: dict) -> str:
     fields["id"] = eid
     if "created_at" not in fields:
         fields["created_at"] = _now()
+    if _is_placeholder_newsletter_email(fields):
+        raise ValueError("Refusing to insert placeholder newsletter draft")
     cols = ", ".join(fields.keys())
     placeholders = ", ".join("?" * len(fields))
     with _conn() as con:
@@ -744,6 +786,21 @@ def set_bot_state(key: str, value: str):
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
             (key, value, _now())
         )
+
+
+def _state_enabled(key: str, default: bool = False) -> bool:
+    raw = (get_bot_state(key) or "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
+def telegram_updates_disabled() -> bool:
+    return _state_enabled("telegram_updates_disabled", default=False)
+
+
+def internal_email_updates_disabled() -> bool:
+    return _state_enabled("internal_email_updates_disabled", default=False)
 
 
 # ── Bot Learnings ──────────────────────────────────────────────────────────────

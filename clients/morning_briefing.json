@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-02T07:00:03.672780",
-  "today": "2026-04-02",
+  "generated_at": "2026-04-08T07:00:05.116456",
+  "today": "2026-04-08",
   "pulse": {
     "mrr": 0.0,
     "gap": 3000.0,
@@ -10,7 +10,7 @@
   },
   "agents": {
     "brand": {
-      "summary": "30 FB followers (+0 vs yesterday), 0 IG. Reach: 0, clicks: 0. Posts this week: 4. Queue: 13. To review: 0.",
+      "summary": "29 FB followers (+0 vs yesterday), 0 IG. Reach: 0, clicks: 0. Posts this week: 1. Queue: 6. To review: 5.",
       "next_action": "Post due Mon/Wed/Fri. Next content should be Phase: Problem Agitation"
     },
     "seo": {
@@ -36,7 +36,7 @@
     "thirty_days": "Target: 0 new client(s)/week. Close gap of \u00a33000 \u2192 need 34 paying clients."
   },
   "photo_candidates": [],
-  "campaign_week": 3,
+  "campaign_week": 4,
   "phase_label": "Visibility",
   "stuck_clients": []
 }

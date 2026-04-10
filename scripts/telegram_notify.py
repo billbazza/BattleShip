@@ -11,21 +11,16 @@ import json
 import requests
 from pathlib import Path
 
+import runtime_config
+import scripts.db as db
+
 VAULT_ROOT   = Path(__file__).parent.parent
 OFFSET_FILE  = VAULT_ROOT / "clients" / "telegram_offset.txt"
 BASE_URL     = "https://api.telegram.org/bot{token}/{method}"
 
 
 def _env() -> dict:
-    env = {}
-    env_path = Path.home() / ".battleship.env"
-    if env_path.exists():
-        for line in env_path.read_text().splitlines():
-            line = line.strip()
-            if "=" in line and not line.startswith("#"):
-                k, v = line.split("=", 1)
-                env[k.strip()] = v.strip()
-    return env
+    return runtime_config.export({"TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TELEGRAM_MUTED"})
 
 
 def _creds() -> tuple:
@@ -34,7 +29,10 @@ def _creds() -> tuple:
 
 
 def _muted() -> bool:
-    return _env().get("TELEGRAM_MUTED", "0").strip() == "1"
+    return (
+        _env().get("TELEGRAM_MUTED", "0").strip() == "1"
+        or db.telegram_updates_disabled()
+    )
 
 
 def _post(method: str, **kwargs) -> dict:
@@ -126,7 +124,7 @@ def poll_callbacks(offset_file: Path = None) -> list:
             offset = 0
 
     token, _ = _creds()
-    if not token:
+    if not token or _muted():
         return []
 
     resp = requests.get(

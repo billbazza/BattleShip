@@ -19,8 +19,9 @@ import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+import llm_client
 import requests
-import anthropic
+import runtime_config
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -116,13 +117,11 @@ Reply only."""
 # ── Claude helpers ─────────────────────────────────────────────────────────────
 
 def _claude(prompt: str, secrets: dict, max_tokens: int = 600) -> str:
-    client = anthropic.Anthropic(api_key=secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic"))
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
+    return llm_client.generate_text(
+        prompt,
         max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}]
+        overrides=secrets,
     )
-    return msg.content[0].text.strip()
 
 
 # ── Queue helpers ──────────────────────────────────────────────────────────────
@@ -893,9 +892,6 @@ def find_and_draft_comments(secrets: dict) -> list:
     state    = _load_engagement_state()
     seen     = set(state.get("commented_media_ids", []))
     pending  = {p["media_id"] for p in state.get("pending_approvals", [])}
-    client   = anthropic.Anthropic(
-        api_key=secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")
-    )
     drafts   = []
 
     for tag in ENGAGEMENT_HASHTAGS:
@@ -910,12 +906,11 @@ def find_and_draft_comments(secrets: dict) -> list:
             if not caption:
                 continue
 
-            msg = client.messages.create(
-                model="claude-sonnet-4-6",
+            draft = llm_client.generate_text(
+                COMMENT_DRAFT_PROMPT.format(caption=caption),
                 max_tokens=120,
-                messages=[{"role": "user", "content": COMMENT_DRAFT_PROMPT.format(caption=caption)}]
+                overrides=secrets,
             )
-            draft = msg.content[0].text.strip()
             if draft.upper() == "SKIP":
                 continue
 
@@ -1346,6 +1341,9 @@ def flag_boost_candidates(metrics: dict, secrets: dict):
 
         # Telegram nudge
         try:
+            import scripts.db as db
+            if db.telegram_updates_disabled():
+                raise RuntimeError("Telegram updates disabled")
             token = secrets.get("TELEGRAM_BOT_TOKEN", "")
             chat_id = secrets.get("TELEGRAM_CHAT_ID", "")
             if token and chat_id:
@@ -1580,7 +1578,7 @@ def _show_queue():
 def _flush_queue(secrets: dict):
     """Post all queued items live. Requires token to be set."""
     if not _is_live(secrets):
-        print("❌ FB_PAGE_ACCESS_TOKEN not set in ~/.battleship.env")
+        print("❌ FB_PAGE_ACCESS_TOKEN not available in Keychain/env")
         return
     files = sorted(QUEUE_DIR.glob("post-*.json"))
     if not files:
@@ -1598,13 +1596,7 @@ def _flush_queue(secrets: dict):
 
 if __name__ == "__main__":
     # Load secrets for standalone use
-    env_file = Path.home() / ".battleship.env"
-    secrets: dict = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if "=" in line and not line.startswith("#"):
-                k, v = line.split("=", 1)
-                secrets[k.strip()] = v.strip()
+    secrets = runtime_config.export()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--post",           action="store_true", help="Generate and queue/post one post now")

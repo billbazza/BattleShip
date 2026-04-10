@@ -49,7 +49,7 @@ def blank_state():
 @pytest.fixture
 def fake_secrets():
     return {
-        "ANTHROPIC_API_KEY":        "sk-test-key",
+        "OPENAI_API_KEY":           "sk-test-key",
         "BEEHIIV_API_KEY":          "bh-test-key",
         "BEEHIIV_PUBLICATION_ID":   "pub_test123",
     }
@@ -116,12 +116,8 @@ class TestSchedule:
 # ── Content generation ─────────────────────────────────────────────────────────
 
 class TestContentGeneration:
-    def _mock_claude_response(self, content: str):
-        mock_msg = MagicMock()
-        mock_msg.content = [MagicMock(text=content)]
-        mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_msg
-        return mock_client
+    def _mock_llm_response(self, content: str):
+        return content
 
     def test_generate_issue_returns_subject_preview_html(self, fake_secrets):
         valid_json = json.dumps({
@@ -132,9 +128,9 @@ class TestContentGeneration:
             "build_log":     "Shipped the newsletter bot this week. First dry run.",
             "cta_text":      "If you're rebuilding your body alongside the business: battleshipreset.com",
         })
-        mock_client = self._mock_claude_response(valid_json)
+        mock_client = self._mock_llm_response(valid_json)
 
-        with patch("skills.newsletter_bot.anthropic.Anthropic", return_value=mock_client):
+        with patch("skills.newsletter_bot.llm_client.generate_text", return_value=mock_client):
             subject, preview, html, fb_post = _generate_issue(
                 issue_number=1,
                 theme=INSIGHT_THEMES[0],
@@ -158,9 +154,9 @@ class TestContentGeneration:
             "build_log":     "Build log text.",
             "cta_text":      "CTA text.",
         })
-        mock_client = self._mock_claude_response(valid_json)
+        mock_client = self._mock_llm_response(valid_json)
 
-        with patch("skills.newsletter_bot.anthropic.Anthropic", return_value=mock_client):
+        with patch("skills.newsletter_bot.llm_client.generate_text", return_value=mock_client):
             _, _, html, _ = _generate_issue(1, INSIGHT_THEMES[0],
                                              DEFAULT_AFFILIATE_SLOTS, fake_secrets)
 
@@ -174,16 +170,16 @@ class TestContentGeneration:
             "build_log": "Log.", "cta_text": "CTA.",
         })
         fenced = f"```json\n{valid_json}\n```"
-        mock_client = self._mock_claude_response(fenced)
+        mock_client = self._mock_llm_response(fenced)
 
-        with patch("skills.newsletter_bot.anthropic.Anthropic", return_value=mock_client):
+        with patch("skills.newsletter_bot.llm_client.generate_text", return_value=mock_client):
             subject, _, _, _ = _generate_issue(1, INSIGHT_THEMES[0],
                                                 DEFAULT_AFFILIATE_SLOTS, fake_secrets)
         assert subject == "Subject"
 
     def test_generate_issue_raises_on_invalid_json(self, fake_secrets):
-        mock_client = self._mock_claude_response("this is not json at all")
-        with patch("skills.newsletter_bot.anthropic.Anthropic", return_value=mock_client):
+        mock_client = self._mock_llm_response("this is not json at all")
+        with patch("skills.newsletter_bot.llm_client.generate_text", return_value=mock_client):
             with pytest.raises(json.JSONDecodeError):
                 _generate_issue(1, INSIGHT_THEMES[0],
                                  DEFAULT_AFFILIATE_SLOTS, fake_secrets)
@@ -288,12 +284,7 @@ class TestRun:
             "insight_title": "The title", "insight_body": "Body text.",
             "build_log": "Log text.", "cta_text": "CTA text.",
         })
-        mock_msg = MagicMock()
-        mock_msg.content = [MagicMock(text=valid_json)]
-        mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_msg
-
-        with patch("skills.newsletter_bot.anthropic.Anthropic", return_value=mock_client):
+        with patch("skills.newsletter_bot.llm_client.generate_text", return_value=valid_json):
             with patch("skills.newsletter_bot._get_subscriber_count", return_value=42):
                 run(fake_secrets, dry_run=True, force=True)
 
@@ -307,10 +298,7 @@ class TestRun:
                                                         capsys):
         from skills.newsletter_bot import run
 
-        mock_client = MagicMock()
-        mock_client.messages.create.side_effect = Exception("API down")
-
-        with patch("skills.newsletter_bot.anthropic.Anthropic", return_value=mock_client):
+        with patch("skills.newsletter_bot.llm_client.generate_text", side_effect=Exception("API down")):
             with patch("skills.newsletter_bot._get_subscriber_count", return_value=0):
                 run(fake_secrets, dry_run=True, force=True)
 

@@ -18,6 +18,9 @@ from datetime import datetime
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
+import llm_client
+import runtime_config
+
 VAULT_ROOT   = Path(__file__).parent.parent
 BRAND_DIR    = VAULT_ROOT / "brand"
 OUTPUT_DIR   = VAULT_ROOT / "brand/output"
@@ -409,7 +412,7 @@ def generate_hooked_variants(secrets: dict | None = None) -> list[Path]:
         print(f"  Hook {i+1}: {hook[:60]}...")
 
     # AI-generated hooks if API key available
-    if secrets and (secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")):
+    if llm_client.provider_order(overrides=secrets):
         ai_hooks = _generate_ai_hooks(secrets)
         for j, hook in enumerate(ai_hooks):
             fname = f"before_after_ai_{j+1:02d}.jpg"
@@ -420,12 +423,8 @@ def generate_hooked_variants(secrets: dict | None = None) -> list[Path]:
 
 
 def _generate_ai_hooks(secrets: dict) -> list[str]:
-    """Use Claude to generate fresh hook variants aligned to current arc phase."""
+    """Use the shared LLM wrapper to generate fresh hook variants aligned to the current arc phase."""
     try:
-        import anthropic
-        api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
-        client  = anthropic.Anthropic(api_key=api_key)
-
         # Pull arc phase for alignment
         arc_context = ""
         try:
@@ -446,12 +445,12 @@ Each should stop a 47-year-old man scrolling Facebook dead in his tracks.
 Mix styles: 1 specific/credible, 1 slightly comedic, 1 provocative/challenge.
 Return only the 3 headlines, one per line. No numbering. No quotes."""
 
-        msg  = client.messages.create(
-            model="claude-sonnet-4-6",
+        raw = llm_client.generate_text(
+            prompt,
             max_tokens=200,
-            messages=[{"role": "user", "content": prompt}],
+            overrides=secrets,
         )
-        lines = [l.strip() for l in msg.content[0].text.strip().split("\n") if l.strip()]
+        lines = [l.strip() for l in raw.strip().split("\n") if l.strip()]
         return lines[:3]
     except Exception as e:
         print(f"  ⚠️  AI hook generation failed: {e}")
@@ -775,13 +774,7 @@ if __name__ == "__main__":
 
     elif args.hook_variants:
         build_catalogue()
-        env_file = Path.home() / ".battleship.env"
-        secrets: dict = {}
-        if env_file.exists():
-            for line in env_file.read_text().splitlines():
-                if "=" in line and not line.startswith("#"):
-                    k, v = line.split("=", 1)
-                    secrets[k.strip()] = v.strip()
+        secrets = runtime_config.export()
         paths = generate_hooked_variants(secrets)
         print(f"\n  {len(paths)} hooked variants saved to {OUTPUT_DIR}")
         print("  Open brand/output/ and pick your best scroll-stopper.")

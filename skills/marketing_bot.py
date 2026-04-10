@@ -31,10 +31,12 @@ import re
 import sys
 import uuid
 import requests
-import anthropic
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import llm_client
+import runtime_config
 
 VAULT_ROOT   = Path(__file__).parent.parent
 GRAPH        = "https://graph.facebook.com/v22.0"
@@ -285,9 +287,8 @@ Be direct. No fluff. Talk like a marketing consultant who charges by the insight
 
 def _load_strategy() -> dict:
     if STRATEGY_FILE.exists():
-        strategy = json.loads(STRATEGY_FILE.read_text())
-    else:
-        strategy = {
+        return json.loads(STRATEGY_FILE.read_text())
+    return {
         "campaign_start": datetime.now(timezone.utc).isoformat(),
         "campaign_week": 1,
         "arc_phase_index": 0,
@@ -303,16 +304,7 @@ def _load_strategy() -> dict:
         "daily_reviews": [],
         "flags_sent": [],
         "last_review_date": "",
-        }
-
-    strategy.setdefault("funnel", {})
-    strategy["funnel"].setdefault("impressions", 0)
-    strategy["funnel"].setdefault("clicks", 0)
-    strategy["funnel"].setdefault("quiz_starts", 0)
-    strategy["funnel"].setdefault("diagnosed", 0)
-    strategy["funnel"].setdefault("paid", 0)
-    strategy["funnel"].setdefault("retained_week4", 0)
-    return strategy
+    }
 
 
 def _save_strategy(s: dict):
@@ -911,7 +903,7 @@ def _parse_json_array(raw: str):
 
 
 def _current_arc_phase(strategy: dict) -> dict:
-    week = _campaign_week(strategy)
+    week = strategy.get("campaign_week", 1)
     for phase in ARC_PHASES:
         if week in phase["weeks"]:
             return phase
@@ -922,20 +914,6 @@ def _campaign_week(strategy: dict) -> int:
     start = datetime.fromisoformat(strategy["campaign_start"])
     delta = datetime.now(timezone.utc) - start
     return max(1, min(12, delta.days // 7 + 1))
-
-
-def _funnel_metrics(funnel: dict) -> dict:
-    impressions = int(funnel.get("impressions", 0) or 0)
-    clicks = int(funnel.get("clicks", 0) or 0)
-    quiz = int(funnel.get("diagnosed", 0) or 0)
-    paid = int(funnel.get("paid", 0) or 0)
-    retained = int(funnel.get("retained_week4", 0) or 0)
-    return {
-        "ctr": round(clicks / impressions * 100, 2) if impressions > 0 else 0,
-        "click_to_quiz": round(quiz / clicks * 100, 1) if clicks > 0 else 0,
-        "quiz_to_paid": round(paid / quiz * 100, 1) if quiz > 0 else 0,
-        "paid_retention": round(retained / paid * 100, 1) if paid > 0 else 0,
-    }
 
 
 # ── Funnel tracking ────────────────────────────────────────────────────────────
@@ -1017,17 +995,10 @@ def generate_copy(format: str, usp_id: str = None, secrets: dict = None) -> str:
         arc_theme=phase["theme"],
         format=format,
     ) + learnings_hint
-    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic") if secrets else None
-    if not api_key:
+    if not llm_client.provider_order(overrides=secrets):
         return "[No API key — run with secrets]"
 
-    client = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=300,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    copy = msg.content[0].text.strip()
+    copy = llm_client.generate_text(prompt, max_tokens=300, overrides=secrets)
 
     # Log the copy test
     strategy["copy_tests"].append({
@@ -1066,7 +1037,7 @@ def run_daily_review(secrets: dict, state: dict):
     # Sync funnel
     update_funnel_from_state(state, strategy)
     update_funnel_from_fb(secrets, strategy)
-    campaign_week = _campaign_week(strategy)
+    strategy["campaign_week"] = _campaign_week(strategy)
 
     # Get recent post performance
     metrics  = _load_metrics()
@@ -1078,7 +1049,8 @@ def run_daily_review(secrets: dict, state: dict):
 
     # Build performance summary for Claude
     funnel   = strategy["funnel"]
-    rates = _funnel_metrics(funnel)
+    ctr      = round(funnel["clicks"] / funnel["impressions"] * 100, 2) if funnel["impressions"] > 0 else 0
+    conv_rate = round(funnel["diagnosed"] / funnel["clicks"] * 100, 1) if funnel["clicks"] > 0 else 0
 
     # Check if ads are intentionally paused
     ads_paused = False
@@ -1095,14 +1067,12 @@ def run_daily_review(secrets: dict, state: dict):
 
     funnel_text = (
         f"Impressions (7d): {funnel['impressions']}\n"
-        f"Clicks (7d): {funnel['clicks']} (CTR: {rates['ctr']}%)\n"
+        f"Clicks (7d): {funnel['clicks']} (CTR: {ctr}%)\n"
         f"Quiz completions / diagnosed: {funnel['diagnosed']}\n"
         f"Paid clients: {funnel['paid']}\n"
         f"Retained to week 4+: {funnel['retained_week4']}\n"
-        f"Click → quiz conversion: {rates['click_to_quiz']}%\n"
-        f"Quiz → paid conversion: {rates['quiz_to_paid']}%\n"
-        f"Paid retention (week 4+): {rates['paid_retention']}%\n"
-        f"Campaign week: {campaign_week}/12"
+        f"Quiz → paid conversion: {conv_rate}%\n"
+        f"Campaign week: {strategy['campaign_week']}/12"
         f"{ads_note}"
     )
 
@@ -1118,18 +1088,15 @@ def run_daily_review(secrets: dict, state: dict):
         funnel_data=funnel_text,
         post_performance=posts_text,
         arc_phase=phase["theme"],
-        campaign_week=campaign_week,
+        campaign_week=strategy["campaign_week"],
         usps=usps_text,
     )
 
-    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
-    client  = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
+    review_text = llm_client.generate_text(
+        prompt,
         max_tokens=800,
-        messages=[{"role": "user", "content": prompt}],
+        overrides=secrets,
     )
-    review_text = msg.content[0].text.strip()
 
     # Generate tomorrow's recommended post hook
     tomorrow_hook = generate_copy("post_hook", usp_id=phase["usps"][0] if phase["usps"] else None, secrets=secrets)
@@ -1138,7 +1105,7 @@ def run_daily_review(secrets: dict, state: dict):
     # Plain text
     plain = (
         f"Daily Marketing Review — {today}\n"
-        f"Campaign week {campaign_week} · Arc: {phase['theme']}\n\n"
+        f"Campaign week {strategy['campaign_week']} · Arc: {phase['theme']}\n\n"
         f"FUNNEL\n{funnel_text}\n\n"
         f"STRATEGY ANALYSIS\n{review_text}\n\n"
         f"TOMORROW'S COPY\n"
@@ -1150,13 +1117,10 @@ def run_daily_review(secrets: dict, state: dict):
     funnel_rows = ""
     metrics_data = [
         ("Impressions (7d)", funnel["impressions"], None),
-        ("Clicks", funnel["clicks"], f"CTR {rates['ctr']}%"),
+        ("Clicks", funnel["clicks"], f"CTR {ctr}%"),
         ("Quiz completions", funnel["diagnosed"], None),
         ("Paid clients", funnel["paid"], None),
         ("Retained week 4+", funnel["retained_week4"], None),
-        ("Click → quiz", f"{rates['click_to_quiz']}%", None),
-        ("Quiz → paid", f"{rates['quiz_to_paid']}%", None),
-        ("Paid retention", f"{rates['paid_retention']}%", None),
     ]
     for label, value, sub in metrics_data:
         sub_html = f'<br><span style="font-size:11px;color:#888;">{sub}</span>' if sub else ""
@@ -1182,7 +1146,7 @@ def run_daily_review(secrets: dict, state: dict):
     from scripts.battleship_pipeline import render_internal_email, send_email
     html = render_internal_email(
         title=f"Daily Review — {today}",
-        subtitle=f"Campaign Week {campaign_week} · {phase['theme']}",
+        subtitle=f"Campaign Week {strategy['campaign_week']} · {phase['theme']}",
         sections=[
             {"heading": "Funnel",
              "body": f'<table width="100%" cellpadding="0" cellspacing="0">{funnel_rows}</table>',
@@ -1222,14 +1186,12 @@ def send_weekly_strategy(secrets: dict, state: dict):
 
     update_funnel_from_state(state, strategy)
     update_funnel_from_fb(secrets, strategy)
-    campaign_week = _campaign_week(strategy)
     phase      = _current_arc_phase(strategy)
     next_phase = ARC_PHASES[min(strategy.get("arc_phase_index", 0) + 1, len(ARC_PHASES) - 1)]
 
     funnel  = strategy["funnel"]
-    rates = _funnel_metrics(funnel)
     weekly_target = 1  # clients per week target
-    on_track = funnel["paid"] >= (campaign_week // 4)
+    on_track = funnel["paid"] >= (strategy["campaign_week"] // 4)
 
     # Generate 3 copy variants for next week
     variants = []
@@ -1239,12 +1201,10 @@ def send_weekly_strategy(secrets: dict, state: dict):
 
     plain = (
         f"Weekly Strategy — {today}\n"
-        f"Campaign week {campaign_week}\n"
+        f"Campaign week {strategy['campaign_week']}\n"
         f"On track for 1 client/week: {'YES' if on_track else 'NO — needs attention'}\n\n"
         f"FUNNEL: {funnel['impressions']} impressions → {funnel['clicks']} clicks → "
-        f"{funnel['diagnosed']} quiz → {funnel['paid']} paid → {funnel['retained_week4']} retained\n"
-        f"CTR: {rates['ctr']}% | Click → quiz: {rates['click_to_quiz']}% | "
-        f"Quiz → paid: {rates['quiz_to_paid']}% | Paid retention: {rates['paid_retention']}%\n\n"
+        f"{funnel['diagnosed']} quiz → {funnel['paid']} paid\n\n"
         f"THIS WEEK: {phase['theme']}\n"
         f"NEXT WEEK: {next_phase['theme']}\n\n"
         f"COPY VARIANTS FOR THIS WEEK:\n"
@@ -1267,7 +1227,6 @@ def send_weekly_strategy(secrets: dict, state: dict):
                 ("Clicks", funnel["clicks"]),
                 ("Quiz", funnel["diagnosed"]),
                 ("Paid", funnel["paid"]),
-                ("Retained", funnel["retained_week4"]),
             ]
         )
         + f'<div style="text-align:center;padding:0 16px;">'
@@ -1292,16 +1251,9 @@ def send_weekly_strategy(secrets: dict, state: dict):
     from scripts.battleship_pipeline import render_internal_email, send_email
     html = render_internal_email(
         title=f"Weekly Strategy — {today}",
-        subtitle=f"Campaign Week {campaign_week}",
+        subtitle=f"Campaign Week {strategy['campaign_week']}",
         sections=[
             {"heading": "Funnel this week", "body": funnel_html, "accent": True},
-            {"heading": "Rates",
-             "body": (
-                 f'<p style="margin:0;font-size:13px;color:#555;">CTR: <strong>{rates["ctr"]}%</strong> | '
-                 f'Click → quiz: <strong>{rates["click_to_quiz"]}%</strong> | '
-                 f'Quiz → paid: <strong>{rates["quiz_to_paid"]}%</strong> | '
-                 f'Paid retention: <strong>{rates["paid_retention"]}%</strong></p>'
-             )},
             {"heading": "Content arc", "body": arc_html},
             {"heading": "Copy variants to use this week", "body": variants_html, "accent": True},
         ],
@@ -1334,7 +1286,7 @@ def get_current_arc_guidance() -> dict:
         "description": phase["description"],
         "hooks":       phase["hooks"],
         "usps":        [u for u in USPS if u["id"] in phase["usps"]],
-        "week":        _campaign_week(strategy),
+        "week":        strategy["campaign_week"],
     }
 
 
@@ -1411,18 +1363,17 @@ def _generate_new_ideas(secrets: dict, ideas_data: dict, ideas_file, force: bool
         for i in existing_ideas if i.get("title")
     )
 
-    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
-    if not api_key:
-        print("  ⚠️  No Anthropic key available for idea generation")
+    if not llm_client.provider_order(overrides=secrets):
+        print("  ⚠️  No OpenAI/xAI key available for idea generation")
         return 0
-    client  = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
+    raw = llm_client.generate_text(
+        _render_loop_prompt(loop, phase, slots, existing_titles),
         max_tokens=4000,
-        messages=[{"role": "user", "content": _render_loop_prompt(loop, phase, slots, existing_titles)}]
+        complexity="complex",
+        overrides=secrets,
     )
     try:
-        new_ideas = _parse_json_array(msg.content[0].text)
+        new_ideas = _parse_json_array(raw)
     except Exception as e:
         print(f"  ⚠️  Idea generation parse error: {e}")
         return 0
@@ -1550,7 +1501,9 @@ def review_ideas_bank(secrets: dict):
     import scripts.db as _db_rb
 
     strategy = _load_strategy()
-    week = _campaign_week(strategy)
+    strategy["campaign_week"] = _campaign_week(strategy)
+
+    week = strategy["campaign_week"]
     week_based_idx = next(
         (i for i, p in enumerate(ARC_PHASES) if week in p["weeks"]),
         len(ARC_PHASES) - 1,
@@ -1634,13 +1587,9 @@ def check_direction(secrets: dict):
     import scripts.db as _db
     try:
         queued = _db.get_posts(stage="fb_queue")[:3]
-        api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY") or secrets.get("anthropic")
-        client  = anthropic.Anthropic(api_key=api_key)
         for p in queued:
-            msg = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=900,
-                messages=[{"role": "user", "content": (
+            new_content = llm_client.generate_text(
+                (
                     f"Rewrite this Facebook post for Battleship Reset with a much sharper hook.\n\n"
                     f"Current arc phase: {phase['theme']} — {phase['description']}\n"
                     f"Original theme: {p['theme']}\n\n"
@@ -1652,9 +1601,10 @@ def check_direction(secrets: dict):
                     f"- MUST end with: battleshipreset.com — take the free quiz\n"
                     f"- 2-3 hashtags on final line only\n"
                     f"- Write only the post"
-                )}]
+                ),
+                max_tokens=900,
+                overrides=secrets,
             )
-            new_content = msg.content[0].text.strip()
             _db.update_post(p["id"], {"content": new_content})
             print(f"  ✅ Regenerated: {p['theme'][:50]}")
     except Exception as e:
@@ -1717,9 +1667,17 @@ def _sync_ideas_to_db() -> None:
             })
         # Remove DB ideas that no longer exist in JSON
         deleted = _db.delete_ideas_not_in(list(json_ids))
+        skipped = 0
+        try:
+            db_ids = {item.get("id") for item in _db.get_ideas() if item.get("id")}
+            skipped = len(db_ids - set(json_ids)) - deleted
+            if skipped < 0:
+                skipped = 0
+        except Exception:
+            skipped = 0
         if json_dirty:
             ideas_file.write_text(json.dumps(data, indent=2))
-        print(f"  🔄 Synced {len(ideas)} ideas → DB ({deleted} removed)")
+        print(f"  🔄 Synced {len(ideas)} ideas → DB ({deleted} removed, {skipped} protected by linked posts)")
     except Exception as e:
         print(f"  ⚠️  ideas DB sync failed: {e}")
 
@@ -1748,13 +1706,7 @@ if __name__ == "__main__":
     import argparse
     import sys
 
-    env_file = Path.home() / ".battleship.env"
-    secrets: dict = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if "=" in line and not line.startswith("#"):
-                k, v = line.split("=", 1)
-                secrets[k.strip()] = v.strip()
+    secrets = runtime_config.export()
 
     parser = argparse.ArgumentParser(description="Battleship Marketing Bot")
     parser.add_argument("--review",    action="store_true", help="Run end-of-day review now")
@@ -1776,9 +1728,8 @@ if __name__ == "__main__":
 
     elif args.strategy:
         s = _load_strategy()
-        campaign_week = _campaign_week(s)
         phase = _current_arc_phase(s)
-        print(f"\nCampaign week: {campaign_week}")
+        print(f"\nCampaign week: {s['campaign_week']}")
         print(f"Arc phase: {phase['theme']} — {phase['description']}")
         print(f"Funnel: {s['funnel']}")
         print(f"\nSuggested hooks:")
@@ -1788,16 +1739,13 @@ if __name__ == "__main__":
     elif args.funnel:
         s = _load_strategy()
         f = s["funnel"]
-        rates = _funnel_metrics(f)
+        ctr = round(f["clicks"] / f["impressions"] * 100, 2) if f["impressions"] else 0
         print(f"\nFunnel snapshot:")
         print(f"  Impressions: {f['impressions']}")
-        print(f"  Clicks:      {f['clicks']} (CTR {rates['ctr']}%)")
+        print(f"  Clicks:      {f['clicks']} (CTR {ctr}%)")
         print(f"  Quiz:        {f['diagnosed']}")
         print(f"  Paid:        {f['paid']}")
         print(f"  Retained:    {f['retained_week4']}")
-        print(f"  Click→Quiz:  {rates['click_to_quiz']}%")
-        print(f"  Quiz→Paid:   {rates['quiz_to_paid']}%")
-        print(f"  Retention:   {rates['paid_retention']}%")
 
     elif args.copy:
         result = generate_copy(args.copy, usp_id=args.usp, secrets=secrets)

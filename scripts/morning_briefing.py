@@ -24,6 +24,9 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 
+import runtime_config
+import scripts.db as db
+
 VAULT_ROOT         = Path(__file__).parent.parent
 CLIENTS_DIR        = VAULT_ROOT / "clients"
 STATE_FILE         = CLIENTS_DIR / "state.json"
@@ -51,15 +54,15 @@ SMTP_PORT    = 587
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _load_env() -> dict:
-    env = {}
-    env_path = Path.home() / ".battleship.env"
-    if env_path.exists():
-        for line in env_path.read_text().splitlines():
-            line = line.strip()
-            if "=" in line and not line.startswith("#"):
-                k, v = line.split("=", 1)
-                env[k.strip()] = v.strip()
-    return env
+    return runtime_config.export(
+        {
+            "SMTP_HOST",
+            "SMTP_USER",
+            "SMTP_PASS",
+            "TELEGRAM_BOT_TOKEN",
+            "TELEGRAM_CHAT_ID",
+        }
+    )
 
 
 def _load_json(path: Path, default=None):
@@ -553,6 +556,9 @@ def _render_email(data: dict) -> str:
 # ── Telegram Briefing ─────────────────────────────────────────────────────────
 
 def _send_telegram_briefing(data: dict):
+    if db.telegram_updates_disabled():
+        print("  🔇  Telegram updates disabled")
+        return
     try:
         sys.path.insert(0, str(VAULT_ROOT))
         from scripts.telegram_notify import send_message, send_photo_with_keyboard
@@ -607,6 +613,9 @@ def _send_telegram_briefing(data: dict):
 # ── Email Sending ─────────────────────────────────────────────────────────────
 
 def _send_email(env: dict, subject: str, html_body: str):
+    if db.internal_email_updates_disabled():
+        print("  🔇  Internal email updates disabled")
+        return
     smtp_host = env.get("SMTP_HOST", "")
     smtp_user = env.get("SMTP_USER", "")
     smtp_pass = env.get("SMTP_PASS", "")

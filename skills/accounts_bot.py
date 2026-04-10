@@ -20,7 +20,8 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-import anthropic
+import llm_client
+import runtime_config
 import requests
 
 VAULT_ROOT    = Path(__file__).parent.parent
@@ -92,19 +93,18 @@ If amount is in USD, convert to GBP for amount_gbp.
 Return only the JSON object. No explanation."""
 
 
-def parse_receipt(eml_path: Path, api_key: str) -> dict | None:
-    """Use Claude to extract transaction data from a receipt email."""
+def parse_receipt(eml_path: Path, secrets: dict | None = None) -> dict | None:
+    """Use the shared LLM wrapper to extract transaction data from a receipt email."""
     text = _extract_email_text(eml_path)
     if not text.strip():
         return None
 
-    client = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
+    raw = llm_client.generate_text(
+        PARSE_PROMPT.format(text=text[:3000]),
         max_tokens=400,
-        messages=[{"role": "user", "content": PARSE_PROMPT.format(text=text[:3000])}],
+        complexity="default",
+        overrides=secrets,
     )
-    raw = msg.content[0].text.strip()
     # Extract JSON
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     if not match:
@@ -201,7 +201,6 @@ def scan_receipts(secrets: dict) -> list[dict]:
     Parse each, update finances.md, mark as processed.
     Returns list of new transactions found.
     """
-    api_key   = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")
     processed = _load_processed()
     seen      = set(processed["receipts"])
     new_txns  = []
@@ -217,7 +216,7 @@ def scan_receipts(secrets: dict) -> list[dict]:
             continue
 
         print(f"  📄 Processing: {fname}")
-        tx = parse_receipt(eml_path, api_key)
+        tx = parse_receipt(eml_path, secrets)
         if not tx:
             print(f"     ⚠️  Could not parse — skipping")
             processed["receipts"].append(fname)
@@ -372,13 +371,7 @@ def run(secrets: dict, state: dict, vault_root: Path = VAULT_ROOT):
 if __name__ == "__main__":
     import argparse, sys
 
-    env_file = Path.home() / ".battleship.env"
-    secrets: dict = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if "=" in line and not line.startswith("#"):
-                k, v = line.split("=", 1)
-                secrets[k.strip()] = v.strip()
+    secrets = runtime_config.export()
 
     parser = argparse.ArgumentParser(description="Battleship Accounts Bot")
     parser.add_argument("--scan",   action="store_true", help="Process all unprocessed receipts")

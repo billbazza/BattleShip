@@ -24,9 +24,9 @@ Standalone:
     python3 skills/newsletter_bot.py --stats       # print latest issue stats
     python3 skills/newsletter_bot.py --status      # print current state
 
-Beehiiv secrets required (add to ~/.battleship.env):
-    BEEHIIV_API_KEY=...
-    BEEHIIV_PUBLICATION_ID=...
+Beehiiv secrets required in Keychain or env overrides:
+    BEEHIIV_API_KEY
+    BEEHIIV_PUBLICATION_ID
 """
 
 import json
@@ -36,7 +36,8 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
-import anthropic
+import llm_client
+import runtime_config
 
 VAULT_ROOT = Path(__file__).parent.parent
 STATE_FILE  = VAULT_ROOT / "clients" / "newsletter_state.json"
@@ -156,16 +157,25 @@ def subscribe_email(email: str, name: str, secrets: dict) -> bool:
         return False
 
 
-def _create_and_send_post(subject: str, body_text: str, secrets: dict,
-                           dry_run: bool = False) -> Optional[str]:
+def _create_and_send_post(
+    subject: str,
+    body_text: str = "",
+    secrets: dict | None = None,
+    dry_run: bool = False,
+    html_body: str | None = None,
+) -> Optional[str]:
     """
     Stage newsletter for dashboard approval, or save to file in dry-run mode.
     Returns a queue ID on success, None on failure.
     """
+    secrets = secrets or {}
+    content = html_body if html_body is not None else body_text
+
     if dry_run:
-        out = VAULT_ROOT / "logs" / "newsletter_dry_run.txt"
+        suffix = ".html" if html_body is not None else ".txt"
+        out = VAULT_ROOT / "logs" / f"newsletter_dry_run{suffix}"
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(f"SUBJECT: {subject}\n\n{body_text}", encoding="utf-8")
+        out.write_text(f"SUBJECT: {subject}\n\n{content}", encoding="utf-8")
         print(f"  📄 Dry-run — issue saved to {out}")
         return "dry_run_post_id"
 
@@ -175,7 +185,7 @@ def _create_and_send_post(subject: str, body_text: str, secrets: dict,
         eq_id = db.insert_email({
             "to_addr":   "beehiiv",
             "subject":   subject,
-            "body":      body_text,
+            "body":      content,
             "html_body": "",
             "source":    "newsletter",
             "reason":    "Copy text → paste into Beehiiv blank draft → publish → Mark as sent",
@@ -274,21 +284,14 @@ def _generate_issue(issue_number: int, theme: str, affiliate_slots: list,
     Generate subject line, preview, and plain text body for the issue.
     Returns (subject, preview, body_text, fb_post).
     """
-    api_key = (secrets.get("ANTHROPIC_API_KEY")
-               or secrets.get("ANTHROPIC_KEY")
-               or secrets.get("anthropic"))
-    client = anthropic.Anthropic(api_key=api_key)
-
     build_notes = _gather_build_notes()
 
     picks_text = "\n".join(
         f"- {s['label']} → {s['url']}" for s in affiliate_slots[:3]
     )
 
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2000,
-        messages=[{"role": "user", "content": f"""
+    raw = llm_client.generate_text(
+        f"""
 Write issue #{issue_number} of "The Operator" — a weekly digest for people building autonomous income systems.
 
 This week's theme: {theme}
@@ -309,10 +312,11 @@ Affiliate picks to include (use the label and URL exactly):
 {picks_text}
 
 Return only valid JSON. No markdown fences.
-"""}]
+""",
+        max_tokens=2000,
+        complexity="complex",
+        overrides=secrets,
     )
-
-    raw = msg.content[0].text.strip()
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
     data = json.loads(raw)
@@ -340,11 +344,11 @@ Return only valid JSON. No markdown fences.
     except Exception:
         pass
 
-    body_text = f"""THE OPERATOR — Issue #{issue_number}
+    body_text = f"""The Operator — Issue #{issue_number}
 Building autonomous income. One stream at a time.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-THIS WEEK: {data["insight_title"].upper()}
+THIS WEEK: {data["insight_title"]}
 
 {data["insight_body"]}
 
@@ -517,17 +521,9 @@ def rotate_affiliate_slots(secrets: dict) -> None:
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import argparse, os
+    import argparse
 
-    env_file = Path.home() / ".battleship.env"
-    secrets: dict = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, _, v = line.partition("=")
-                secrets[k.strip()] = v.strip()
-    secrets.update(os.environ)
+    secrets = runtime_config.export()
 
     parser = argparse.ArgumentParser(description="Newsletter bot CLI")
     parser.add_argument("--dry-run", action="store_true", help="Generate but don't send")

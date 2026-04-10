@@ -1,9 +1,27 @@
 {
   "posts": {
+    "1039975692536580_122106846218983973": {
+      "message": "80% of the results come from about 20% of what you change. The other 80% of stuff \u2014 you can mostly keep.\n\nI wasted a year trying to fix everything at once. The app. The gym plan. The macro tracking. T",
+      "created_time": "2026-04-06T00:23:28+0000",
+      "permalink": "https://www.facebook.com/122095678736983973/posts/122106846218983973",
+      "insights": {
+        "reach": 0,
+        "link_clicks": 0
+      }
+    },
+    "1039975692536580_122106278048983973": {
+      "message": "Your gym membership didn't fail you. The plan did.\n\nAt 47, I tried everything the fitness industry told me to try. Five-day splits. Calorie-counting apps. That 30-day shred program that nearly broke m",
+      "created_time": "2026-04-03T05:57:04+0000",
+      "permalink": "https://www.facebook.com/122095678736983973/posts/122106278048983973",
+      "insights": {
+        "reach": 0,
+        "link_clicks": 0
+      }
+    },
     "1039975692536580_122105795654983973": {
       "message": "I built an AI system that runs my entire coaching business from a Mac Mini sitting on my desk. Intake, personalised plans, payments, email sequences, content \u2014 all of it. Autonomous. And here's what i",
       "created_time": "2026-04-01T01:43:28+0000",
-      "permalink": "https://www.facebook.com/122095678736983973/posts/122105795654983973",
+      "permalink": "https://www.facebook.com/reel/1647720083211123/",
       "insights": {
         "reach": 0,
         "link_clicks": 0
@@ -22,24 +40,6 @@
       "message": "Your body wasn't broken. The plan was.\n\nEvery app you downloaded, every gym membership you guilt-purchased, every Monday reset that turned into a Thursday spiral \u2014 none of that failed because you lack",
       "created_time": "2026-03-31T23:41:51+0000",
       "permalink": "https://www.facebook.com/122095678736983973/posts/122105763488983973",
-      "insights": {
-        "reach": 0,
-        "link_clicks": 0
-      }
-    },
-    "1039975692536580_122105166518983973": {
-      "message": "Most men over 45 don't have a fitness problem. They have a system problem.\n\nAnd part of that system is thinking that harder means better. So they go out and push too hard, feel wrecked, and give up. O",
-      "created_time": "2026-03-30T01:14:35+0000",
-      "permalink": "https://www.facebook.com/122095678736983973/posts/122105166518983973",
-      "insights": {
-        "reach": 0,
-        "link_clicks": 0
-      }
-    },
-    "1039975692536580_122105152388983973": {
-      "message": "Most men over 40 don't have a motivation problem. They have a biology problem nobody told them about.\n\nYou're not lazy. You're not weak. You're not \"just getting older.\"\n\nBut something shifted \u2014 and y",
-      "created_time": "2026-03-29T23:13:09+0000",
-      "permalink": "https://www.facebook.com/122095678736983973/posts/122105152388983973",
       "insights": {
         "reach": 0,
         "link_clicks": 0
@@ -122,6 +122,30 @@
     "2026-04-02": {
       "fans": 30,
       "followers": 30
+    },
+    "2026-04-03": {
+      "fans": 29,
+      "followers": 29
+    },
+    "2026-04-04": {
+      "fans": 29,
+      "followers": 29
+    },
+    "2026-04-05": {
+      "fans": 29,
+      "followers": 29
+    },
+    "2026-04-06": {
+      "fans": 29,
+      "followers": 29
+    },
+    "2026-04-07": {
+      "fans": 29,
+      "followers": 29
+    },
+    "2026-04-08": {
+      "fans": 29,
+      "followers": 29
     }
   },
   "ig": {
@@ -238,6 +262,42 @@
       "follows_count": 0,
       "media_count": 0,
       "username": ""
+    },
+    "2026-04-03": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-04-04": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-04-05": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-04-06": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-04-07": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
+    },
+    "2026-04-08": {
+      "followers_count": 0,
+      "follows_count": 0,
+      "media_count": 0,
+      "username": ""
     }
   },
   "ads": {
@@ -306,7 +366,37 @@
       "clicks": 0,
       "spend": 0.0,
       "results": 0
+    },
+    "2026-04-03": {
+      "impressions": 0,
+      "clicks": 0,
+      "spend": 0.0,
+      "results": 0
+    },
+    "2026-04-04": {
+      "impressions": 0,
+      "clicks": 0,
+      "spend": 0.0,
+      "results": 0
+    },
+    "2026-04-05": {
+      "impressions": 0,
+      "clicks": 0,
+      "spend": 0.0,
+      "results": 0
+    },
+    "2026-04-06": {
+      "impressions": 0,
+      "clicks": 0,
+      "spend": 0.0,
+      "results": 0
+    },
+    "2026-04-07": {
+      "impressions": 0,
+      "clicks": 0,
+      "spend": 0.0,
+      "results": 0
     }
   },
-  "fetched_at": "2026-04-02T05:56:10.860149+00:00"
+  "fetched_at": "2026-04-08T18:38:00.957956+00:00"
 }

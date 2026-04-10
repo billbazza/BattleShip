@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -32,6 +33,7 @@ PYTHON              = sys.executable
 # Non-DB data paths (still JSON — bots write these)
 MARKETING_STRATEGY_FILE  = CLIENTS_DIR / "marketing_strategy.json"
 SOCIAL_METRICS_FILE      = CLIENTS_DIR / "social_metrics.json"
+IDEAS_BANK_FILE          = VAULT_ROOT / "brand" / "Marketing" / "ideas-bank.json"
 SEO_STATE_FILE           = VAULT_ROOT / "brand" / "Marketing" / "SEO" / "seo_state.json"
 TECH_BACKLOG_FILE        = VAULT_ROOT / "brand" / "Marketing" / "tech_backlog.json"
 ROADMAP_FILE             = VAULT_ROOT / "roadmap.md"
@@ -103,12 +105,71 @@ def _idea_graphic_text(idea: dict) -> str:
     return "Battleship Reset"
 
 
-def _generate_idea_quote_card(idea: dict) -> str:
-    from skills.brand_manager import create_quote_card
+def _suggest_idea_photo_ref(idea: dict) -> tuple[str, int]:
+    text = f"{idea.get('title','')} {idea.get('angle','')} {idea.get('notes','')}".lower()
+    keywords = set(re.findall(r"\b\w{4,}\b", text))
 
-    quote_text = _idea_graphic_text(idea)
-    output_name = f"idea_quote_{idea.get('id', 'draft')}.jpg"
-    output_path = create_quote_card(quote_text, output_name=output_name)
+    cat_file = VAULT_ROOT / "brand" / "catalogue.json"
+    cat = json.loads(cat_file.read_text()) if cat_file.exists() else {}
+    if not cat:
+        return "", -999
+
+    usage_counts: dict[str, int] = {}
+    for existing in db.get_ideas():
+        photo_id = (existing.get("photo_id") or "").strip()
+        if photo_id:
+            usage_counts[photo_id] = usage_counts.get(photo_id, 0) + 1
+    for post in db.get_posts():
+        image_path = db.normalize_media_ref(post.get("image_path", ""))
+        if image_path.startswith("brand/"):
+            photo_id = image_path[len("brand/"):]
+            usage_counts[photo_id] = usage_counts.get(photo_id, 0) + 1
+
+    best_id, best_score = "", -999
+    for key, meta in cat.items():
+        if not (VAULT_ROOT / "brand" / key).exists():
+            continue
+
+        meta_text = " ".join([
+            meta.get("notes", ""),
+            " ".join(meta.get("tags", [])),
+            " ".join(meta.get("use_cases", [])),
+        ]).lower()
+        meta_words = set(re.findall(r"\b\w{4,}\b", meta_text))
+        tags = set(meta.get("tags", []))
+        use_cases = set(meta.get("use_cases", []))
+
+        score = len(keywords & meta_words) * 3
+        score += {"best": 4, "good": 2, "usable": 1}.get(meta.get("quality", "usable"), 0)
+        score += 2 if bool(use_cases & {"social_post", "lifestyle_post", "equipment_post", "nutrition_post"}) else 0
+        score -= usage_counts.get(key, 0) * 3
+        if "shirtless" in tags or "abs" in tags or key == "IMG_0014.jpeg":
+            score -= 8
+        if "face" in tags:
+            score -= 2
+        if "lifestyle" in tags or "walking" in tags or "equipment" in tags or "healthy" in tags:
+            score += 2
+
+        if score > best_score:
+            best_id, best_score = key, score
+
+    return best_id, best_score
+
+
+def _generate_idea_graphic(idea: dict) -> str:
+    from skills.brand_manager import create_post_card, create_quote_card
+
+    headline = _idea_graphic_text(idea)
+    idea_id = idea.get("id", "draft")
+    best_id, best_score = _suggest_idea_photo_ref(idea)
+
+    # Use a real photo only occasionally, and only when the match is strong.
+    use_photo = bool(best_id) and best_score >= 6 and (int(hashlib.md5(idea_id.encode()).hexdigest(), 16) % 4 == 0)
+    if use_photo:
+        output_path = create_post_card(best_id, headline, output_name=f"idea_photo_{idea_id}.jpg")
+    else:
+        output_path = create_quote_card(headline, output_name=f"idea_quote_{idea_id}.jpg")
+
     return str(output_path.relative_to(VAULT_ROOT / "brand").as_posix())
 
 STATUS_COLOUR = {
@@ -2185,7 +2246,10 @@ BUSINESS_PAGE = """<!DOCTYPE html>
       <!-- Draft ideas — inbox awaiting approval -->
       {% for idea in draft_ideas %}
       <div id="idea-{{ idea.id }}" style="background:#111;border:1px solid #1e1e1e;border-radius:3px;margin-bottom:6px;overflow:hidden">
-        <div onclick="toggleCard('idea-{{ idea.id }}')" style="padding:8px;cursor:pointer;display:flex;align-items:flex-start;gap:6px">
+        <div onclick="toggleCard('idea-{{ idea.id }}')" style="padding:8px;cursor:pointer;display:flex;align-items:flex-start;gap:8px">
+          {% if idea.image_url %}
+          <img src="{{ idea.image_url }}" style="width:52px;height:52px;object-fit:cover;border-radius:3px;border:1px solid #222;flex-shrink:0" onerror="this.style.display='none'">
+          {% endif %}
           <div style="flex:1;min-width:0">
             <div style="color:#ccc;font-size:11px;font-weight:600;line-height:1.4">{{ idea.title }}</div>
             <div style="color:#444;font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ idea.angle[:70] if idea.angle else '' }}{% if idea.angle and idea.angle|length > 70 %}…{% endif %}</div>
@@ -4744,6 +4808,9 @@ def telegram_webhook():
 
     def _tg_reply(text: str):
         try:
+            if db.telegram_updates_disabled():
+                print("  🔇  Telegram updates disabled")
+                return
             env   = _read_env()
             token = env.get("TELEGRAM_BOT_TOKEN", "")
             cid   = env.get("TELEGRAM_CHAT_ID", "")
@@ -5671,7 +5738,7 @@ def api_idea_needs_graphic(idea_id):
         return jsonify({"error": "not found"}), 404
 
     try:
-        photo_id = _generate_idea_quote_card(idea)
+        photo_id = _generate_idea_graphic(idea)
         status = idea.get("status") or "draft"
         db.set_idea_status(idea_id, status, {"photo_id": photo_id})
         _upsert_idea_in_json(idea_id, {"photo_id": photo_id})
@@ -5688,34 +5755,12 @@ def api_idea_needs_graphic(idea_id):
 
 @app.route("/api/ideas-bank/<idea_id>/suggest-photo", methods=["POST"])
 def api_idea_suggest_photo(idea_id):
-    """Pick the best catalogue photo for this idea using keyword matching."""
+    """Pick the best catalogue photo for this idea using diversified matching."""
     idea = db.get_idea(idea_id)
     if not idea:
         return jsonify({"error": "not found"}), 404
 
-    text = f"{idea.get('title','')} {idea.get('angle','')} {idea.get('notes','')}".lower()
-    keywords = set(re.findall(r'\b\w{4,}\b', text))
-
-    cat_file = VAULT_ROOT / "brand" / "catalogue.json"
-    cat = json.loads(cat_file.read_text()) if cat_file.exists() else {}
-
-    best_id, best_score = None, -1
-    for key, meta in cat.items():
-        if not (VAULT_ROOT / "brand" / key).exists():
-            continue
-        meta_text = " ".join([
-            meta.get("notes", ""),
-            " ".join(meta.get("tags", [])),
-            " ".join(meta.get("use_cases", [])),
-        ]).lower()
-        meta_words = set(re.findall(r'\b\w{4,}\b', meta_text))
-        score = len(keywords & meta_words)
-        score += {"best": 3, "good": 2, "usable": 1}.get(meta.get("quality", "usable"), 0)
-        if "face" not in meta.get("tags", []):
-            score += 1
-        if score > best_score:
-            best_score = score
-            best_id = key
+    best_id, _best_score = _suggest_idea_photo_ref(idea)
 
     # Fallback: first uncatalogued snap
     if not best_id:

@@ -20,7 +20,7 @@ RUN AS CRON (every 2 hours):
 
 1PASSWORD SECRETS (create these in 1Password before first run):
   op://Private/Typeform/credential      — Typeform API key
-  op://Private/Anthropic/credential    — Claude API key (console.anthropic.com)
+  OPENAI_API_KEY / XAI_API_KEY         — stored in macOS Keychain under the shared polymarket-scanner service
   op://Private/SMTP/host               — e.g. smtp.mail.me.com
   op://Private/SMTP/user               — your sending email address
   op://Private/SMTP/password           — app-specific password (NOT your Apple ID password)
@@ -36,16 +36,14 @@ from email.mime.multipart import MIMEMultipart
 from email.header import decode_header
 from pathlib import Path
 
-try:
-    import anthropic
-except ImportError:
-    print("❌ anthropic package not installed. Run: pip3 install anthropic")
-    sys.exit(1)
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import llm_client
+import runtime_config
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-VAULT_ROOT   = Path(__file__).parent.parent
+VAULT_ROOT   = Path("/Users/will/Obsidian-Vaults/BattleShip-Vault")
 CLIENTS_DIR  = VAULT_ROOT / "clients"
 LOGS_DIR     = VAULT_ROOT / "logs"
 STATE_FILE   = CLIENTS_DIR / "state.json"
@@ -62,7 +60,6 @@ SMTP_PORT   = 587  # STARTTLS; use 465 for SSL
 
 REQUIRED_SECRETS = {
     "typeform":  "op://Private/Typeform/credential",
-    "anthropic": "op://Private/Anthropic/credential",
     "smtp_host": "op://Private/SMTP/host",
     "smtp_user": "op://Private/SMTP/username",
     "smtp_pass": "op://Private/SMTP/password",
@@ -273,24 +270,6 @@ def find_client(query: str, state: dict) -> tuple[str, dict] | tuple[None, None]
 
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
-# Reads from ~/.battleship.env (preferred — works unattended in cron).
-# Falls back to 1Password CLI if a value is missing (requires biometric auth).
-
-ENV_FILE = Path.home() / ".battleship.env"
-
-def _read_env_file() -> dict:
-    """Parse ~/.battleship.env into a dict."""
-    if not ENV_FILE.exists():
-        return {}
-    result = {}
-    for line in ENV_FILE.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, _, v = line.partition("=")
-        result[k.strip()] = v.strip()
-    return result
-
 def op_read(path: str, required: bool = True) -> str | None:
     try:
         return subprocess.check_output(
@@ -303,14 +282,20 @@ def op_read(path: str, required: bool = True) -> str | None:
         return None
 
 def load_secrets() -> dict:
-    env = _read_env_file()
+    env = runtime_config.export()
 
     key_map = {
         "typeform":      "TYPEFORM_KEY",
-        "anthropic":     "ANTHROPIC_KEY",
         "smtp_host":     "SMTP_HOST",
         "smtp_user":     "SMTP_USER",
         "smtp_pass":     "SMTP_PASS",
+        "OPENAI_API_KEY":      "OPENAI_API_KEY",
+        "OPENAI_BASE_URL":     "OPENAI_BASE_URL",
+        "XAI_API_KEY":         "XAI_API_KEY",
+        "XAI_BASE_URL":        "XAI_BASE_URL",
+        "BRAIN_PROVIDER":      "BRAIN_PROVIDER",
+        "BRAIN_OPENAI_MODEL":  "BRAIN_OPENAI_MODEL",
+        "BRAIN_XAI_MODEL":     "BRAIN_XAI_MODEL",
         "stripe":             "STRIPE_KEY",
         "stripe_phase2_link": "STRIPE_PHASE2_LINK",
         "fb_ad_account_id":   "FB_AD_ACCOUNT_ID",
@@ -324,7 +309,6 @@ def load_secrets() -> dict:
         "IG_USER_ID":           "IG_USER_ID",
         "TELEGRAM_BOT_TOKEN":   "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_CHAT_ID":     "TELEGRAM_CHAT_ID",
-        "ANTHROPIC_KEY":        "ANTHROPIC_KEY",
         "gsheets_id":    "GSHEETS_ID",
         "gsheets_creds": "GSHEETS_CREDS",
         "imap_host":     "IMAP_HOST",
@@ -490,16 +474,14 @@ def tf_parse_response(item: dict, field_map: dict) -> dict:
     }
 
 
-# ── Claude API ────────────────────────────────────────────────────────────────
+# ── LLM ───────────────────────────────────────────────────────────────────────
 
-def call_claude(api_key: str, prompt: str, max_tokens: int = 1500) -> str:
-    client = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
+def call_llm(secrets: dict, prompt: str, max_tokens: int = 1500) -> str:
+    return llm_client.generate_text(
+        prompt,
         max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}],
+        overrides=secrets,
     )
-    return msg.content[0].text
 
 
 DIAGNOSIS_PROMPT = """\
@@ -1293,6 +1275,13 @@ def parse_diagnosis_sections(md: str) -> dict:
     return {k: "\n".join(v).strip() for k, v in sections.items()}
 
 def send_email(secrets: dict, to: str, subject: str, plain_body: str, html_body: str = None):
+    try:
+        import scripts.db as _db
+        if _db.internal_email_updates_disabled() and to.strip().lower() == WILL_EMAIL.lower():
+            print(f"    🔇 Internal email update muted: '{subject[:55]}'")
+            return
+    except Exception:
+        pass
     # Accept both lowercase (pipeline) and uppercase (standalone bots) key names
     smtp_host = secrets.get("smtp_host") or secrets.get("SMTP_HOST", "")
     smtp_user = secrets.get("smtp_user") or secrets.get("SMTP_USER", "")
@@ -1515,7 +1504,7 @@ def process_short_intake(client: dict, secrets: dict, state: dict):
         name=client["name"],
         full_assessment_url=FULL_ASSESSMENT_URL,
     )
-    diagnosis_text = call_claude(secrets["anthropic"], prompt, max_tokens=1000)
+    diagnosis_text = call_llm(secrets, prompt, max_tokens=1000)
     save_client_file(folder, "diagnosis.md", diagnosis_text)
     log_event(folder, "Short-form teaser diagnosis generated")
 
@@ -1578,7 +1567,7 @@ def process_new_intake(client: dict, secrets: dict, state: dict):
     if philosophy_file.exists():
         philosophy = f"\n\nCOACHING PHILOSOPHY & EDGE CASE GUIDELINES:\n{philosophy_file.read_text()}\n"
     prompt = DIAGNOSIS_PROMPT.format(intake_text=client["raw_text"], name=client["name"]) + philosophy
-    raw = call_claude(secrets["anthropic"], prompt, max_tokens=1800)
+    raw = call_llm(secrets, prompt, max_tokens=1800)
 
     # Extract tags JSON — find any JSON block regardless of marker
     tags = {}
@@ -1651,7 +1640,7 @@ def enrol_client(account_no: str, cs: dict, secrets: dict):
         intake_text=intake_text[:3000],
     )
     print("     🧠 Generating 12-week plan...")
-    plan = call_claude(secrets["anthropic"], prompt, max_tokens=2000)
+    plan = call_llm(secrets, prompt, max_tokens=2000)
     save_client_file(folder, "plan.md", plan)
 
     # Extract and store personal success metrics from tags
@@ -2118,7 +2107,7 @@ def send_track_upgrade_email(cs: dict, new_track: str, secrets: dict):
         week        = week,
         week_session= session,
     )
-    body = call_claude(secrets["anthropic"], prompt, max_tokens=400)
+    body = call_llm(secrets, prompt, max_tokens=400)
     subj = f"Your programme just upgraded, {cs['name']}"
     send_email(secrets, cs["email"], subj, body)
 
@@ -2170,7 +2159,7 @@ def _generate_adaptive_plan(cs: dict, week1_data: str, secrets: dict):
         available_days= avail_days,
         week1_data    = week1_data,
     )
-    plan_text = call_claude(secrets["anthropic"], prompt, max_tokens=1200)
+    plan_text = call_llm(secrets, prompt, max_tokens=1200)
     save_client_file(cs["folder"], "plan.md", plan_text)
     log_event(cs["folder"], f"Walking/habit plan built from Week 1 data")
     print(f"     ✅ Adaptive plan saved for {cs['name']}")
@@ -2189,7 +2178,7 @@ def _send_gym_pivot(cs: dict, checkin_data: str, secrets: dict):
         checkin_data = checkin_data[:600],
         equipment    = equipment,
     )
-    body = call_claude(secrets["anthropic"], prompt, max_tokens=600)
+    body = call_llm(secrets, prompt, max_tokens=600)
     subj = f"Quick update on your plan, {cs['name']}"
     send_email(secrets, cs["email"], subj, body)
     cs["gym_track"] = "pivoted"
@@ -2303,7 +2292,7 @@ def _process_single_checkin(state: dict, secrets: dict, parsed: dict, row_id: st
         tracker_text    = existing_tracker[:2000] if existing_tracker else "No previous tracker.",
         next_week_plan  = full_next_week,
     )
-    raw = call_claude(secrets["anthropic"], prompt, max_tokens=2000)
+    raw = call_llm(secrets, prompt, max_tokens=2000)
 
     tracker_text  = ""
     coach_message = ""
@@ -2381,7 +2370,7 @@ def _process_single_checkin(state: dict, secrets: dict, parsed: dict, row_id: st
             win_type=win_type,
             context=parsed.get("raw_text", "")[:500],
         )
-        win_body = call_claude(secrets["anthropic"], win_prompt, max_tokens=300)
+        win_body = call_llm(secrets, win_prompt, max_tokens=300)
         send_email(secrets, cs["email"], f"That's a big one, {cs['name'].split()[0]}", win_body)
         cs["emails_sent"].append(win_key)
         log_event(cs["folder"], f"Win celebration email sent (Week {week}): {win_type}")
@@ -2543,9 +2532,8 @@ def _handle_will_bot_reply(subject: str, body: str, secrets: dict):
     or instruction. Claude reads it, answers/acts, and replies to will@.
     """
     print(f"  💬 Will replied to bot email: {subject[:60]}")
-    api_key = secrets.get("ANTHROPIC_API_KEY") or secrets.get("ANTHROPIC_KEY")
-    if not api_key:
-        print("  ⚠️  No API key — cannot handle bot reply")
+    if not llm_client.provider_order(overrides=secrets):
+        print("  ⚠️  No OpenAI/xAI provider configured — cannot handle bot reply")
         return
 
     # Determine context from subject tag
@@ -2585,13 +2573,11 @@ If it's an instruction (e.g. "skip the SEO for this week"), acknowledge it and e
 If it's a setup question (e.g. "how do I find my GBP URL"), give step-by-step instructions.
 Keep it short. Will is on his phone. No fluff. Sign off as "— Battleship Bot"."""
 
-    client   = anthropic.Anthropic(api_key=api_key)
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
+    reply_body = llm_client.generate_text(
+        prompt,
         max_tokens=600,
-        messages=[{"role": "user", "content": prompt}],
+        overrides=secrets,
     )
-    reply_body = response.content[0].text.strip()
 
     # Reply tag for the subject
     reply_subject = f"Re: {subject}" if not subject.startswith("Re:") else subject
@@ -2632,7 +2618,6 @@ def process_inbound_emails(state: dict, secrets: dict):
         return
 
     print(f"  📬 {len(uids)} unread email(s) (last 7 days)...")
-    client = anthropic.Anthropic(api_key=secrets["anthropic"])
 
     for uid in uids:
         _, msg_data = mail.fetch(uid, "(RFC822)")
@@ -2796,12 +2781,11 @@ def process_inbound_emails(state: dict, secrets: dict):
             if any(w in body.lower() for w in ["cancel", "refund", "stop", "quit the programme", "quit the program"]):
                 print(f"  🚨 CANCELLATION REQUEST from {cs['name']} — flagged for Will's attention")
 
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
+        reply_body = llm_client.generate_text(
+            prompt,
             max_tokens=600,
-            messages=[{"role": "user", "content": prompt}]
+            overrides=secrets,
         )
-        reply_body = response.content[0].text.strip()
 
         # Re: subject
         reply_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
@@ -2909,7 +2893,7 @@ def send_education_drips(state: dict, secrets: dict):
                     intake_summary=intake_summary,
                     tracker_text=tracker_text[:2000] if tracker_text else "No tracker data yet.",
                 )
-                content = call_claude(secrets["anthropic"], w4_prompt, max_tokens=400)
+                content = call_llm(secrets, w4_prompt, max_tokens=400)
                 content = f"# Week 4 challenge: your first milestone\n\n{content}"
 
             # Week 8 challenge: generate personalised version via Claude
@@ -2922,7 +2906,7 @@ def send_education_drips(state: dict, secrets: dict):
                     intake_summary=intake_summary,
                     tracker_text=tracker_text[:2000] if tracker_text else "No tracker data yet.",
                 )
-                content = call_claude(secrets["anthropic"], challenge_prompt, max_tokens=600)
+                content = call_llm(secrets, challenge_prompt, max_tokens=600)
                 # Wrap as plain markdown so the parser below still works
                 content = f"# Week 8: What's your challenge?\n\n{content}"
 
@@ -3019,7 +3003,7 @@ def send_week12_close(state: dict, secrets: dict):
             tracker_text=tracker[:3000] if tracker else "No tracker data — client did not submit check-ins.",
             challenge_goal=challenge_goal or "Not stated — client did not reply to Week 8 challenge email.",
         )
-        message = call_claude(secrets["anthropic"], prompt, max_tokens=1200)
+        message = call_llm(secrets, prompt, max_tokens=1200)
 
         first_name = cs["name"].split()[0]
         subj = f"12 weeks — and what comes next, {first_name}"
@@ -3289,7 +3273,7 @@ def send_reengagement_emails(state: dict, secrets: dict):
             prompt = REENGAGE_GENTLE_PROMPT.format(
                 name=cs["name"], days=days_silent, week=week, goal=goal
             )
-            body = call_claude(secrets["anthropic"], prompt, max_tokens=250)
+            body = call_llm(secrets, prompt, max_tokens=250)
             send_email(secrets, cs["email"], f"Checking in, {first}", body)
             cs["emails_sent"].append(gentle_key)
             if cs.get("folder"):
@@ -3300,7 +3284,7 @@ def send_reengagement_emails(state: dict, secrets: dict):
             prompt = REENGAGE_PERSONAL_PROMPT.format(
                 name=cs["name"], days=days_silent, week=week, goal=goal
             )
-            body = call_claude(secrets["anthropic"], prompt, max_tokens=300)
+            body = call_llm(secrets, prompt, max_tokens=300)
             send_email(secrets, cs["email"], f"Just checking you're ok, {first}", body)
             cs["emails_sent"].append(personal_key)
             if cs.get("folder"):

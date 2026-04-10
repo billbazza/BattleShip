@@ -1,6 +1,6 @@
 {
   "campaign_start": "2026-03-15T09:49:57.561005+00:00",
-  "campaign_week": 3,
+  "campaign_week": 4,
   "arc_phase_index": 0,
   "funnel": {
     "impressions": 0,
@@ -8,7 +8,7 @@
     "quiz_starts": 0,
     "diagnosed": 3,
     "paid": 3,
-    "retained_week4": 1
+    "retained_week4": 2
   },
   "copy_tests": [
     {
@@ -140,14 +140,31 @@
     {
       "date": "2026-04-02",
       "review": "# Battleship Reset \u2014 Week 3 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Organic/word-of-mouth conversion is exceptional.**\n3 quiz completions \u2192 3 paid clients = 100% close rate on diagnosed leads. That's not luck \u2014 that's proof the offer resonates hard with the right person when they self-select in. The quiz is doing its job as a quality filter, not just a volume play.\n\n**Early retention exists** \u2014 1 client at Week 4+ confirms the product itself has legs. Someone is staying. That matters mor"
+    },
+    {
+      "date": "2026-04-03",
+      "review": "# Battleship Reset \u2014 Week 3 Marketing Audit\n\n---\n\n## 1. WHAT'S WORKING\n\n**Organic conversion is exceptional.** 3 diagnoses \u2192 3 paid clients = 100% quiz-to-paid conversion among people who actually completed the quiz. That's not a funnel problem \u2014 that's proof the offer lands when the right person sees it. Most fitness programmes convert 10-20% from quiz to paid. You're at 100%.\n\n**The product is strong enough to sell itself at the point of contact.** No paid ads, no post data, 3 clients. Will is"
+    },
+    {
+      "date": "2026-04-04",
+      "review": "# Battleship Reset \u2014 Week 3 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Organic/word-of-mouth conversion is elite.** 3 quiz completions, 3 paid clients. That's 100% quiz-to-paid conversion \u2014 every person who went through the diagnostic bought. That doesn't happen by accident. The consultation process, your positioning, or your personal credibility is doing heavy lifting. This is your biggest asset right now and you're probably undervaluing it.\n\n**The product is working at point of contact.**"
+    },
+    {
+      "date": "2026-04-05",
+      "review": "# Battleship Reset \u2014 Week 3 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Word of mouth / direct trust is your entire engine right now.**\n\n3 quiz completions, 3 paid clients, 2 retained past week 4. That's a 100% quiz-to-paid conversion rate from people who actually found you \u2014 and 67% retention through the hardest dropout window. Those are elite numbers. The product is working. The offer is working. The problem is reach, not conversion.\n\nThe \u00a369/week price point is clearly not the objection \u2014"
+    },
+    {
+      "date": "2026-04-06",
+      "review": "# Battleship Reset \u2014 Week 4 Marketing Debrief\n\n---\n\n## 1. WHAT'S WORKING\n\n**Organic/word-of-mouth conversion is exceptional.**\n3 quiz completions \u2192 3 paid clients = 100% close rate on diagnosed leads. That's not a funnel problem, that's a sales conversation that works. Whatever Will is saying or writing when he gets in front of a qualified person, it closes. Protect that process \u2014 don't automate it yet.\n\n**Retention is solid.**\n2/3 past week 4 = 67% retention at the hardest drop-off point in any"
     }
   ],
   "flags_sent": [
     "strategy_2026-11",
     "strategy_2026-12",
-    "strategy_2026-13"
+    "strategy_2026-13",
+    "strategy_2026-14"
   ],
-  "last_review_date": "2026-04-02",
+  "last_review_date": "2026-04-06",
   "last_ad_metrics": {
     "impressions": 0,
     "reach": 0,
@@ -160,6 +177,6 @@
     "ctr": 0.0,
     "cpm": 0.0,
     "cpc": 0.0,
-    "fetched_at": "2026-04-02T05:56:11.097228+00:00"
+    "fetched_at": "2026-04-08T18:38:01.408768+00:00"
   }
 }

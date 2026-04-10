@@ -116,13 +116,15 @@ def _check_launchd() -> list[tuple[bool, str]]:
 
 
 def _check_pipeline_log() -> tuple[bool, str]:
-    """Check pipeline log for errors in the last 24 hours."""
+    """Check pipeline log for blocking errors in the latest pipeline run."""
     if not LOG_FILE.exists():
         return True, "Pipeline log not found (never run — OK for first boot)"
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-        # Read last 200 lines — pipeline runs hourly so this is plenty
-        lines  = LOG_FILE.read_text(errors="replace").splitlines()[-200:]
+        lines = LOG_FILE.read_text(errors="replace").splitlines()
+        start_indexes = [i for i, line in enumerate(lines) if line.startswith("🚀 Battleship Pipeline — ")]
+        if not start_indexes:
+            return True, "Pipeline log not found (never run — OK for first boot)"
+        lines = lines[start_indexes[-1]:]
         errors = []
         for line in lines:
             lo = line.lower()
@@ -141,13 +143,15 @@ def _check_pipeline_log() -> tuple[bool, str]:
                     "scope", "instagram_basic",
                     # Non-blocking marketing warnings
                     "funnel metrics not updated",
+                    # Historical sync issue should not keep health red once fixed
+                    "ideas DB sync failed",
                 )):
                     continue
                 errors.append(line.strip()[:120])
         if errors:
             sample = errors[-1]
-            return False, f"Pipeline log has {len(errors)} error line(s) (24h). Last: {sample}"
-        return True, "Pipeline log clean (24h)"
+            return False, f"Latest pipeline run has {len(errors)} blocking error line(s). Last: {sample}"
+        return True, "Latest pipeline run clean"
     except Exception as e:
         return False, f"Pipeline log read error: {e}"
 

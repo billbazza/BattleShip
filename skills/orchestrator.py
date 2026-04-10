@@ -400,13 +400,9 @@ def run(secrets: dict, client_state: dict):
 if __name__ == "__main__":
     import argparse, sys
 
-    env_file = Path.home() / ".battleship.env"
-    secrets: dict = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if "=" in line and not line.startswith("#"):
-                k, v = line.split("=", 1)
-                secrets[k.strip()] = v.strip()
+    import runtime_config
+
+    secrets = runtime_config.export()
 
     state_file = VAULT_ROOT / "clients" / "state.json"
     client_state = json.loads(state_file.read_text()) if state_file.exists() else {"clients": {}}

@@ -17,6 +17,8 @@ import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+import runtime_config
+
 VAULT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(VAULT_ROOT))
 
@@ -27,14 +29,7 @@ REMINDERS_FILE    = VAULT_ROOT / "brand" / "Marketing" / "reminders.json"
 
 
 def _load_env() -> dict:
-    env = {}
-    env_file = Path.home() / ".battleship.env"
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if "=" in line and not line.startswith("#"):
-                k, _, v = line.partition("=")
-                env[k.strip()] = v.strip()
-    return env
+    return runtime_config.export({"TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"})
 
 
 def _load_review_state() -> dict:
@@ -50,7 +45,11 @@ def _save_review_state(s: dict):
 
 def _send_telegram(msg: str, secrets: dict):
     try:
+        import scripts.db as db
         import requests
+        if db.telegram_updates_disabled():
+            print("  🔇  Telegram updates disabled")
+            return
         token   = secrets.get("TELEGRAM_BOT_TOKEN", "")
         chat_id = secrets.get("TELEGRAM_CHAT_ID", "")
         if token and chat_id:

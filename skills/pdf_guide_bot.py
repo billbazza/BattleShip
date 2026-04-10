@@ -26,7 +26,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import anthropic
+import llm_client
+import runtime_config
 
 VAULT_ROOT = Path(__file__).parent.parent
 STATE_FILE = VAULT_ROOT / "clients" / "pdf_guide_state.json"
@@ -277,17 +278,10 @@ def _generate_guide_content(spec: dict, secrets: dict) -> list[dict]:
     Generate all sections for a guide via Claude API.
     Returns list of {"heading": ..., "body": ...} dicts.
     """
-    api_key = (secrets.get("ANTHROPIC_API_KEY") or
-               secrets.get("ANTHROPIC_KEY") or
-               secrets.get("anthropic"))
-    client = anthropic.Anthropic(api_key=api_key)
-
     sections = []
     for sec in spec["sections"]:
-        msg = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": (
+        body = llm_client.generate_text(
+            (
                 f"You are writing a section for a paid PDF guide titled "
                 f"\"{spec['title']}\" by Will Barratt.\n\n"
                 f"Section heading: {sec['heading']}\n\n"
@@ -301,9 +295,11 @@ def _generate_guide_content(spec: dict, secrets: dict) -> list[dict]:
                 f"- No emojis, no exclamation marks, no 'let's go!' energy\n"
                 f"- This is a paid guide — the reader expects depth, not fluff\n"
                 f"- Write ONLY the section body text. No heading, no intro sentence restating the heading."
-            )}]
+            ),
+            max_tokens=2000,
+            complexity="complex",
+            overrides=secrets,
         )
-        body = msg.content[0].text.strip()
         sections.append({"heading": sec["heading"], "body": body})
         print(f"    Generated: {sec['heading']}")
 
@@ -446,13 +442,7 @@ def print_status():
 if __name__ == "__main__":
     import argparse
 
-    env_file = Path.home() / ".battleship.env"
-    secrets: dict = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if "=" in line and not line.startswith("#"):
-                k, v = line.split("=", 1)
-                secrets[k.strip()] = v.strip()
+    secrets = runtime_config.export()
 
     parser = argparse.ArgumentParser(description="SOVEREIGN PDF Guide Bot")
     parser.add_argument("--dry-run", action="store_true", help="Generate PDFs locally, no upload")
