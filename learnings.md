@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-05-06 – Shutdown
+
+- [2026-05-06] [ops] Shutdown is not complete when processes stop. Any launchd `KeepAlive` plist left in `~/Library/LaunchAgents/` can silently restart the dashboard, pipeline, or tunnel on login.
+- [2026-05-06] [security] Runtime secret cleanup needs a home-directory and Keychain pass, not just a repo scan. This system used `~/.battleship.env`, `~/.battleship-gsheets.json`, Cloudflare credentials, and Keychain items.
+- [2026-05-06] [infra] Deleting the Cloudflare named tunnel takes the webhook receiver offline, but the public Carrd site, payment links, forms, social accounts, email automation surfaces, and API keys remain live until cancelled or revoked in their own services.
+- [2026-05-06] [documentation] A shutdown README should stop being an operator manual and become a research record: goals, architecture, outcomes, limits, and closure rationale are the useful artefacts once the system is no longer meant to run.
+
+---
+
 ## 2026-03-10 – Day 1
 
 ### Context load complete

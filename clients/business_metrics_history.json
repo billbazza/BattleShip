@@ -274,6 +274,28 @@
       "ig_followers": 0,
       "ad_impressions": 0,
       "ad_spend": 0.0
+    },
+    {
+      "date": "2026-04-22",
+      "mrr": 0.0,
+      "spend": 1519.02,
+      "net": -1519.02,
+      "active_clients": 3,
+      "fb_followers": 29,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
+    },
+    {
+      "date": "2026-05-06",
+      "mrr": 0.0,
+      "spend": 1519.02,
+      "net": -1519.02,
+      "active_clients": 3,
+      "fb_followers": 29,
+      "ig_followers": 0,
+      "ad_impressions": 0,
+      "ad_spend": 0.0
     }
   ]
 }
